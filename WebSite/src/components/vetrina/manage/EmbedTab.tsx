@@ -87,7 +87,7 @@ export function EmbedTab({ listing }: { listing: BoardListing }) {
         </div>
 
         <div className="mt-5 overflow-hidden rounded-2xl bg-espresso/60 p-5 ring-1 ring-sand/12 sm:p-6">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-crema/40">Anteprima</p>
+          <p className="text-xs font-semibold text-crema/40">Anteprima</p>
           {/* Inline (non iframe): il CSP del sito bloccava frame same-origin senza frame-src 'self'. */}
           <div className="mt-4 flex justify-center overflow-x-auto">
             <EmbedWidgetView listing={listing} width={size.width} className="shadow-[0_20px_50px_-30px_rgba(0,0,0,0.8)]" />
@@ -103,7 +103,7 @@ export function EmbedTab({ listing }: { listing: BoardListing }) {
           <button
             type="button"
             onClick={() => void copy()}
-            className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-3.5 py-2 text-xs font-bold text-ink shadow-sm transition hover:-translate-y-0.5"
+            className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-2 text-xs font-bold text-ink shadow-sm transition "
           >
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {copied ? "Copiato" : "Copia"}

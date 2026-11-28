@@ -17,7 +17,7 @@ import { page } from "@/lib/site";
 
 function ReviewCard({ r }: { r: Review }) {
   return (
-    <figure className="group/spot relative flex w-[280px] shrink-0 snap-start flex-col overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast to-espresso p-5 ring-1 ring-sand/15 sm:w-[340px]">
+    <figure className="group/spot relative flex w-[280px] shrink-0 snap-start flex-col overflow-hidden rounded-3xl bg-roast p-5 ring-1 ring-sand/15 sm:w-[340px]">
       <Spotlight size={240} />
       <Quote className="absolute right-4 top-4 size-8 text-caramel/25" aria-hidden />
       <div className="relative flex gap-0.5 text-ember" aria-label={`${r.rating} su 5`}>
@@ -88,7 +88,7 @@ export function ReviewsMarquee() {
     <section id="recensioni" className="scroll-mt-28 py-16 sm:py-20">
       <div className="mx-auto mb-10 flex max-w-6xl flex-col items-center gap-6 px-6 sm:flex-row sm:justify-between">
         <Reveal className="text-center sm:text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("reviews.kicker")}</p>
+          <p className="text-xs font-semibold text-caramel">{t("reviews.kicker")}</p>
           <h2 className="mt-3 font-display text-4xl font-semibold leading-tight sm:text-5xl">
             {t("reviews.title")} <span className="italic text-sand">{t("reviews.titleEm")}</span>
           </h2>
@@ -102,7 +102,7 @@ export function ReviewsMarquee() {
         <Reveal delay={0.1}>
           {/* timbro: la scritta gira attorno al voto medio come l'etichetta di un disco */}
           <CircularText text={`${t("reviews.count", { n: all.length }).toUpperCase()} • ${t("reviews.stamp")}`} className="size-36 text-sand/70 sm:size-40">
-            <div className="flex size-20 flex-col items-center justify-center rounded-full bg-gradient-to-br from-caramel to-ember text-ink shadow-[0_12px_30px_-10px_rgba(240,180,110,0.7)]">
+            <div className="flex size-20 flex-col items-center justify-center rounded-full bg-caramel text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)]">
               <span className="font-display text-3xl font-bold leading-none lining-nums">{avg.toFixed(1).replace(".", ",")}</span>
               <span className="mt-0.5 flex gap-px">
                 {Array.from({ length: 5 }, (_, i) => (

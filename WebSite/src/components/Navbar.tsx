@@ -118,7 +118,7 @@ function SoonNavItem({
         {icon}
         <span className="truncate">{label}</span>
       </span>
-      <span className="shrink-0 rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
+      <span className="shrink-0 rounded-full bg-espresso/90 px-2 py-0.5 text-xs font-semibold text-sand ring-1 ring-sand/30">
         {soon}
       </span>
     </span>
@@ -549,7 +549,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
                       {l.icon}
                       <span className="truncate">{l.label}</span>
                     </span>
-                    <span className="shrink-0 rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
+                    <span className="shrink-0 rounded-full bg-espresso/90 px-2 py-0.5 text-xs font-semibold text-sand ring-1 ring-sand/30">
                       {soon}
                     </span>
                   </span>
@@ -568,7 +568,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
             </div>
             {staffLinks.length ? (
               <>
-                <p className="mb-1.5 mt-3 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
+                <p className="mb-1.5 mt-3 px-1 text-xs font-semibold text-caramel">Area staff</p>
                 <div className="grid grid-cols-2 gap-1.5">
                   {staffLinks.map((l) => (
                     <SmartLink
@@ -585,7 +585,7 @@ function MobileDrawerAccount({ onClose }: { onClose: () => void }) {
               </>
             ) : null}
             <div className="mt-3 border-t border-sand/10 pt-3">
-              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-crema/40">{t("auth.theme")}</p>
+              <p className="mb-1.5 px-1 text-xs font-semibold text-crema/40">{t("auth.theme")}</p>
               <ThemePrefRow />
             </div>
             <button
@@ -864,7 +864,7 @@ export function Navbar() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
+                    <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-cyan-300/75">
                       Navigazione
                     </h3>
                     <ul className="grid grid-cols-2 gap-2">
@@ -920,7 +920,7 @@ export function Navbar() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-cyan-300/75">
+                      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-cyan-300/75">
                         <Sparkles className="size-3 opacity-90" aria-hidden />
                         Eventi
                       </h3>
@@ -969,7 +969,7 @@ export function Navbar() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.04 * gi, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <h3 className="mb-2 flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-caramel">
                     <NavIcon labelKey={g.labelKey} className="size-3 opacity-90" />
                     {t(g.labelKey)}
                   </h3>
@@ -1034,7 +1034,7 @@ export function Navbar() {
               >
                 <h3
                   className={cn(
-                    "mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.22em]",
+                    "mb-2 text-xs font-semibold",
                     eventoChrome ? "text-cyan-300/75" : "text-caramel",
                   )}
                 >

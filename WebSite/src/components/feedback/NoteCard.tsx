@@ -13,7 +13,7 @@ export function Stamp({ status, className }: { status: Status; className?: strin
   return (
     <span
       className={cn(
-        "inline-block rounded-md border-2 px-2 py-0.5 font-mono text-[0.65rem] font-black uppercase tracking-[0.18em]",
+        "inline-block rounded-md border-2 px-2 py-0.5 font-mono text-xs font-semibold",
         status === "accepted" && "border-[#3f7d4e] text-[#3f7d4e]",
         status === "rejected" && "border-[#a83a2c] text-[#a83a2c]",
         status === "pending" && "border-[#9a6a2c] text-[#9a6a2c]",
@@ -96,7 +96,7 @@ export function NoteCard({ s, i, onOpen, onVote }: { s: Suggestion; i: number; o
         onClick={onOpen}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
         className={cn(
-          "group relative cursor-pointer rounded-sm bg-paper p-5 pt-7 text-ink shadow-[0_18px_30px_-18px_rgba(0,0,0,0.9)] transition-transform duration-300 hover:-translate-y-1 hover:rotate-0 focus-visible:outline-2 focus-visible:outline-ember",
+          "group relative cursor-pointer rounded-sm bg-paper p-5 pt-7 text-ink shadow-[0_18px_30px_-18px_rgba(0,0,0,0.9)] transition-transform duration-300  hover:rotate-0 focus-visible:outline-2 focus-visible:outline-ember",
           tilt,
           s.status === "rejected" && "bg-[#e6dccb]",
         )}
@@ -104,7 +104,7 @@ export function NoteCard({ s, i, onOpen, onVote }: { s: Suggestion; i: number; o
         {/* puntina */}
         <span className="absolute left-1/2 top-2 size-3.5 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#f0b46e,#9a5a24)] shadow-[0_2px_3px_rgba(0,0,0,0.5)]" />
         <div className="flex items-start justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.15em] text-ink/60">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60">
             <Icon className="size-3.5" /> {kindLabel(s.kind)}{api.topics ? ` · ${topicLabel(s.tag)}` : ""}
           </span>
           <Stamp status={s.status} className="-rotate-6" />

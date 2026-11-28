@@ -15,7 +15,7 @@ export function Why() {
   return (
     <section id="perche" className="mx-auto max-w-6xl scroll-mt-28 px-6 py-20 sm:py-24">
       <Reveal className="mb-12 max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
+        <p className="text-xs font-semibold text-caramel">
           <ShinyText speed={4.2}>{t("why.kicker")}</ShinyText>
         </p>
         <div className="mt-3 space-y-1">
@@ -43,7 +43,7 @@ export function Why() {
               <GlareHover className="h-full rounded-3xl" glareColor="rgba(244,233,216,0.28)">
                 <motion.article
                   whileHover="hover"
-                  className="group/spot group relative h-full overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.14] via-roast to-espresso p-7 ring-1 ring-sand/15 transition-[box-shadow,ring-color] duration-300 hover:ring-caramel/35 hover:shadow-[0_24px_50px_-28px_rgba(212,145,80,0.55)]"
+                  className="group/spot group relative h-full overflow-hidden rounded-3xl bg-roast p-7 ring-1 ring-sand/15 transition-[box-shadow,ring-color] duration-300 hover:ring-caramel/35 hover:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)]"
                 >
                   <Spotlight />
                   <motion.div
@@ -51,7 +51,7 @@ export function Why() {
                     transition={{ type: "spring", stiffness: 120, damping: 16 }}
                     className="absolute -right-20 -top-20 size-48 rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#2a1c14_1.5px_3px)] shadow-[0_10px_30px_rgba(0,0,0,0.6)] ring-1 ring-sand/20"
                   >
-                    <div className="absolute inset-[36%] rounded-full bg-gradient-to-br from-caramel to-ember" />
+                    <div className="absolute inset-[36%] rounded-full bg-caramel" />
                     <div className="absolute inset-[48%] rounded-full bg-espresso" />
                   </motion.div>
 

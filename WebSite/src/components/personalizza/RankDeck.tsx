@@ -470,7 +470,7 @@ export function RankDeck({
       </div>
 
       <p className="text-center text-xs text-crema/45">
-        <span className="font-semibold uppercase tracking-[0.24em] text-caramel">Anteprima live</span> · {initial.displayName} · Lv{" "}
+        <span className="font-semibold text-caramel">Anteprima live</span> · {initial.displayName} · Lv{" "}
         <span className="lining-nums">{initial.stats.level}</span> · ×{Number(initial.stats.multiplier || 1).toFixed(1)}
       </p>
 
@@ -560,7 +560,7 @@ export function RankDeck({
                         "group relative min-w-0 rounded-xl px-3 pb-2 pt-2.5 text-left transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out",
                         on
                           ? "bg-caramel/15 ring-2 ring-caramel"
-                          : "bg-crema/[0.04] ring-1 ring-sand/12 hover:-translate-y-0.5 hover:bg-crema/[0.07] hover:ring-sand/30",
+                          : "bg-crema/[0.04] ring-1 ring-sand/12  hover:bg-crema/[0.07] hover:ring-sand/30",
                       )}
                     >
                       <span
@@ -616,7 +616,7 @@ export function RankDeck({
                     aria-pressed={on}
                     onClick={() => patch({ wallpaperKey: w.key, wallpaperUrl: "", wallpaperUrlOmitted: false })}
                     className={cn(
-                      "overflow-hidden rounded-2xl ring-1 transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]",
+                      "overflow-hidden rounded-2xl ring-1 transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97]",
                       on ? "ring-2 ring-caramel shadow-[0_0_0_1px_rgba(217,154,91,0.4)]" : "ring-sand/15 hover:ring-sand/35",
                     )}
                   >
@@ -689,7 +689,7 @@ export function RankDeck({
             type="button"
             disabled={busy}
             onClick={onSave}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Salva

@@ -78,7 +78,7 @@ export function PageHero({
           transition={{ duration: 0.5, ease }}
           className={
             isEvento
-              ? "inline-flex items-center gap-2 rounded-full bg-black/50 px-4 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b] ring-1 ring-[#c9a227]/35"
+              ? "inline-flex items-center gap-2 rounded-full bg-black/50 px-4 py-1.5 text-xs font-semibold text-[#e4c76b] ring-1 ring-[#c9a227]/35"
               : "inline-flex items-center gap-2 text-sm font-medium text-sand"
           }
         >

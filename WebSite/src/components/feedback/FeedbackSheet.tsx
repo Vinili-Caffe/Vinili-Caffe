@@ -114,7 +114,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
         className="relative flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-roast shadow-2xl ring-1 ring-sand/15"
       >
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-sand/10 bg-roast px-5 py-4 sm:px-7">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.15em] text-crema/60">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-crema/60">
             <Icon className="size-4 text-caramel" /> {kindLabel(s.kind)}{api.topics ? ` · ${topicLabel(s.tag)}` : ""}
           </span>
           <button type="button" onClick={onClose} aria-label="Chiudi" className="ml-auto rounded-full p-2 text-crema/60 hover:bg-crema/8 hover:text-crema">
@@ -141,7 +141,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" data-vc-lightbox-gallery>
                 {s.imageUrls.map((u) => (
                   <a key={u} href={u} data-vc-lightbox className="overflow-hidden rounded-sm ring-1 ring-ink/10">
-                    <img src={u} alt="Allegato" loading="lazy" className="aspect-square w-full object-cover transition-transform hover:scale-105" />
+                    <img src={u} alt="Allegato" loading="lazy" className="aspect-square w-full object-cover transition-transform " />
                   </a>
                 ))}
               </div>
@@ -172,7 +172,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
           {/* decisione dello staff */}
           {s.status !== "pending" && s.staffReason && (
             <div className={cn("rounded-2xl p-5 ring-1", s.status === "accepted" ? "bg-[#3f7d4e]/12 ring-[#3f7d4e]/30" : "bg-[#a83a2c]/12 ring-[#a83a2c]/30")}>
-              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-crema/60">
+              <p className="flex items-center gap-2 text-xs font-semibold text-crema/60">
                 <Gavel className="size-4" /> Decisione staff
               </p>
               <p className="mt-2 leading-relaxed text-crema/85">{s.staffReason}</p>
@@ -201,7 +201,7 @@ export function FeedbackSheet({ s, token, viewer, onClose, onLogin, onUpdate, on
           {/* High Staff */}
           {mod && (
             <div className="rounded-2xl bg-crema/[0.04] p-5 ring-1 ring-caramel/25">
-              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-caramel">
+              <p className="flex items-center gap-2 text-xs font-semibold text-caramel">
                 <Gavel className="size-4" /> Azioni High Staff
               </p>
               <textarea name="reason"
@@ -315,7 +315,7 @@ function CommentBox({
           className="min-h-10 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-crema/35"
         />
         {api.commentImages ? <ImageAttachButton attach={attach} className="mb-0.5 px-2.5 text-crema/60 ring-transparent hover:bg-crema/8 hover:text-crema" /> : null}
-        <button type="button" onClick={send} disabled={busy || attach.busy || (!text.trim() && !hasImages)} aria-label="Pubblica" className="rounded-full bg-gradient-to-r from-caramel to-ember p-2.5 text-ink disabled:opacity-40">
+        <button type="button" onClick={send} disabled={busy || attach.busy || (!text.trim() && !hasImages)} aria-label="Pubblica" className="rounded-full bg-caramel p-2.5 text-ink disabled:opacity-40">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         </button>
       </div>

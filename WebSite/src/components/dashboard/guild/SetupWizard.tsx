@@ -234,7 +234,7 @@ export function SetupWizard({
             <Rocket className="size-6" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-caramel/90">Configurazione iniziale</p>
+            <p className="text-xs font-semibold text-caramel/90">Configurazione iniziale</p>
             <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-crema sm:text-3xl">Metti in funzione il bot</h2>
             <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-crema/65">
               {includeBoards
@@ -248,7 +248,7 @@ export function SetupWizard({
         </div>
         <div className="relative mt-5 h-1.5 overflow-hidden rounded-full bg-crema/[0.06]">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-caramel to-ember"
+            className="h-full rounded-full bg-caramel"
             initial={false}
             animate={{ width: `${Math.max(8, Math.max(progress, progressLive))}%` }}
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
@@ -278,7 +278,7 @@ export function SetupWizard({
                       done && !on
                         ? "bg-[#5f9a6a]/25 text-[#9fd0a8] light:text-[#2f6b3f]"
                         : on
-                          ? "bg-caramel text-espresso shadow-[0_8px_18px_-10px_rgba(217,154,91,0.9)]"
+                          ? "bg-caramel text-espresso shadow-[0_8px_18px_-10px_rgba(0,0,0,0.55)]"
                           : "bg-crema/[0.07] text-crema/65",
                     )}
                   >

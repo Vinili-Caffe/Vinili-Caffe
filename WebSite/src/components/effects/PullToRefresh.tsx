@@ -279,7 +279,7 @@ export function PullToRefresh() {
           </motion.div>
           <p
             className={cn(
-              "m-0 max-w-40 text-center text-[0.7rem] font-bold uppercase tracking-wide text-crema/90",
+              "m-0 max-w-40 text-center text-xs font-semibold text-crema/90",
               armed && "text-[#ead4c0]",
             )}
           >

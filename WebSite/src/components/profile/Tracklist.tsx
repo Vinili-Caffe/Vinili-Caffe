@@ -28,7 +28,7 @@ export function Tracklist({ p }: { p: ProfileData }) {
     <Reveal delay={delay} className="h-full">
       <div className="h-full rounded-3xl bg-paper p-6 text-ink shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)] sm:p-7">
         <p className="flex items-center justify-between border-b-2 border-ink/15 pb-3 font-display text-xl font-bold">
-          {label} <span className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/45">server</span>
+          {label} <span className="text-xs font-semibold text-ink/45">server</span>
         </p>
         <ol className="mt-2 divide-y divide-ink/10">
           {tracks.map((t) => (

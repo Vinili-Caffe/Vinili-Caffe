@@ -95,7 +95,7 @@ export function GenreTimeline() {
         <div className="relative h-2 rounded-full bg-crema/10">
           {level != null && (
             <motion.div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-caramel to-ember"
+              className="absolute inset-y-0 left-0 rounded-full bg-caramel"
               initial={{ width: 0 }}
               animate={{ width: `${levelPos(level)}%` }}
               transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
@@ -174,7 +174,7 @@ export function GenreTimeline() {
               <Disc3 className="size-9 animate-[spin_6s_linear_infinite] motion-reduce:animate-none" />
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-caramel">Livello {tier.level}+</p>
+              <p className="text-xs font-semibold text-caramel">Livello {tier.level}+</p>
               <p className="mt-1 font-display text-4xl font-semibold">{tier.genre}</p>
               <GenreRoleLabel label={tier.role} />
               {tier.isNew && <NewTag className="mt-2" />}

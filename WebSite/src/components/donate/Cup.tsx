@@ -25,7 +25,7 @@ export function Cup({ size = 1, foam, className }: { size?: number; foam?: boole
       {/* manico */}
       <span className="absolute bottom-7 right-3 size-10 rounded-full border-[7px] border-crema/85" />
       {/* tazza */}
-      <span className="absolute bottom-2.5 left-1/2 h-[4.5rem] w-28 -translate-x-1/2 overflow-hidden rounded-b-[2.6rem] rounded-t-md bg-gradient-to-br from-crema to-sand shadow-[inset_-8px_-6px_14px_rgba(120,80,50,0.35)]">
+      <span className="absolute bottom-2.5 left-1/2 h-[4.5rem] w-28 -translate-x-1/2 overflow-hidden rounded-b-[2.6rem] rounded-t-md bg-crema shadow-[inset_-8px_-6px_14px_rgba(120,80,50,0.35)]">
         <span className="absolute inset-x-0 top-0 h-3 rounded-[50%] bg-gradient-to-b from-mocha to-espresso" />
         {foam && <span className="absolute inset-x-3 top-0.5 h-2 rounded-[50%] bg-[radial-gradient(circle,#f4e9d8,#d6b48e)]" />}
       </span>

@@ -134,7 +134,7 @@ export function ModQueue() {
         <Shield className="mx-auto size-12 text-caramel" />
         <p className="mt-4 font-display text-4xl">Area staff</p>
         <p className="mt-2 text-crema/60">La coda di moderazione è riservata allo staff. Accedi con Discord.</p>
-        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
+        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>
       </section>
@@ -257,7 +257,7 @@ export function ModQueue() {
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <span className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/40">Tipo</span>
+        <span className="text-xs font-semibold text-crema/40">Tipo</span>
         {(
           [
             { id: "" as KindFilter, label: "Tutti", icon: null },
@@ -284,7 +284,7 @@ export function ModQueue() {
         })}
         {tab === "reports" ? (
           <>
-            <span className="ml-2 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/40">Oggetto</span>
+            <span className="ml-2 text-xs font-semibold text-crema/40">Oggetto</span>
             {(
               [
                 { id: "" as ReportTarget, label: "Tutto" },
@@ -397,24 +397,24 @@ function ReportCard({
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                "rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.14em]",
+                "rounded-full px-2 py-0.5 text-xs font-semibold",
                 isReview ? "bg-caramel/15 text-ember ring-1 ring-caramel/30" : "bg-ember/15 text-ember ring-1 ring-ember/30",
               )}
             >
               {isReview ? "Recensione" : "Scheda"}
             </span>
             {item.listingKind ? (
-              <span className="inline-flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-crema/40">
                 <KindIcon className="size-3" /> {kindLabel(item.listingKind)}
               </span>
             ) : null}
             {listingStatus ? (
-              <span className="rounded-full bg-crema/8 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-crema/50 ring-1 ring-sand/15">
+              <span className="rounded-full bg-crema/8 px-2 py-0.5 text-xs font-semibold text-crema/50 ring-1 ring-sand/15">
                 {listingStatus}
               </span>
             ) : null}
           </div>
-          <p className="mt-1.5 text-xs font-bold uppercase tracking-[0.16em] text-ember">{item.categoryLabel}</p>
+          <p className="mt-1.5 text-xs font-semibold text-ember">{item.categoryLabel}</p>
           <p className="mt-1 font-display text-2xl font-semibold text-crema">{item.listingName}</p>
           {isReview && (item.reviewSnippet || item.reviewAuthor) ? (
             <blockquote className="mt-3 rounded-2xl border-l-2 border-ember/50 bg-espresso/50 px-4 py-3">
@@ -468,7 +468,7 @@ function ReportCard({
           type="button"
           disabled={locked}
           onClick={() => void onResolve(item, "resolve")}
-          className="rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink disabled:opacity-50"
+          className="rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink disabled:opacity-50"
         >
           <span className="inline-flex items-center gap-1.5">
             <Check className="size-4" /> Segnata come gestita
@@ -531,7 +531,7 @@ function ModCard({
             )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
+            <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold text-crema/45">
               <KindIcon className="size-3.5" /> {kindLabel(item.kind)}
               {item.nsfw && <span className="rounded bg-[#a83a2c] px-1.5 tracking-wider text-crema">18+</span>}
               {item.updatedAt ? <span className="normal-case tracking-normal text-crema/35">· aggiornata {timeAgo(item.updatedAt)}</span> : null}
@@ -604,7 +604,7 @@ function ModCard({
         </AnimatePresence>
 
         <label className="mt-4 block">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-crema/45">Nota interna · solo staff</span>
+          <span className="text-xs font-semibold text-crema/45">Nota interna · solo staff</span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value.slice(0, 1000))}

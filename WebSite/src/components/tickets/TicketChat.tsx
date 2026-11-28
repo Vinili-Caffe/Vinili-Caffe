@@ -110,7 +110,7 @@ function PartnershipFormDialog({
 
         <div className="mt-5 space-y-4">
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-crema/45">Manager {manager ? "" : "(opzionale se il server lo consente)"}</p>
+            <p className="mb-1.5 text-xs font-semibold text-crema/45">Manager {manager ? "" : "(opzionale se il server lo consente)"}</p>
             {manager ? (
               <div className="flex items-center gap-3 rounded-xl bg-espresso/70 px-3 py-2 ring-1 ring-sand/15">
                 <Avatar userId={manager.id} src={manager.avatarUrl} name={manager.name} className="size-8 text-xs" />
@@ -145,7 +145,7 @@ function PartnershipFormDialog({
           </div>
 
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-crema/45">Descrizione server</p>
+            <p className="mb-1.5 text-xs font-semibold text-crema/45">Descrizione server</p>
             <textarea name="description"
               value={desc}
               onChange={(e) => setDesc(e.target.value.slice(0, MAX_CONTENT))}
@@ -161,7 +161,7 @@ function PartnershipFormDialog({
             type="button"
             disabled={busy || !desc.trim()}
             onClick={submit}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-3 font-semibold text-ink disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel px-5 py-3 font-semibold text-ink disabled:opacity-50"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Invia partnership
           </button>
@@ -262,7 +262,7 @@ function Bubble({
       >
         <p className={cn("mb-1 flex min-w-0 max-w-full flex-wrap items-center gap-x-2 px-1 text-xs", mine && "justify-end")}>
           <span className="min-w-0 break-words font-semibold text-crema/85 [overflow-wrap:anywhere]">{m.authorName}</span>
-          {m.authorRoleName && <span className={cn("rounded px-1.5 py-px text-[0.65rem] font-bold uppercase tracking-wider", staff ? "bg-caramel/20 text-ember" : "bg-crema/8 text-crema/55")}>{m.authorRoleName}</span>}
+          {m.authorRoleName && <span className={cn("rounded px-1.5 py-px text-xs font-semibold", staff ? "bg-caramel/20 text-ember" : "bg-crema/8 text-crema/55")}>{m.authorRoleName}</span>}
           {m.authorAvgRating != null && (
             <span className="inline-flex items-center gap-0.5 text-crema/45">
               <Star className="size-3 fill-current" /> {m.authorAvgRating.toString().replace(".", ",")}
@@ -774,7 +774,7 @@ export function TicketChat({
                 <Stars label="Il ticket" value={rt} set={setRt} />
                 <Stars label={t.rateableStafferName ?? "Lo staffer"} value={rs} set={setRs} />
               </div>
-              <button type="button" disabled={busy || !rt || !rs} onClick={() => run(rate(token, t.id, rt, rs))} className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2 text-sm font-semibold text-ink disabled:opacity-40">
+              <button type="button" disabled={busy || !rt || !rs} onClick={() => run(rate(token, t.id, rt, rs))} className="mt-4 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2 text-sm font-semibold text-ink disabled:opacity-40">
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Star className="size-4" />} Invia la valutazione
               </button>
             </div>
@@ -874,7 +874,7 @@ export function TicketChat({
                 className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-espresso/70 px-4 py-2.5 leading-relaxed outline-none ring-1 ring-sand/15 [field-sizing:content] placeholder:text-crema/30 focus:ring-caramel/60"
               />
             </div>
-            <button type="button" onClick={send} disabled={busy || (!text.trim() && !images.length)} aria-label="Invia" className="rounded-full bg-gradient-to-r from-caramel to-ember p-3 text-ink disabled:opacity-40">
+            <button type="button" onClick={send} disabled={busy || (!text.trim() && !images.length)} aria-label="Invia" className="rounded-full bg-caramel p-3 text-ink disabled:opacity-40">
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             </button>
           </div>

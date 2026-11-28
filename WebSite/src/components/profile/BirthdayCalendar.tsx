@@ -207,9 +207,9 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
         key={d}
         className={cn(
           "flex min-h-14 flex-col gap-0.5 rounded-lg border border-sand/15 bg-crema/[0.03] px-1 py-1",
-          isToday && "border-sand/50 shadow-[0_0_10px_rgba(212,168,136,0.16)]",
+          isToday && "border-sand/50 ",
           dayEntries.length > 0 && "border-sand/35 bg-[rgba(168,118,82,0.1)]",
-          hasMine && "border-sand/60 shadow-[0_0_12px_rgba(212,168,136,0.2)]",
+          hasMine && "border-sand/60 ",
         )}
       >
         <span className="text-[0.62rem] font-extrabold lining-nums text-crema/75">{d}</span>
@@ -238,7 +238,7 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
     <>
       <div className="mb-2 grid grid-cols-7 gap-1" aria-label="Calendario mensile">
         {WEEKDAYS.map((w) => (
-          <span key={w} className="pb-0.5 text-center text-[0.62rem] font-bold uppercase tracking-wider text-crema/45">
+          <span key={w} className="pb-0.5 text-center text-xs font-semibold text-crema/45">
             {w}
           </span>
         ))}
@@ -265,7 +265,7 @@ function MonthList({
   }
   return (
     <div className="mt-3 border-t border-sand/15 pt-3">
-      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-crema/45">Compleanni in {monthLabel}</p>
+      <p className="mb-2 text-xs font-semibold text-crema/45">Compleanni in {monthLabel}</p>
       <ul className="flex flex-col gap-1.5">
         {entries.map((e) => {
           const mine = highlightUserId && String(e.userId) === String(highlightUserId);

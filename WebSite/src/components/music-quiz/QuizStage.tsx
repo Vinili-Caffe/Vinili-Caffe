@@ -194,7 +194,7 @@ export function QuizTurntable({
           className="relative grid size-[80%] place-items-center rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#21160f_1.5px_3px)] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15"
         >
           <span className="absolute inset-0 rounded-full bg-[conic-gradient(from_40deg,transparent_0deg,rgba(244,233,216,0.08)_40deg,transparent_80deg,transparent_180deg,rgba(244,233,216,0.06)_220deg,transparent_260deg)]" />
-          <span className="relative size-[38%] overflow-hidden rounded-full bg-gradient-to-br from-caramel to-ember ring-4 ring-espresso">
+          <span className="relative size-[38%] overflow-hidden rounded-full bg-caramel ring-4 ring-espresso">
             {cover ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={cover} alt="" className="size-full object-cover opacity-90" />
@@ -226,7 +226,7 @@ export function QuizTurntable({
           <button
             type="button"
             onClick={onReplay}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink"
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink"
           >
             <Play className="size-4" aria-hidden /> Ascolta
           </button>
@@ -366,7 +366,7 @@ export function RevealCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={cover || "/images/logo-disco.png"} alt="" className="size-16 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
           <div className="min-w-0 flex-1">
-            <p className={cn("text-xs font-semibold uppercase tracking-[0.18em]", correct ? "text-emerald-300" : "text-ember")}>
+            <p className={cn("text-xs font-semibold", correct ? "text-emerald-300" : "text-ember")}>
               {correct ? "Giusto!" : timeout ? "Tempo scaduto" : "Sbagliato"}
             </p>
             <p className="mt-0.5 truncate font-display text-xl font-semibold text-crema">{title}</p>
@@ -397,7 +397,7 @@ export function RoundDots({ total, current, results }: { total: number; current:
         <span
           key={i}
           className={cn(
-            "h-1.5 rounded-full transition-all duration-300",
+            "h-1.5 rounded-full transition-[color,background-color,border-color,opacity,transform] duration-300",
             i === current ? "w-6 bg-caramel" : "w-1.5",
             i !== current && results[i] === true && "bg-emerald-400",
             i !== current && results[i] === false && "bg-ember/80",

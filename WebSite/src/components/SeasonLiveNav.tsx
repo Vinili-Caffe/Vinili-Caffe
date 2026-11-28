@@ -42,7 +42,7 @@ export function SeasonLiveNavTag({ className, label, tone = "live" }: { classNam
     <span
       title={text}
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[0.55rem] font-bold uppercase leading-4 tracking-[0.14em] ring-1",
+        "inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-xs font-semibold leading-4 ring-1",
         className,
       )}
       style={{

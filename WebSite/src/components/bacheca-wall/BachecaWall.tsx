@@ -350,7 +350,7 @@ export function BachecaWall() {
             onClick={draw}
             disabled={drawing}
             whileTap={{ scale: 0.94 }}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-1.5 text-sm font-semibold text-ink shadow-[0_10px_24px_-10px_rgba(232,160,90,0.8)]"
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-1.5 text-sm font-semibold text-ink shadow-[0_10px_24px_-10px_rgba(0,0,0,0.55)]"
           >
             {drawing ? <Loader2 className="size-4 animate-spin" /> : <Shuffle className="size-4" />} Pesca dal muro
           </motion.button>
@@ -491,7 +491,7 @@ function BachecaDetail({
       <button type="button" onClick={onClose} aria-label="Chiudi" className="absolute right-3 top-3 rounded-full p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink">
         <X className="size-5" />
       </button>
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink/50">
+      <p className="text-xs font-semibold text-ink/50">
         {title}
         {item.number ? ` · #${item.number}` : ""}
       </p>

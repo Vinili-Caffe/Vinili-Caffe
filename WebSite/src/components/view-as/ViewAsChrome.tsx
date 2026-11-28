@@ -125,7 +125,7 @@ function RolePicker({ mode, onClose, listId }: { mode: string; onClose: () => vo
       </div>
 
       <div className="flex items-center justify-between gap-2 px-3 pb-1 pt-2.5">
-        <p className="text-[0.62rem] font-bold uppercase tracking-[0.16em] text-caramel/80">Ruoli del server</p>
+        <p className="text-xs font-semibold text-caramel/80">Ruoli del server</p>
         <span className="text-[0.7rem] tabular-nums text-crema/60">{picked.size} scelti</span>
       </div>
       <div className="px-2 pb-1.5">
@@ -167,7 +167,7 @@ function RolePicker({ mode, onClose, listId }: { mode: string; onClose: () => vo
                   <span className="min-w-0 flex-1 truncate text-crema" style={r.color ? { color: r.color } : undefined}>
                     {r.name}
                   </span>
-                  {realIds.includes(r.id) ? <span className="shrink-0 text-[0.6rem] font-semibold uppercase tracking-wide text-crema/50">tuo</span> : null}
+                  {realIds.includes(r.id) ? <span className="shrink-0 text-xs font-semibold text-crema/50">tuo</span> : null}
                 </button>
               </li>
             );
@@ -192,7 +192,7 @@ function RolePicker({ mode, onClose, listId }: { mode: string; onClose: () => vo
           type="button"
           onClick={apply}
           disabled={!roles}
-          className="ml-auto rounded-lg bg-gradient-to-r from-caramel to-ember px-3 py-1.5 text-xs font-bold text-ink disabled:opacity-40"
+          className="ml-auto rounded-lg bg-caramel px-3 py-1.5 text-xs font-bold text-ink disabled:opacity-40"
         >
           {picked.size ? `Visualizza con ${picked.size} ${picked.size === 1 ? "ruolo" : "ruoli"}` : "Solo @everyone"}
         </button>
@@ -304,7 +304,7 @@ export function ViewAsProvider({ children }: { children: ReactNode }) {
           )}
         >
           <div className="mx-auto flex min-h-12 max-w-6xl flex-wrap items-center justify-center gap-2 px-3 py-1.5">
-            <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-[0.14em] text-sand/80">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sand/80">
               <Eye className="size-3.5 text-ember" aria-hidden />
               {active ? "Stai visualizzando il sito come" : "Anteprima"}
             </span>

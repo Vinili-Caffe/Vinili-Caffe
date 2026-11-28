@@ -164,16 +164,16 @@ export function AlbumCover({
             <Avatar userId={p.userId} src={p.avatarUrl} name={p.displayName} className="size-full rounded-none text-7xl" noPresence />
             <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,240,220,0.18),transparent_35%,transparent_70%,rgba(0,0,0,0.35))]" />
             <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-3 pt-10">
-              <span className="block font-display text-sm uppercase tracking-[0.3em] text-crema/80">VINILI & CAFFÈ</span>
+              <span className="block font-display text-sm text-crema/80">VINILI & CAFFÈ</span>
             </span>
             {lv?.rank === 1 && (
-              <span className="absolute right-3 top-3 rotate-6 rounded-full bg-ember px-2.5 py-1 text-[0.65rem] font-black uppercase tracking-wider text-ink shadow-lg">N°1 in classifica</span>
+              <span className="absolute right-3 top-3 rotate-6 rounded-full bg-ember px-2.5 py-1 text-xs font-semibold text-ink shadow-lg">N°1 in classifica</span>
             )}
           </motion.div>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.8, ease }} className="min-w-0 text-center md:text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{staffMode ? "Profilo staff" : "Profilo"}</p>
+          <p className="text-xs font-semibold text-caramel">{staffMode ? "Profilo staff" : "Profilo"}</p>
           <h1 className="mt-2 break-words font-display text-4xl font-semibold leading-tight sm:text-6xl">{p.displayName}</h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-crema/55 md:justify-start">
             {p.username && <span>@{p.username}</span>}
@@ -271,7 +271,7 @@ export function AlbumCover({
                   />
                 </svg>
                 <span className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-                  <span className="text-[0.55rem] font-semibold uppercase tracking-[0.18em] text-crema/50">Lv</span>
+                  <span className="text-xs font-semibold text-crema/50">Lv</span>
                   <span className="font-display text-2xl font-semibold lining-nums">{lv.level}</span>
                 </span>
               </div>

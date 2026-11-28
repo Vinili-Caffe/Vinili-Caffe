@@ -370,7 +370,7 @@ export function HeroStage({ className }: { className?: string }) {
             className={cn(
               "inline-flex size-[3.15rem] overflow-hidden rounded-full",
               "shadow-[0_16px_32px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.25)]",
-              "ring-2 ring-[#f4e9d8]/25 transition-transform hover:-translate-y-0.5 active:scale-95",
+              "ring-2 ring-[#f4e9d8]/25 transition-transform  active:scale-95",
             )}
           >
             { }

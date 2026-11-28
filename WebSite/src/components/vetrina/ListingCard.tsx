@@ -74,7 +74,7 @@ export function ListingCard({
       <SmartLink
         href={listingHref(listing)}
         className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-[1.6rem] bg-roast ring-1 transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_-30px_var(--card-accent)]",
+          "group relative flex h-full flex-col overflow-hidden rounded-[1.6rem] bg-roast ring-1 transition duration-300  hover:shadow-[0_28px_60px_-30px_var(--card-accent)]",
           selected ? "ring-ember/55 hover:ring-ember/70" : "ring-sand/12 hover:ring-sand/30",
         )}
         style={{ ["--card-accent" as string]: `${accent}aa` }}
@@ -112,19 +112,19 @@ export function ListingCard({
             </button>
           ) : null}
           <span className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-espresso/75 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-crema/85 ring-1 ring-sand/15 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 rounded-full bg-espresso/75 px-2.5 py-1 text-xs font-semibold text-crema/85 ring-1 ring-sand/15 backdrop-blur-sm">
               <KindIcon className="size-3" /> {kindLabel(listing.kind)}
             </span>
             {isRising(listing) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-ember/90 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-ink">
+              <span className="inline-flex items-center gap-1 rounded-full bg-ember/90 px-2.5 py-1 text-xs font-semibold text-ink">
                 <Flame className="size-3" /> In risalita
               </span>
             )}
-            {listing.nsfw && <span className="rounded-full bg-[#a83a2c]/85 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-crema">18+</span>}
+            {listing.nsfw && <span className="rounded-full bg-[#a83a2c]/85 px-2.5 py-1 text-xs font-semibold text-crema">18+</span>}
             {badges.slice(0, 2).map((b) => {
               const Icon = b.icon;
               return (
-                <span key={b.label} className="inline-flex items-center gap-1 rounded-full bg-espresso/70 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-caramel ring-1 ring-caramel/25 backdrop-blur-sm">
+                <span key={b.label} className="inline-flex items-center gap-1 rounded-full bg-espresso/70 px-2 py-1 text-xs font-semibold text-caramel ring-1 ring-caramel/25 backdrop-blur-sm">
                   <Icon className="size-3" /> {b.label}
                 </span>
               );
@@ -146,7 +146,7 @@ export function ListingCard({
                 <KindIcon className="size-7 text-sand/70" />
               )}
             </span>
-            <ArrowUpRight className="mb-1 ml-auto size-5 text-crema/25 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ember" />
+            <ArrowUpRight className="mb-1 ml-auto size-5 text-crema/25 transition-[color,background-color,border-color,opacity,transform] duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ember" />
           </span>
           <span className="mt-3 block truncate font-display text-2xl font-semibold leading-tight text-crema">
             <Highlight text={listing.name || "Senza titolo"} query={query} />
@@ -212,7 +212,7 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
       <SmartLink
         href={listingHref(l)}
         className={cn(
-          "group relative flex h-full overflow-hidden rounded-[2rem] ring-1 ring-sand/15 transition duration-300 hover:-translate-y-1 hover:ring-ember/40",
+          "group relative flex h-full overflow-hidden rounded-[2rem] ring-1 ring-sand/15 transition duration-300  hover:ring-ember/40",
           /* su telefono più bassi: il primo non deve riempire lo schermo */
           big ? "min-h-[14rem] flex-col justify-end p-5 sm:min-h-[22rem] sm:p-9" : "min-h-[7.5rem] items-end p-4 sm:min-h-[10.5rem] sm:p-6",
         )}
@@ -245,7 +245,7 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
             )}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-x-2 text-[0.6rem] font-bold uppercase tracking-[0.2em] text-ember sm:text-[0.65rem] sm:tracking-[0.25em]">
+            <span className="flex flex-wrap items-center gap-x-2 text-xs font-semibold text-ember sm:text-xs">
               N°{rank} in vetrina · {kindLabel(l.kind)}
               {l.categories[0] ? <span className="hidden text-crema/50 sm:inline">· {labelOf(cfg?.categoryLabels, l.categories[0])}</span> : null}
             </span>

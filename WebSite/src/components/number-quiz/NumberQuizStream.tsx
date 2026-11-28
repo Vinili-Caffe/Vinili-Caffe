@@ -208,7 +208,7 @@ function Ranking({ viewers, limit = 10 }: { viewers: Record<string, Viewer>; lim
 function TimerBar({ left, total }: { left: number; total: number }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-crema/10">
-      <motion.div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${(left / total) * 100}%` }} />
+      <motion.div className="h-full rounded-full bg-caramel" style={{ width: `${(left / total) * 100}%` }} />
     </div>
   );
 }
@@ -379,7 +379,7 @@ export function StreamHigherLower({
                 </span>
                 <div className="relative flex max-w-lg flex-col items-center">
                   <h2 className="text-balance font-display text-3xl leading-tight text-crema drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-5xl">{it.name}</h2>
-                  {it.sub ? <p className="mt-1.5 text-sm font-semibold uppercase tracking-wide text-crema/70">{it.sub}</p> : null}
+                  {it.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70">{it.sub}</p> : null}
                   <div className="mt-4 min-h-[4.5rem]">
                     {revealed ? (
                       <>
@@ -395,7 +395,7 @@ export function StreamHigherLower({
                   {/* barra dei voti della chat */}
                   <div className="mt-4 w-56 max-w-full">
                     <div className="h-3 overflow-hidden rounded-full bg-ink/60 ring-1 ring-sand/20">
-                      <motion.div className="h-full bg-gradient-to-r from-caramel to-ember" animate={{ width: `${share}%` }} transition={{ type: "spring", stiffness: 160, damping: 22 }} />
+                      <motion.div className="h-full bg-caramel" animate={{ width: `${share}%` }} transition={{ type: "spring", stiffness: 160, damping: 22 }} />
                     </div>
                     <p className="mt-1 text-xs font-semibold text-crema/75">
                       {share}% · {counts[side]} {counts[side] === 1 ? "voto" : "voti"}
@@ -437,7 +437,7 @@ export function StreamHigherLower({
                         : "Vediamo…"}
               </p>
               {phase === "vote" ? (
-                <button type="button" onClick={reveal} className="shrink-0 rounded-xl bg-caramel px-3 py-2 text-xs font-bold uppercase text-ink">
+                <button type="button" onClick={reveal} className="shrink-0 rounded-xl bg-caramel px-3 py-2 text-xs font-semibold text-ink">
                   Rivela ora
                 </button>
               ) : null}
@@ -552,9 +552,9 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
         <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 pb-4 pt-20 text-center">
           <Backdrop item={item} />
           <div className="relative w-full max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-caramel">{c.title}</p>
+            <p className="text-xs font-semibold text-caramel">{c.title}</p>
             <h2 className="mt-2 text-balance font-display text-4xl leading-tight text-crema drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-6xl">{item.name}</h2>
-            {item.sub ? <p className="mt-1.5 text-sm font-semibold uppercase tracking-wide text-crema/70">{item.sub}</p> : null}
+            {item.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70">{item.sub}</p> : null}
             {result ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
                 <p className="font-mono text-5xl font-bold tabular-nums text-caramel sm:text-6xl">
@@ -604,7 +604,7 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
             <button
               type="button"
               onClick={result ? advance : reveal}
-              className="inline-flex h-12 min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember px-6 text-sm font-bold uppercase tracking-wide text-ink transition hover:brightness-105"
+              className="inline-flex h-12 min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-caramel px-6 text-sm font-semibold text-ink transition hover:brightness-105"
             >
               {result ? (round >= HC_ROUNDS ? "Classifica" : "Avanti") : "Rivela ora"}
             </button>

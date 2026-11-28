@@ -149,7 +149,7 @@ export function ManageListing() {
       <Centered>
         <p className="font-display text-4xl">Gestisci la tua scheda</p>
         <p className="mt-2 text-crema/60">Accedi con Discord per vedere statistiche e impostazioni.</p>
-        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
+        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>
       </Centered>
@@ -212,7 +212,7 @@ export function ManageListing() {
             <nav data-lenis-prevent className="mt-5 flex min-w-0 gap-1.5 overflow-x-auto pb-1 lg:block lg:space-y-5 lg:overflow-visible lg:pb-0" aria-label="Sezioni">
               {groups.map((g) => (
                 <div key={g.label} className="contents lg:block">
-                  <p className="hidden px-3 pb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/40 lg:block">{g.label}</p>
+                  <p className="hidden px-3 pb-1.5 text-xs font-semibold text-crema/40 lg:block">{g.label}</p>
                   {g.tabs.map((t) => {
                     const Icon = t.icon;
                     const active = shown === t.id;

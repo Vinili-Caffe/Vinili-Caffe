@@ -605,7 +605,7 @@ export function SocialPhonePromo() {
                     )}
                   >
                     <span className="inline-flex items-center gap-1.5 text-[0.8rem] font-semibold text-crema">
-                      <span className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-caramel to-ember text-ink">
+                      <span className="flex size-6 items-center justify-center rounded-full bg-caramel text-ink">
                         <CtaIcon className="size-3.5" />
                       </span>
                       {cta.title}

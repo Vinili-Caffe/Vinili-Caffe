@@ -66,10 +66,10 @@ export function PexHistory({
   const { page: pageSafe, totalPages, slice } = pageSlice(filtered, pageNum, PAGE_SIZE);
 
   return (
-    <section className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/15 sm:p-5">
+    <section className="rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/15 sm:p-5">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-caramel">
             <History className="size-3.5" /> Cronologia
           </p>
           <h3 className="mt-1 font-display text-2xl font-semibold">
@@ -159,7 +159,7 @@ export function PexHistory({
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider ring-1",
+                          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ring-1",
                           up
                             ? "bg-emerald-400/10 text-[#9fd3ac] ring-emerald-300/25 light:text-[#2f6b3f]"
                             : "bg-rose-400/10 text-[#f0a493] ring-rose-300/25 light:text-[#a83a2c]",

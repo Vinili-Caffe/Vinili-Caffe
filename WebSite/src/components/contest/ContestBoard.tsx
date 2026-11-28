@@ -528,13 +528,8 @@ export function ContestBoard({
     <>
       {hero}
     <div className="mx-auto max-w-lg px-6 pb-24">
-      <Panel className="relative overflow-hidden">
-        <div
-          className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-caramel/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative">
-          <span className="inline-flex items-center rounded-full bg-caramel/15 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-caramel">
+      <Panel className="relative overflow-hidden"><div className="relative">
+          <span className="inline-flex items-center rounded-full bg-caramel/15 px-2.5 py-1 text-xs font-semibold text-caramel">
             {phaseLabel}
           </span>
         </div>
@@ -544,7 +539,7 @@ export function ContestBoard({
         {status?.blurb ? <p className="relative mt-2 text-sm leading-relaxed text-crema/65">{status.blurb}</p> : null}
         <div className="relative mt-4 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
-            <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+            <p className="flex items-center gap-1 text-xs font-semibold text-crema/40">
               <Images className="size-3" />
               Invii
             </p>
@@ -554,7 +549,7 @@ export function ContestBoard({
             <p className="text-[11px] text-crema/45">foto nel contest</p>
           </div>
           <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
-            <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+            <p className="flex items-center gap-1 text-xs font-semibold text-crema/40">
               <ThumbsUp className="size-3" />
               I tuoi voti
             </p>
@@ -571,7 +566,7 @@ export function ContestBoard({
               return (
                 <>
                   <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
-                    <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+                    <p className="flex items-center gap-1 text-xs font-semibold text-crema/40">
                       <CalendarDays className="size-3" />
                       Apre
                     </p>
@@ -583,7 +578,7 @@ export function ContestBoard({
                     </p>
                   </div>
                   <div className="rounded-2xl bg-ink/35 px-3 py-2.5 ring-1 ring-crema/10">
-                    <p className="flex items-center gap-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/40">
+                    <p className="flex items-center gap-1 text-xs font-semibold text-crema/40">
                       <CalendarDays className="size-3" />
                       Chiude
                     </p>
@@ -690,7 +685,7 @@ export function ContestBoard({
                 <button
                   type="button"
                   onClick={login}
-                  className="inline-flex items-center gap-3 rounded-full bg-[#5865f2] px-6 py-3.5 font-semibold text-white shadow-[0_10px_30px_-10px_rgba(88,101,242,0.8)] ring-1 ring-white/15 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
+                  className="inline-flex items-center gap-3 rounded-full bg-[#5865f2] px-6 py-3.5 font-semibold text-white shadow-[0_10px_30px_-10px_rgba(88,101,242,0.8)] ring-1 ring-white/15 transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
                 >
                   <LogIn className="size-5" aria-hidden />
                   Accedi con Discord
@@ -833,13 +828,13 @@ export function ContestBoard({
                     />
                     <div
                       ref={likeBadgeRef}
-                      className="pointer-events-none absolute left-4 top-4 rounded-lg border-2 border-emerald-400/90 bg-ink/40 px-3 py-1 text-sm font-bold uppercase tracking-widest text-emerald-300 opacity-0 backdrop-blur-sm transition-opacity duration-75"
+                      className="pointer-events-none absolute left-4 top-4 rounded-lg border-2 border-emerald-400/90 bg-ink/40 px-3 py-1 text-sm font-semibold text-emerald-300 opacity-0 backdrop-blur-sm transition-opacity duration-75"
                     >
                       Like
                     </div>
                     <div
                       ref={passBadgeRef}
-                      className="pointer-events-none absolute right-4 top-4 rounded-lg border-2 border-red-400/90 bg-ink/40 px-3 py-1 text-sm font-bold uppercase tracking-widest text-red-300 opacity-0 backdrop-blur-sm transition-opacity duration-75"
+                      className="pointer-events-none absolute right-4 top-4 rounded-lg border-2 border-red-400/90 bg-ink/40 px-3 py-1 text-sm font-semibold text-red-300 opacity-0 backdrop-blur-sm transition-opacity duration-75"
                     >
                       Pass
                     </div>
@@ -858,7 +853,7 @@ export function ContestBoard({
                       type="button"
                       disabled={busy}
                       onClick={() => void onSwipe("like")}
-                      className="flex size-[4.25rem] items-center justify-center rounded-full bg-caramel text-ink shadow-lg shadow-caramel/35 transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.96]"
+                      className="flex size-[4.25rem] items-center justify-center rounded-full bg-caramel text-ink shadow-lg  transition-[transform,filter] duration-200 ease-out hover:brightness-110 active:scale-[0.96]"
                       aria-label="Mi piace"
                     >
                       <Heart className="size-7 fill-current" />

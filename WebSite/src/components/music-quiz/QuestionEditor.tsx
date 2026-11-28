@@ -143,10 +143,10 @@ export function QuestionEditor({
       className="space-y-7 rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-5 ring-1 ring-sand/15 sm:p-8"
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-crema/60">
+        <p className="text-xs font-semibold text-crema/60">
           Domanda {index + 1} / {total}
         </p>
-        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-crema/45 transition hover:text-ember">
+        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1.5 text-xs font-semibold text-crema/45 transition hover:text-ember">
           <Trash2 className="size-3.5" aria-hidden /> Rimuovi
         </button>
       </div>
@@ -170,7 +170,7 @@ export function QuestionEditor({
               type="button"
               onClick={() => void toggle()}
               aria-label={playing ? "Ferma lo spezzone" : "Ascolta lo spezzone"}
-              className="grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-caramel to-ember text-ink shadow-lg transition hover:scale-105"
+              className="grid size-14 shrink-0 place-items-center rounded-full bg-caramel text-ink shadow-lg transition "
             >
               {playing ? <Pause className="size-6 fill-current" /> : <Play className="ml-0.5 size-6 fill-current" />}
             </button>
@@ -189,7 +189,7 @@ export function QuestionEditor({
       {/* spezzone */}
       <div>
         <div className="flex items-baseline justify-between">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/55">Spezzone</p>
+          <p className="text-xs font-semibold text-crema/55">Spezzone</p>
           <p className="font-mono text-xs tabular-nums text-crema/70">
             {mmss(q.start)} – {mmss(q.start + CLIP_SEC)}
           </p>
@@ -202,7 +202,7 @@ export function QuestionEditor({
 
       {/* risposte */}
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/55">Risposte</p>
+        <p className="text-xs font-semibold text-crema/55">Risposte</p>
         <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
           <AnswerInput letter="A" value={q.answer} placeholder={q.title} onChange={(v) => onChange({ ...q, answer: v })} correct />
           {[0, 1, 2].map((i) => (

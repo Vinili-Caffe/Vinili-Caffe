@@ -87,7 +87,7 @@ export function Guidelines() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-3xl bg-roast/80 p-5 ring-1 ring-sand/12">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">In breve</p>
+            <p className="mb-3 text-xs font-semibold text-crema/45">In breve</p>
             <ol className="space-y-1">
               {SECTIONS.map((s, i) => (
                 <li key={s.title}>
@@ -138,7 +138,7 @@ export function Guidelines() {
             <PenLine className="size-8 text-ember" />
             <p className="font-display text-2xl">Tutto chiaro?</p>
             <p className="max-w-md text-crema/55">Scegli una scheda e lascia la tua: due righe e le stelle bastano.</p>
-            <SmartLink href={page("/vetrina/")} className="mt-1 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-bold text-ink">
+            <SmartLink href={page("/vetrina/")} className="mt-1 rounded-full bg-caramel px-5 py-2.5 font-bold text-ink">
               Vai alla vetrina
             </SmartLink>
           </div>

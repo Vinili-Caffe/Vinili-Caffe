@@ -38,7 +38,7 @@ export function HomeEditorial() {
   return (
     <section aria-labelledby="home-editorial-heading" className="mx-auto max-w-6xl px-6 py-16 sm:py-20">
       <Reveal className="mb-12 max-w-2xl">
-        <p id="home-editorial-heading" className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
+        <p id="home-editorial-heading" className="text-xs font-semibold text-caramel">
           La community
         </p>
         <h2 className="mt-3 font-display text-3xl font-semibold leading-tight text-balance sm:text-4xl">
@@ -54,11 +54,11 @@ export function HomeEditorial() {
           const Icon = b.icon;
           return (
             <Reveal key={b.kicker} delay={i * 0.08}>
-              <article className="h-full rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast to-espresso p-7 ring-1 ring-sand/15">
+              <article className="h-full rounded-3xl bg-roast p-7 ring-1 ring-sand/15">
                 <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/30">
                   <Icon className="size-5" aria-hidden />
                 </span>
-                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-caramel/85">{b.kicker}</p>
+                <p className="mt-5 text-xs font-semibold text-caramel/85">{b.kicker}</p>
                 <h3 className="mt-2 font-display text-2xl font-semibold text-crema">{b.title}</h3>
                 <div className="mt-4 space-y-3">
                   {b.paragraphs.map((p) => (

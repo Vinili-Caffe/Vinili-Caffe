@@ -141,7 +141,7 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-[#e8c49a]/70">Pronte da condividere</p>
+                <p className="text-xs font-semibold text-[#e8c49a]/70">Pronte da condividere</p>
                 <h2 className="font-display text-2xl font-semibold text-[#f4e9d8]">Le tue card</h2>
               </div>
               <button
@@ -170,7 +170,7 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
                       type="button"
                       onClick={() => setPicked(i)}
                       className={cn(
-                        "flex-1 rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] ring-1 transition",
+                        "flex-1 rounded-full px-3 py-2 text-xs font-semibold ring-1 transition",
                         i === picked
                           ? "bg-[#d99a5b]/25 text-[#f4e9d8] ring-[#d99a5b]/50"
                           : "bg-[#f4e9d8]/5 text-[#f4e9d8]/55 ring-[#f4e9d8]/10",
@@ -180,7 +180,7 @@ export function WrappedShareSheet({ open, data, onClose }: Props) {
                     </button>
                   ))}
                   {stillBuilding ? (
-                    <span className="inline-flex items-center gap-1.5 px-2 text-[0.65rem] uppercase tracking-[0.14em] text-[#e8c49a]/60">
+                    <span className="inline-flex items-center gap-1.5 px-2 text-xs text-[#e8c49a]/60">
                       <Loader2 className="size-3 animate-spin" /> +1
                     </span>
                   ) : null}

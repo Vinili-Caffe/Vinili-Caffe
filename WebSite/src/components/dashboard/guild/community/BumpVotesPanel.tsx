@@ -162,7 +162,7 @@ function Studio({ editor, preview }: { editor: React.ReactNode; preview: React.R
     <div className="grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] @5xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
       <div className="min-w-0">{editor}</div>
       <div className="min-w-0 @3xl:sticky @3xl:top-20 @3xl:self-start @3xl:max-h-[calc(100dvh-6rem)] @3xl:overflow-y-auto @3xl:overscroll-contain">
-        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Anteprima</p>
+        <p className="mb-1.5 text-xs font-semibold text-crema/50">Anteprima</p>
         {preview}
       </div>
     </div>
@@ -497,7 +497,7 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
             >
               <div className="space-y-3">
                 <div>
-                  <p className="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/50">Indirizzo webhook</p>
+                  <p className="mb-1.5 text-xs font-semibold text-crema/50">Indirizzo webhook</p>
                   {urls ? (
                     <div className="flex items-center gap-2 rounded-xl bg-ink/40 p-1.5 pl-3 ring-1 ring-sand/10">
                       <code className="min-w-0 flex-1 truncate font-mono text-xs text-crema/80" title={urls[s]}>

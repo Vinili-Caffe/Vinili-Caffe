@@ -345,7 +345,7 @@ export function MusicQuizSettings({
 function Field({ label, hint, required, done, children }: { label: string; hint?: string; required?: boolean; done?: boolean; children: ReactNode }) {
   return (
     <div>
-      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-crema/55">
+      <p className="flex items-center gap-2 text-xs font-semibold text-crema/55">
         {label}
         {required ? (
           <span

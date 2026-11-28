@@ -41,7 +41,7 @@ export function EmbedWidgetView({ listing: l, width = 360, className }: ViewProp
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between p-3.5">
         <div className="min-w-0">
-          <p className="truncate text-[0.65rem] font-bold uppercase tracking-[0.18em] text-[#e0a465]">
+          <p className="truncate text-xs font-semibold text-[#e0a465]">
             {kindLabel(l.kind)} · Vinili & Caffè
           </p>
           <p className="mt-0.5 truncate text-lg font-semibold leading-tight">{l.name}</p>

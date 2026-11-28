@@ -74,7 +74,7 @@ export function Toggle({
       className={cn(
         "relative shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel",
         sm ? "h-5 w-9" : "h-6 w-11",
-        checked ? "bg-gradient-to-r from-caramel to-ember shadow-[0_0_14px_-4px_rgba(217,154,91,0.8)]" : "bg-crema/12 ring-1 ring-inset ring-sand/20",
+        checked ? "bg-caramel " : "bg-crema/12 ring-1 ring-inset ring-sand/20",
         disabled && "cursor-not-allowed opacity-45",
       )}
     >
@@ -131,10 +131,7 @@ export function PageHero({
   aside?: React.ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15 sm:p-6">
-      <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full opacity-25 blur-3xl" style={{ background: accent }} aria-hidden />
-      <div className="pointer-events-none absolute -bottom-24 left-1/3 size-48 rounded-full opacity-10 blur-3xl" style={{ background: accent }} aria-hidden />
-      <div className="relative flex flex-wrap items-center gap-4">
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15 sm:p-6"><div className="relative flex flex-wrap items-center gap-4">
         <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-crema/[0.06] ring-1 ring-sand/15" style={{ color: accent }}>
           <Icon className="size-7" />
         </span>
@@ -319,7 +316,7 @@ export function GlobalSaveBar() {
                     setBusy(false);
                   }
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-105 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-caramel px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(0,0,0,0.55)] transition hover:brightness-105 disabled:opacity-60"
               >
                 <Check className="size-4" aria-hidden /> {busy ? "Salvataggio…" : "Salva"}
               </button>
@@ -446,7 +443,7 @@ export function FormGroup({ title, description, action, children }: { title: str
     <section className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-crema">
-          <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-caramel to-ember" aria-hidden />
+          <span className="h-3.5 w-1 rounded-full bg-caramel" aria-hidden />
           {title}
         </h3>
         {action ? <div className="-my-1 shrink-0">{action}</div> : null}
@@ -462,7 +459,7 @@ export function StatusBadge({ tone = "muted", children }: { tone?: "ok" | "warn"
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
         tone === "ok" && "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]",
         tone === "warn" && "bg-[#a83a2c]/15 text-[#f0a493] light:text-[#a83a2c]",
         tone === "accent" && "bg-caramel/15 text-ember",
@@ -521,7 +518,7 @@ export function MultiCheck({
               />
               <span className="min-w-0 flex-1 truncate"><EmojiText text={opt.label} /></span>
               {isLocked && lockedLabel ? (
-                <span className="shrink-0 text-[0.65rem] uppercase tracking-wide text-crema/40">{lockedLabel}</span>
+                <span className="shrink-0 text-xs text-crema/40">{lockedLabel}</span>
               ) : null}
             </label>
           </li>
@@ -569,12 +566,12 @@ export const dangerBtn =
   "inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#a83a2c]/12 px-3 py-1.5 text-xs font-semibold text-[#f0a493] light:text-[#a83a2c] ring-1 ring-[#a83a2c]/30 transition hover:bg-[#a83a2c]/20 disabled:opacity-45";
 
 export const primaryMini =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-caramel to-ember px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-105 disabled:opacity-45";
+  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-caramel px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(0,0,0,0.55)] transition hover:brightness-105 disabled:opacity-45";
 
 /* ── Mattoncini grafici della dashboard (card modulo, statistiche, pulsanti) ── */
 
 export const dashPrimaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-14px_rgba(217,154,91,0.9)] transition-[transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97] disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-caramel px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-14px_rgba(0,0,0,0.55)] transition-[transform,filter] duration-200 ease-out hover:brightness-105 active:scale-[0.97] disabled:opacity-50";
 
 export const dashSecondaryBtn =
   "inline-flex items-center justify-center gap-2 rounded-lg bg-crema/[0.06] px-4 py-2 text-sm font-semibold text-crema/85 ring-1 ring-sand/20 transition hover:bg-crema/[0.09] hover:text-crema disabled:opacity-50";
@@ -605,7 +602,7 @@ export function Panel({
       {title ? (
         <header className={cn("flex items-start gap-3 px-4 py-4 sm:px-5", children && "border-b border-sand/[0.08]")}>
           {icon ? (
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20 [&>svg]:size-[1.1rem]">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/10 text-ember ring-1 ring-caramel/20 [&>svg]:size-[1.1rem]">
               {icon}
             </span>
           ) : null}
@@ -643,7 +640,7 @@ export function StatTile({
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
         "group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-espresso/70 to-espresso/40 p-3.5 text-left ring-1 ring-sand/10",
-        onClick && "transition hover:-translate-y-0.5 hover:ring-sand/25",
+        onClick && "transition  hover:ring-sand/25",
       )}
     >
       <span
@@ -657,7 +654,7 @@ export function StatTile({
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{label}</span>
+        <span className="block text-xs font-semibold text-crema/60">{label}</span>
         <span className="block truncate font-display text-xl font-semibold leading-tight tabular-nums text-crema">{value}</span>
         {hint ? <span className="block truncate text-[0.68rem] text-crema/50">{hint}</span> : null}
       </span>

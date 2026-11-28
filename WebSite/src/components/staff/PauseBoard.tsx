@@ -170,7 +170,7 @@ export function PauseBoard() {
 
       {/* Calendario + form affiancati, senza stretch verticale */}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(17rem,0.9fr)]">
-        <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
+        <section className="rounded-3xl bg-roast/85 p-4 ring-1 ring-sand/12 sm:p-5">
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
               type="button"
@@ -197,7 +197,7 @@ export function PauseBoard() {
             <div className="h-56 animate-pulse rounded-2xl bg-crema/6" />
           ) : (
             <>
-              <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase tracking-wider text-crema/40">
+              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-crema/40">
                 {WEEKDAYS_IT.map((d) => (
                   <div key={d} className="py-1">
                     {d}
@@ -250,7 +250,7 @@ export function PauseBoard() {
 
           {selectedDay ? (
             <div className="mt-3 rounded-2xl bg-espresso/50 p-3 ring-1 ring-sand/12">
-              <p className="text-xs font-semibold uppercase tracking-wider text-caramel">Dettaglio giorno</p>
+              <p className="text-xs font-semibold text-caramel">Dettaglio giorno</p>
               <p className="mt-0.5 text-sm text-crema/60 lining-nums">{selectedDay}</p>
               <ul className="mt-2 space-y-2">
                 {dayEntries.map((e) => {
@@ -278,7 +278,7 @@ export function PauseBoard() {
 
         <div className="space-y-4">
           {pending || pendingKey ? (
-            <section className="space-y-2 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
+            <section className="space-y-2 rounded-3xl bg-roast/85 p-4 ring-1 ring-sand/12 sm:p-5">
               <h3 className="font-display text-xl font-semibold">Richiesta in attesa</h3>
               <p className="text-sm text-crema/55">
                 {pending?.statusLabel || "In attesa"}
@@ -292,7 +292,7 @@ export function PauseBoard() {
           ) : null}
 
           {cal?.me?.canRequest ? (
-            <form onSubmit={onRequest} className="space-y-3 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
+            <form onSubmit={onRequest} className="space-y-3 rounded-3xl bg-roast/85 p-4 ring-1 ring-sand/12 sm:p-5">
               <h3 className="font-display text-xl font-semibold">Richiedi una pausa</h3>
               <div className="grid grid-cols-2 gap-1 rounded-full bg-espresso/60 p-1 ring-1 ring-sand/12" role="tablist">
                 {(
@@ -319,7 +319,7 @@ export function PauseBoard() {
               {mode === "half" ? (
                 <>
                   <label className="block text-sm">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Giorno</span>
+                    <span className="text-xs font-semibold text-crema/45">Giorno</span>
                     <DateField
                       required
                       value={start}
@@ -330,7 +330,7 @@ export function PauseBoard() {
                     />
                   </label>
                   <fieldset>
-                    <legend className="text-xs font-semibold uppercase tracking-wider text-crema/45">Fascia</legend>
+                    <legend className="text-xs font-semibold text-crema/45">Fascia</legend>
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       {(Object.keys(HALF_DAY_LABELS) as PauseHalfDay[]).map((s) => {
                         const closedToday = start === cal.today && cal.me.halfDayToday?.[s] === false;
@@ -367,7 +367,7 @@ export function PauseBoard() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                   <label className="block text-sm">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Inizio</span>
+                    <span className="text-xs font-semibold text-crema/45">Inizio</span>
                     <DateField
                       required
                       value={start}
@@ -378,7 +378,7 @@ export function PauseBoard() {
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Ritorno</span>
+                    <span className="text-xs font-semibold text-crema/45">Ritorno</span>
                     <DateField
                       required
                       value={end}
@@ -391,7 +391,7 @@ export function PauseBoard() {
               )}
               {(cal.me.roleChoices || []).length > 0 ? (
                 <fieldset>
-                  <legend className="text-xs font-semibold uppercase tracking-wider text-crema/45">Attività in pausa</legend>
+                  <legend className="text-xs font-semibold text-crema/45">Attività in pausa</legend>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {cal.me.roleChoices.map((c) => (
                       <button
@@ -412,7 +412,7 @@ export function PauseBoard() {
                 </fieldset>
               ) : null}
               <label htmlFor="reason" className="block text-sm">
-                <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Motivazione</span>
+                <span className="text-xs font-semibold text-crema/45">Motivazione</span>
                 <textarea id="reason" name="reason"
                   required
                   minLength={cal.me.reasonMin || PAUSE_REASON_MIN}
@@ -430,7 +430,7 @@ export function PauseBoard() {
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                 Invia richiesta
@@ -445,7 +445,7 @@ export function PauseBoard() {
       </div>
 
       {/* Elenco mese: solo se ci sono pause, altrimenti una riga compatta */}
-      <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 ring-1 ring-sand/12 sm:p-5">
+      <section className="rounded-3xl bg-roast/85 p-4 ring-1 ring-sand/12 sm:p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="font-display text-xl font-semibold">Pause del mese</h3>
           <p className="text-xs text-crema/45 lining-nums">{cal?.count ?? 0} nel calendario</p>
@@ -456,7 +456,7 @@ export function PauseBoard() {
               <li key={p.id} className="rounded-2xl bg-crema/5 px-3 py-2.5 ring-1 ring-sand/10">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-semibold text-crema">{p.displayName}</p>
-                  <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">
+                  <span className="text-xs font-semibold text-crema/45">
                     {p.statusLabel || phaseLabel(p.phase)}
                   </span>
                 </div>

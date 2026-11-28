@@ -181,7 +181,7 @@ export function GuideBrowser() {
       <aside className="border-b border-sand/10 bg-espresso/40 p-4 lg:border-b-0 lg:border-r lg:border-sand/10">
         <div className="flex items-center gap-2 text-caramel">
           <BookOpen className="size-4" />
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em]">Indice</p>
+          <p className="text-xs font-semibold">Indice</p>
         </div>
 
         <label className="mt-3 flex items-center gap-2 rounded-xl bg-crema/[0.06] px-2.5 ring-1 ring-sand/15 focus-within:ring-caramel/35">

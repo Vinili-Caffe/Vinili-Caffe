@@ -72,7 +72,7 @@ function MiniTile({
       transition={shake ? { duration: 0.3 } : { type: "spring", stiffness: 420, damping: 22 }}
       className={cn(
         /* basse ma leggibili in 2×2 largo */
-        "relative grid h-[1.35rem] w-full place-items-center rounded-[3px] font-sans text-[0.62rem] font-bold uppercase leading-none ring-1 sm:h-[1.55rem] sm:text-[0.72rem] md:h-[1.7rem] md:text-xs",
+        "relative grid h-[1.35rem] w-full place-items-center rounded-[3px] font-sans text-xs font-semibold leading-none ring-1 sm:h-[1.55rem] sm:text-xs md:h-[1.7rem] md:text-xs",
         mark ? tileMark(mark) : filled ? "bg-mocha text-crema ring-sand/30" : "bg-roast/90 text-crema/25 ring-sand/12",
       )}
     >

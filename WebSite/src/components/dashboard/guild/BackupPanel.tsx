@@ -153,7 +153,7 @@ function StatusStrip({
       {progress != null ? (
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-espresso/70">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-caramel to-ember"
+            className="h-full rounded-full bg-caramel"
             initial={false}
             animate={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
             transition={{ duration: 0.45, ease: [0.2, 0.8, 0.2, 1] }}
@@ -592,7 +592,7 @@ export function BackupPanel({
                                 </span>
                                 <span
                                   className={cn(
-                                    "rounded-md px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ring-1",
+                                    "rounded-md px-1.5 py-0.5 text-xs font-semibold ring-1",
                                     auto
                                       ? "bg-crema/[0.04] text-crema/55 ring-sand/15"
                                       : "bg-caramel/10 text-ember ring-caramel/25",
@@ -662,7 +662,7 @@ export function BackupPanel({
                               >
                                 <div className="mt-3 border-t border-sand/10 pt-3">
                                   <div className="mb-2 flex items-center justify-between gap-2">
-                                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-crema/40">
+                                    <p className="text-xs font-medium text-crema/40">
                                       Anteprima del server
                                     </p>
                                     <button

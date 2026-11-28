@@ -72,7 +72,7 @@ function QuadGrid({ board, rows, current, active }: { board: DuelBoard; rows: nu
                     animate={{ scale: filled && !mark ? 1.03 : 1 }}
                     transition={{ type: "spring", stiffness: 420, damping: 22 }}
                     className={cn(
-                      "relative grid h-[1.35rem] w-full place-items-center rounded-[3px] font-sans text-[0.62rem] font-bold uppercase leading-none ring-1 sm:h-[1.55rem] sm:text-[0.72rem] md:h-[1.7rem] md:text-xs",
+                      "relative grid h-[1.35rem] w-full place-items-center rounded-[3px] font-sans text-xs font-semibold leading-none ring-1 sm:h-[1.55rem] sm:text-xs md:h-[1.7rem] md:text-xs",
                       mark ? tileMark(mark) : filled ? "bg-mocha text-crema ring-sand/30" : "bg-roast/90 text-crema/25 ring-sand/12",
                     )}
                   >
@@ -174,7 +174,7 @@ export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "word
     return (
       <div className="mx-auto max-w-md rounded-3xl bg-roast/80 p-6 text-center text-sm text-crema/70 ring-1 ring-sand/12">
         {error}
-        <button type="button" onClick={again} className="mt-4 block w-full rounded-xl py-2 text-xs font-bold uppercase tracking-wide text-caramel ring-1 ring-sand/15">
+        <button type="button" onClick={again} className="mt-4 block w-full rounded-xl py-2 text-xs font-semibold text-caramel ring-1 ring-sand/15">
           {mode === "practice" ? "Riprova" : "Crea una sfida nuova"}
         </button>
       </div>
@@ -194,7 +194,7 @@ export function WordleDuel({ game, mode, lang, joinId: joinFrom }: { game: "word
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-16">
       <OpponentBar state={state} />
-      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
+      <p className="mb-3 text-center text-xs font-semibold text-crema/50">
         {mode === "practice" ? "Allenamento" : "Sfida"} · tentativo {Math.min(state.me.attempts + (state.me.done ? 0 : 1), state.maxAttempts)} di {state.maxAttempts}
       </p>
       {quad ? (

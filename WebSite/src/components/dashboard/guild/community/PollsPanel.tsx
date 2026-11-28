@@ -140,7 +140,7 @@ export function PollsPanel({ guildId, token, onToast }: { guildId: string; token
       </FormGroup>
 
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-crema/55">Sondaggi</p>
+        <p className="text-xs font-semibold text-crema/55">Sondaggi</p>
         <button type="button" className={miniBtn} onClick={() => setNonce((n) => n + 1)}>
           <RefreshCw className="size-3.5" /> Aggiorna risultati
         </button>

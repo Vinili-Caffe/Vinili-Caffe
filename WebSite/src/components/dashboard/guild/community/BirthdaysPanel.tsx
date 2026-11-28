@@ -215,7 +215,7 @@ export function BirthdaysPanel({ guildId, token, onToast }: { guildId: string; t
                       <ul className="mt-2 space-y-2">
                         {ab.brackets.map((row, i) => (
                           <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
-                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Fino a</span>
+                            <span className="text-xs font-semibold text-crema/45">Fino a</span>
                             <div className="w-24 shrink-0">
                               <NumberField className="!mt-0" value={row.maxAge} min={1} max={200} disabled={!ab.enabled} onChange={(v) => setBracket(i, { maxAge: Math.max(1, Math.min(200, Math.floor(Number(v) || 1))) })} aria-label="Età massima fascia" />
                             </div>

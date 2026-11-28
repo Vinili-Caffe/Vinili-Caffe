@@ -51,13 +51,13 @@ export function BotPrefsCard({ token }: { token: string }) {
   return (
     <Reveal>
       <div className="mb-5">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
+        <p className="flex items-center gap-2 text-xs font-semibold text-caramel">
           <Settings2 className="size-4" aria-hidden /> Solo per te
         </p>
         <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">Preferenze del bot</h2>
         <p className="mt-1.5 text-sm text-crema/55">Valgono in tutti i server dove usi Vinili.</p>
       </div>
-      <div className="divide-y divide-sand/10 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.06] via-roast/80 to-roast ring-1 ring-sand/12">
+      <div className="divide-y divide-sand/10 overflow-hidden rounded-3xl bg-roast/80 ring-1 ring-sand/12">
         <Row title="Niente ping nelle mie partnership" description="Quando sei tu il manager, il messaggio di partnership non ti menziona.">
           <Toggle
             size="sm"

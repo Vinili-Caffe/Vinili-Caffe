@@ -199,7 +199,7 @@ export function DateField({
                 </div>
                 <div className="grid grid-cols-7 gap-0.5">
                   {WEEK.map((w) => (
-                    <span key={w} className="py-1 text-center text-[0.65rem] font-bold uppercase tracking-wider text-crema/40">
+                    <span key={w} className="py-1 text-center text-xs font-semibold text-crema/40">
                       {w}
                     </span>
                   ))}

@@ -135,7 +135,7 @@ export function InstallPrompt() {
                   await promptHeldBip(token);
                   close();
                 }}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2.5 text-sm font-semibold text-ink"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-caramel px-4 py-2.5 text-sm font-semibold text-ink"
               >
                 <Download className="size-4" /> Installa
               </button>

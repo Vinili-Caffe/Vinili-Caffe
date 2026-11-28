@@ -99,7 +99,7 @@ export function ActivityLiveBar() {
             className="ml-2 w-44 rounded-2xl bg-roast/90 p-2.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.9)] ring-1 ring-sand/15 backdrop-blur-xl sm:w-52"
           >
             <div className="mb-2 flex items-center justify-between px-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-caramel">Chi gioca in chiamata</p>
+              <p className="text-xs font-semibold text-caramel">Chi gioca in chiamata</p>
               <button type="button" onClick={() => setOpen(false)} aria-label="Nascondi" className="grid size-6 place-items-center rounded-md text-crema/50 hover:text-crema">
                 <ChevronLeft className="size-4" />
               </button>

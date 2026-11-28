@@ -64,7 +64,7 @@ export function WrappedRecap({
             <Avatar userId={data.user.id} src={data.user.avatarUrl || undefined} name={data.user.displayName} className="size-16 sm:size-20" noPresence />
           </span>
           <div className="min-w-0 pr-16 sm:pr-24">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.24em]" style={{ color: accent }}>
+            <p className="text-xs font-semibold" style={{ color: accent }}>
               Vinili Wrapped · {wrappedPeriodLabel(data)}
             </p>
             <p className="mt-1 truncate font-display text-3xl font-semibold leading-tight text-[#f4e9d8] sm:text-4xl">{data.user.displayName}</p>
@@ -100,7 +100,7 @@ export function WrappedRecap({
           transition={{ delay: 0.15, duration: 0.5, ease }}
           className="mt-3 rounded-[1.75rem] bg-black/25 p-4 ring-1 ring-[#f4e9d8]/10 sm:p-5"
         >
-          <p className="px-1 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-[#c4a07a]/80">Lato B · la tua scaletta</p>
+          <p className="px-1 text-xs font-semibold text-[#c4a07a]/80">Lato B · la tua scaletta</p>
           <ol className="mt-2">
             {tracks.map((t, i) => {
               const tone = moodForStoryKey(t.key).accent;
@@ -116,7 +116,7 @@ export function WrappedRecap({
                   <span className="size-2 shrink-0 rounded-full" style={{ background: tone }} aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-[#f4e9d8]">{t.title === t.stat ? t.kicker : t.title}</span>
-                    {t.title === t.stat ? null : <span className="block truncate text-[0.7rem] uppercase tracking-[0.14em] text-[#f4e9d8]/40">{t.kicker}</span>}
+                    {t.title === t.stat ? null : <span className="block truncate text-xs text-[#f4e9d8]/40">{t.kicker}</span>}
                   </span>
                   <span className="shrink-0 text-right font-display text-lg font-semibold lining-nums" style={{ color: tone }}>
                     {t.stat}
@@ -137,7 +137,7 @@ export function WrappedRecap({
         <button
           type="button"
           onClick={onShare}
-          className="inline-flex min-h-11 items-center gap-2 rounded-full px-6 text-sm font-semibold text-[#1a120c] shadow-[0_12px_40px_-12px_rgba(240,180,110,0.55)] transition hover:brightness-105 active:scale-[0.98]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full px-6 text-sm font-semibold text-[#1a120c] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)] transition hover:brightness-105 active:scale-[0.98]"
           style={{ background: accent }}
         >
           <Share2 className="size-4" aria-hidden /> Condividi il tuo anno

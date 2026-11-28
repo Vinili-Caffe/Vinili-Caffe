@@ -133,7 +133,7 @@ export function TicketDesk({
   /* Main Vinili: ticket sul sito, come la bacheca — niente modulo Discord da configurare qui. */
   if (isMainGuild) {
     return (
-      <section className="flex flex-wrap items-center gap-4 rounded-2xl bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 p-4 ring-1 ring-caramel/25 sm:p-5">
+      <section className="flex flex-wrap items-center gap-4 rounded-2xl bg-roast/80 p-4 ring-1 ring-caramel/25 sm:p-5">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/30">
           <Ticket className="size-5" />
         </span>
@@ -205,7 +205,7 @@ export function TicketDesk({
       <section
         className={cn(
           "flex flex-wrap items-center gap-4 rounded-2xl p-4 ring-1 sm:p-5",
-          enabled ? "bg-gradient-to-r from-caramel/[0.12] via-roast/80 to-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
+          enabled ? "bg-roast/80 ring-caramel/25" : "bg-roast/80 ring-sand/10",
         )}
       >
         <span
@@ -420,14 +420,14 @@ export function TicketDesk({
                           {row.open ? (
                             <span
                               className={cn(
-                                "rounded px-1.5 py-px text-[0.58rem] font-bold uppercase tracking-wider",
+                                "rounded px-1.5 py-px text-xs font-semibold",
                                 claimed ? "bg-[#5f9a6a]/15 text-[#9fd0a8] light:text-[#2f6b3f]" : "bg-caramel/15 text-ember",
                               )}
                             >
                               {claimed ? "in carico" : "in attesa"}
                             </span>
                           ) : (
-                            <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-bold uppercase tracking-wider text-crema/60">
+                            <span className="rounded bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/60">
                               chiuso
                             </span>
                           )}

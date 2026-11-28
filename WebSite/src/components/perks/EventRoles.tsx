@@ -49,7 +49,7 @@ const STATUS: Record<EventRole["status"], { label: string; cls: string }> = {
 
 function Pill({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
-    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider ring-1", className)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1", className)}>
       {children}
     </span>
   );
@@ -62,13 +62,11 @@ function RoleCard({ r, preview }: { r: EventRole; preview: boolean }) {
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-6 ring-1 transition duration-300 hover:-translate-y-1 hover:ring-2",
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-6 ring-1 transition duration-300  hover:ring-2",
         t.card,
         r.status === "ended" && "saturate-[0.65]",
       )}
-    >
-      <div className={cn("pointer-events-none absolute -right-12 -top-12 size-44 rounded-full blur-3xl transition-opacity duration-500 group-hover:opacity-100 opacity-70", t.glow)} />
-      <div className="relative flex items-start justify-between gap-3">
+    ><div className="relative flex items-start justify-between gap-3">
         <span className={cn("flex size-12 items-center justify-center rounded-2xl ring-1", t.iconBox)}>
           <Icon className="size-6" />
         </span>
@@ -84,7 +82,7 @@ function RoleCard({ r, preview }: { r: EventRole; preview: boolean }) {
           </Pill>
         </div>
       </div>
-      <p className="relative mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-caramel">{r.event}</p>
+      <p className="relative mt-5 text-xs font-semibold text-caramel">{r.event}</p>
       <h3 className="relative mt-1.5 font-display text-xl font-semibold leading-snug [&>span]:max-w-full">
         <RichText text={`<<${r.role}>>`} />
       </h3>

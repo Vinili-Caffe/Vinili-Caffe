@@ -34,7 +34,7 @@ export function AvatarCircles({
             src={p.avatarUrl}
             name={p.name}
             noPresence
-            className="size-7 shrink-0 bg-mocha ring-2 ring-roast transition-transform hover:z-10 hover:-translate-y-0.5 sm:size-8"
+            className="size-7 shrink-0 bg-mocha ring-2 ring-roast transition-transform hover:z-10  sm:size-8"
           />
         ))}
         {rest > 0 && (

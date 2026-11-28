@@ -232,7 +232,7 @@ export function MusicQuizStream({
           <ArrowLeft className="size-4" aria-hidden /> Torna al quiz
         </button>
         <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-8">
-          <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
+          <p className="inline-flex items-center gap-2 text-xs font-semibold text-caramel">
             <Radio className="size-3.5" aria-hidden /> In diretta
           </p>
           <h1 className="mt-2 font-display text-4xl font-semibold text-crema">{pack.title}</h1>
@@ -255,7 +255,7 @@ export function MusicQuizStream({
                 )}
               >
                 {x.label}
-                {!x.ready ? <span className="mt-0.5 block text-[0.65rem] font-semibold uppercase tracking-wider opacity-70">in arrivo</span> : null}
+                {!x.ready ? <span className="mt-0.5 block text-xs font-semibold opacity-70">in arrivo</span> : null}
               </button>
             ))}
           </div>
@@ -298,7 +298,7 @@ export function MusicQuizStream({
             type="button"
             onClick={() => void start()}
             disabled={status !== "connected"}
-            className="mt-6 w-full rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+            className="mt-6 w-full rounded-full bg-caramel px-6 py-3.5 font-bold text-ink transition  disabled:translate-y-0 disabled:opacity-40"
           >
             Inizia la partita
           </button>
@@ -317,7 +317,7 @@ export function MusicQuizStream({
     return (
       <div className="mx-auto max-w-3xl space-y-6 px-4 pb-20 pt-24 sm:pt-28">
         <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 text-center ring-1 ring-sand/15 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{pack.title} · fine</p>
+          <p className="text-xs font-semibold text-caramel">{pack.title} · fine</p>
           <h1 className="mt-2 font-display text-4xl font-semibold text-crema">Classifica della chat</h1>
           {!ranking.length ? (
             <p className="mt-6 text-crema/60">Nessuno ha indovinato questa volta.</p>
@@ -362,7 +362,7 @@ export function MusicQuizStream({
             </ol>
           ) : null}
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={() => void start()} className="rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition hover:-translate-y-0.5">
+            <button type="button" onClick={() => void start()} className="rounded-full bg-caramel px-6 py-3 font-bold text-ink transition ">
               Un&apos;altra partita
             </button>
             <button type="button" onClick={onExit} className="rounded-full px-5 py-3 text-sm font-semibold text-crema/80 ring-1 ring-sand/25 transition hover:bg-crema/[0.06]">
@@ -398,7 +398,7 @@ export function MusicQuizStream({
         side={<QuizTurntable cover={pack.cover} clip={clip.state} clipMs={clipMs} left={reveal ? answerMs : left} totalMs={answerMs} onReplay={clip.replay} />}
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
+          <p className="text-xs font-semibold text-caramel">
             Domanda {round.index + 1} di {session.total}
           </p>
           <p className="inline-flex items-center gap-1.5 text-sm text-crema/70">
@@ -511,7 +511,7 @@ export function MusicQuizStream({
 
       {ranking.length ? (
         <section className="mt-6 rounded-3xl bg-roast/60 p-4 ring-1 ring-sand/10">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-crema/55">Classifica della chat</h3>
+          <h3 className="mb-2 text-xs font-semibold text-crema/55">Classifica della chat</h3>
           <ol className="flex flex-wrap gap-2">
             {ranking.slice(0, 8).map((p, i) => (
               <li key={p.user} className={cn("flex items-center gap-2 rounded-full px-3 py-1.5 text-sm", i === 0 ? "bg-caramel/20 text-caramel" : "bg-crema/[0.06] text-crema/80")}>

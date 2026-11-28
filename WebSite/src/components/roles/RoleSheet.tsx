@@ -159,7 +159,7 @@ export function RoleSheet({
                     type="button"
                     onClick={send}
                     disabled={busy || reason.trim().length < REASON_MIN}
-                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-caramel to-[#b9773f] px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
                   >
                     {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Invia
                   </button>
@@ -170,7 +170,7 @@ export function RoleSheet({
           </div>
 
           {/* membri */}
-          <p className="mt-8 text-xs font-semibold uppercase tracking-[0.25em] text-crema/45">
+          <p className="mt-8 text-xs font-semibold text-crema/45">
             {role.memberCount} {role.memberCount === 1 ? "membro" : "membri"}
           </p>
           <ul className="mt-3 space-y-1">
@@ -180,11 +180,11 @@ export function RoleSheet({
                   <Avatar userId={m.userId} src={m.avatarUrl} name={m.displayName} className="size-9" />
                   <span className="min-w-0 flex-1 truncate">{m.displayName}</span>
                   {m.isOwner && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-caramel/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-ember">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-caramel/15 px-2 py-0.5 text-xs font-semibold text-ember">
                       <Crown className="size-3" /> creatore
                     </span>
                   )}
-                  {m.userId === userId && !m.isOwner && <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-ember">tu</span>}
+                  {m.userId === userId && !m.isOwner && <span className="text-xs font-semibold text-ember">tu</span>}
                 </a>
               </li>
             ))}

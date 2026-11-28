@@ -217,7 +217,7 @@ export function V2Editor({
           {blocks.map((b, i) => (
             <li key={i} className="rounded-2xl bg-espresso/40 p-3 ring-1 ring-sand/10">
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-crema/55">
+                <span className="text-xs font-semibold text-crema/55">
                   {i + 1}. {BLOCK_LABEL[b.type]}
                 </span>
                 <span className="flex-1" />

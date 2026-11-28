@@ -371,7 +371,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Cerca un comando in tutti i bot…"
           aria-label="Cerca un comando"
-          className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full rounded-2xl bg-roast/85 py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
         />
         {query && (
           <button
@@ -406,7 +406,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
                 {active && (
                   <motion.span
                     layoutId="wiki-cat-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
+                    className="absolute inset-0 -z-10 rounded-full bg-crema"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -462,7 +462,7 @@ export function WikiBrowser({ initial }: { initial: Record<BotId, WikiBot> }) {
         </AnimatePresence>
 
         {shown.length === 0 && (
-          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-10 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-roast/85 p-10 text-center ring-1 ring-sand/12">
             <p className="font-display text-2xl">Nessun comando trovato per “{query}”</p>
             <p className="mt-2 text-crema/60">Prova con il nome del comando senza prefisso, per esempio “play” o “afk”.</p>
           </div>

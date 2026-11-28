@@ -138,7 +138,7 @@ export function Footer() {
             {eventoChrome
               ? eventoCols.map((g) => (
                   <div key={g.title} className="flex flex-col items-center text-center">
-                    <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand sm:text-xs sm:tracking-[0.25em]">
+                    <h3 className="text-xs font-semibold text-sand sm:text-xs">
                       {g.title}
                     </h3>
                     <ul className="mt-3 flex flex-col items-center space-y-2 sm:mt-4 sm:space-y-2.5">
@@ -170,7 +170,7 @@ export function Footer() {
                 ))
               : navGroups.map((g) => (
                   <div key={g.labelKey} className="flex flex-col items-center text-center">
-                    <h3 className="flex items-center justify-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-sand/80 sm:text-xs sm:tracking-[0.25em]">
+                    <h3 className="flex items-center justify-center gap-1.5 text-xs font-semibold text-sand/80 sm:text-xs">
                       <NavIcon labelKey={g.labelKey} className="size-3 shrink-0 opacity-80 sm:size-3.5" />
                       <span className="truncate">{t(g.labelKey)}</span>
                     </h3>
@@ -189,7 +189,7 @@ export function Footer() {
                                 <span className="blur-[2.5px] select-none" aria-hidden>
                                   {t(l.labelKey)}
                                 </span>
-                                <span className="shrink-0 rounded-full bg-espresso/90 px-1.5 py-px text-[0.55rem] font-bold uppercase tracking-[0.16em] text-sand/80 ring-1 ring-sand/25">
+                                <span className="shrink-0 rounded-full bg-espresso/90 px-1.5 py-px text-xs font-semibold text-sand/80 ring-1 ring-sand/25">
                                   {soon}
                                 </span>
                               </span>

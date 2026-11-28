@@ -53,7 +53,7 @@ function PmNavigator({ list, current, onGo }: { list: GuildStaffManager[]; curre
               <input id="pm-search" name="pm-search" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca un Partner Manager…" className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-crema/35" />
             </label>
             <div className="max-h-80 overflow-y-auto p-1.5">
-              <p className="px-2 pb-1 pt-2 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-caramel">Partner Manager</p>
+              <p className="px-2 pb-1 pt-2 text-xs font-semibold text-caramel">Partner Manager</p>
               {shown.map((m) => (
                 <button key={m.userId} type="button" onClick={() => go(m.userId)} className={cn("flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm hover:bg-crema/[0.06]", m.userId === current && "bg-caramel/12 text-ember")}>
                   <Avatar userId={m.userId} src={m.avatarUrl || undefined} name={m.displayName} className="size-7 text-xs" />
@@ -83,7 +83,7 @@ function BadgeChips({ badges }: { badges: { id: string; title: string; node: Rea
 
 function Stat({ value, label, icon }: { value: number | string; label: string; icon: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-start rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12">
+    <div className="flex flex-col items-start rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/12">
       <span className="flex size-9 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-4">{icon}</span>
       <span className="mt-3 font-display text-3xl font-semibold leading-none lining-nums">{value}</span>
       <span className="mt-1 text-xs text-crema/55">{label}</span>
@@ -173,7 +173,7 @@ export function GuildStaffView({
         <Loader2 className="size-5 animate-spin" /> Sto recuperando le statistiche…
       </div>
     );
-  if (!res.r.ok) return <p className="mx-auto max-w-xl rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center text-crema/70 ring-1 ring-sand/12">{res.r.message}</p>;
+  if (!res.r.ok) return <p className="mx-auto max-w-xl rounded-3xl bg-roast/85 p-8 text-center text-crema/70 ring-1 ring-sand/12">{res.r.message}</p>;
   const s = res.r.data;
 
   /* il tuo profilo: statistiche, preferenze, badge da scegliere e obiettivi (come in /dashboard/profilo) */
@@ -223,7 +223,7 @@ export function GuildStaffView({
         </div>
       )}
 
-      <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
+      <section className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-center gap-2">
           <Target className="size-5 text-caramel" aria-hidden />
           <h3 className="font-display text-2xl font-semibold">Obiettivi</h3>
@@ -244,12 +244,12 @@ export function GuildStaffView({
                     <p className={cn("text-sm font-semibold", o.done ? "text-ember" : "text-crema")}>{o.title}</p>
                     {o.desc ? <p className="mt-0.5 text-xs leading-relaxed text-crema/55">{o.desc}</p> : null}
                   </div>
-                  {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase text-ember">fatto</span> : null}
+                  {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-xs font-semibold text-ember">fatto</span> : null}
                 </div>
                 {!o.done ? (
                   <div className="mt-2.5 flex items-center gap-2">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-crema/10">
-                      <div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-caramel" style={{ width: `${pct}%` }} />
                     </div>
                     <span className="text-[0.7rem] text-crema/50 lining-nums">
                       {label}
@@ -263,7 +263,7 @@ export function GuildStaffView({
       </section>
 
       {s.badges.length ? (
-        <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
+        <section className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
           <div className="flex items-center gap-2">
             <Award className="size-5 text-caramel" aria-hidden />
             <h3 className="font-display text-2xl font-semibold">Badge sbloccati</h3>

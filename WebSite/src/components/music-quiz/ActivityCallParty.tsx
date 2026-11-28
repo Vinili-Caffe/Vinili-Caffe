@@ -61,13 +61,13 @@ export function ActivityCallParty() {
     <motion.section
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col gap-3 rounded-3xl bg-gradient-to-r from-caramel/20 via-roast to-roast p-4 ring-1 ring-caramel/30 sm:flex-row sm:items-center"
+      className="flex flex-col gap-3 rounded-3xl bg-roast p-4 ring-1 ring-caramel/30 sm:flex-row sm:items-center"
     >
       <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-caramel text-ink">
         <Users className="size-5" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-caramel">Partita in questa chiamata</p>
+        <p className="text-xs font-semibold text-caramel">Partita in questa chiamata</p>
         {live ? (
           <>
             <p className="truncate font-display text-xl font-semibold text-crema">{live.packTitle}</p>
@@ -87,7 +87,7 @@ export function ActivityCallParty() {
         <button
           type="button"
           onClick={() => void activityInvite()}
-          className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-xs font-bold uppercase tracking-wide text-crema ring-1 ring-sand/25 transition hover:bg-crema/[0.08]"
+          className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-xs font-semibold text-crema ring-1 ring-sand/25 transition hover:bg-crema/[0.08]"
         >
           <UserPlus className="size-4" aria-hidden /> Invita
         </button>
@@ -98,7 +98,7 @@ export function ActivityCallParty() {
               rememberPartyJoined(live.roomId);
               router.push(page(`/music-quiz/party/?room=${encodeURIComponent(live.roomId)}`));
             }}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-5 text-xs font-bold uppercase tracking-wide text-ink"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-caramel px-5 text-xs font-semibold text-ink"
           >
             <Play className="size-4 fill-current" aria-hidden /> Entra
           </button>

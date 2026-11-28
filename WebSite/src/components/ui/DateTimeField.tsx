@@ -221,7 +221,7 @@ export function DateTimeField({
                     </div>
                     <div className="grid grid-cols-7 gap-0.5">
                       {WEEK.map((w) => (
-                        <span key={w} className="py-1 text-center text-[0.65rem] font-bold uppercase tracking-wider text-crema/40">
+                        <span key={w} className="py-1 text-center text-xs font-semibold text-crema/40">
                           {w}
                         </span>
                       ))}
@@ -254,7 +254,7 @@ export function DateTimeField({
                   {/* ore e minuti */}
                   <div className={cn("flex gap-1.5", pos.narrow ? "h-36" : "h-[276px] flex-1 border-l border-sand/10 pl-3")}>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <p className="pb-1 text-center text-[0.65rem] font-bold uppercase tracking-wider text-crema/40">Ora</p>
+                      <p className="pb-1 text-center text-xs font-semibold text-crema/40">Ora</p>
                       <div ref={hourCol} className="flex flex-1 flex-col gap-0.5 overflow-y-auto py-8 overscroll-contain [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,transparent,black_14%,black_86%,transparent)] [&::-webkit-scrollbar]:hidden">
                         {HOURS.map((h) => {
                           const on = !!cur && cur.getHours() === h;
@@ -268,7 +268,7 @@ export function DateTimeField({
                       </div>
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <p className="pb-1 text-center text-[0.65rem] font-bold uppercase tracking-wider text-crema/40">Min</p>
+                      <p className="pb-1 text-center text-xs font-semibold text-crema/40">Min</p>
                       <div ref={minCol} className="flex flex-1 flex-col gap-0.5 overflow-y-auto py-8 overscroll-contain [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,transparent,black_14%,black_86%,transparent)] [&::-webkit-scrollbar]:hidden">
                         {MINUTES.map((m) => {
                           const on = !!cur && cur.getMinutes() === m;
@@ -289,7 +289,7 @@ export function DateTimeField({
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="inline-flex items-center rounded-full bg-gradient-to-r from-caramel to-ember px-3.5 py-1.5 text-xs font-semibold text-ink"
+                    className="inline-flex items-center rounded-full bg-caramel px-3.5 py-1.5 text-xs font-semibold text-ink"
                   >
                     Fatto
                   </button>

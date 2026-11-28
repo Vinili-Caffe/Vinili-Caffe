@@ -151,7 +151,7 @@ export function OwnershipTab({
                   <p className="truncate font-semibold text-crema">{found.name}</p>
                   {found.username ? <p className="truncate text-xs text-crema/50">@{found.username}</p> : null}
                 </div>
-                <button type="button" disabled={busy === "send"} onClick={() => void send()} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink disabled:opacity-50">
+                <button type="button" disabled={busy === "send"} onClick={() => void send()} className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink disabled:opacity-50">
                   <ArrowRightLeft className="size-4" /> Proponi
                 </button>
               </div>

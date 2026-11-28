@@ -82,7 +82,7 @@ export function ChatDrawer({
           >
             <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3">
               <MessageSquare className="size-4 text-caramel" aria-hidden />
-              <h3 className="flex-1 text-sm font-bold uppercase tracking-wide text-crema">Chat della stanza</h3>
+              <h3 className="flex-1 text-sm font-semibold text-crema">Chat della stanza</h3>
               <button type="button" onClick={onClose} className="rounded-full p-1.5 text-crema/55 hover:bg-crema/10 hover:text-crema" aria-label="Chiudi la chat">
                 <X className="size-4" />
               </button>

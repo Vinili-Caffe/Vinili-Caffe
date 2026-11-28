@@ -262,7 +262,7 @@ export function NotifLiveToasts() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
-                  <span className="truncate text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-caramel/90">
+                  <span className="truncate text-xs font-semibold text-caramel/90">
                     {label}
                   </span>
                   <span className="ml-auto shrink-0 text-[0.65rem] text-crema/40">{timeAgoNotif(n.at)}</span>

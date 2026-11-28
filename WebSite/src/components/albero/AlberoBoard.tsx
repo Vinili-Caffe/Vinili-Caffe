@@ -54,7 +54,7 @@ function AlberoFrame({ children, className }: { children: ReactNode; className?:
 function AlberoTitle({ count }: { count?: number }) {
   return (
     <>
-      <p className="inline-flex items-center gap-2 rounded-full border border-[#f4e9d8]/25 bg-black/20 px-3.5 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.24em] backdrop-blur-sm">
+      <p className="inline-flex items-center gap-2 rounded-full border border-[#f4e9d8]/25 bg-black/20 px-3.5 py-1.5 text-xs font-semibold backdrop-blur-sm">
         <TreePine className="size-3.5 text-[#f0b46e]" aria-hidden />
         Natale · Vinili & Caffè
       </p>
@@ -528,7 +528,7 @@ export function AlberoBoard() {
                   <button
                     type="button"
                     onClick={login}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition hover:-translate-y-0.5"
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition "
                   >
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
@@ -539,7 +539,7 @@ export function AlberoBoard() {
                       setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
                       setComposerOpen(true);
                     }}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(240,180,110,0.65)] transition hover:-translate-y-0.5"
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(0,0,0,0.55)] transition "
                   >
                     <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
                   </button>
@@ -575,7 +575,7 @@ export function AlberoBoard() {
                   <button
                     type="button"
                     onClick={login}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition hover:-translate-y-0.5"
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition "
                   >
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
@@ -586,7 +586,7 @@ export function AlberoBoard() {
                       setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
                       setComposerOpen(true);
                     }}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(240,180,110,0.65)] transition hover:-translate-y-0.5"
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(0,0,0,0.55)] transition "
                   >
                     <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
                   </button>
@@ -679,7 +679,7 @@ export function AlberoBoard() {
                       <div className="pointer-events-auto mt-3 flex justify-center gap-4">
                         <button
                           type="button"
-                          className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-[#ffd7a0]/85 underline-offset-2 hover:underline"
+                          className="text-xs font-semibold text-[#ffd7a0]/85 underline-offset-2 hover:underline"
                           onClick={() => {
                             setComposerOpen(true);
                             setPeek(null);
@@ -689,7 +689,7 @@ export function AlberoBoard() {
                         </button>
                         <button
                           type="button"
-                          className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-red-300/80 underline-offset-2 hover:underline"
+                          className="text-xs font-semibold text-red-300/80 underline-offset-2 hover:underline"
                           disabled={removing}
                           onClick={() => void removeMine()}
                         >
@@ -795,7 +795,7 @@ export function AlberoBoard() {
                       className={cn(
                         "relative flex items-center gap-3 rounded-2xl p-3 text-left ring-1 transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]",
                         on
-                          ? "bg-caramel/12 ring-caramel/55 shadow-[0_10px_30px_-18px_rgba(240,180,110,0.8)]"
+                          ? "bg-caramel/12 ring-caramel/55 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.55)]"
                           : "bg-espresso/70 ring-crema/10 hover:bg-crema/[0.05] hover:ring-crema/20",
                       )}
                     >

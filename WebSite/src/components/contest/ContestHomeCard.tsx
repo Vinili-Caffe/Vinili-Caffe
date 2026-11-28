@@ -66,7 +66,7 @@ export function ContestHomeCard() {
               <X className="size-4" strokeWidth={2.25} />
             </button>
             <div className="relative pr-8">
-              <p className="mb-1.5 inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-caramel uppercase">
+              <p className="mb-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-caramel">
                 <Ghost className="size-3.5" />
                 {item.phase === "after" ? "Classifica" : "In corso"}
               </p>

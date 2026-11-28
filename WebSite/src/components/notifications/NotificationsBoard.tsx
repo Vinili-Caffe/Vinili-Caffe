@@ -120,7 +120,7 @@ function NotifRow({
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span
             className={cn(
-              "rounded-full px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider",
+              "rounded-full px-2.5 py-0.5 text-xs font-semibold",
               n.openUrl ? "bg-caramel/15 text-ember ring-1 ring-caramel/25" : n.read ? "bg-crema/8 text-crema/45" : "bg-crema/10 text-crema/60",
             )}
           >
@@ -438,7 +438,7 @@ export function NotificationsBoard() {
     return (
       <div className="mx-auto max-w-lg px-6 pb-20">
         <Reveal>
-          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-roast/85 p-8 text-center ring-1 ring-sand/12">
             <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
               <Bell className="size-5" />
             </span>
@@ -449,7 +449,7 @@ export function NotificationsBoard() {
             <button
               type="button"
               onClick={login}
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
             >
               <LogIn className="size-4" />
               Accedi con Discord

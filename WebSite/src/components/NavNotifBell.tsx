@@ -239,7 +239,7 @@ export function NavNotifBell() {
                     className={cn(
                       "mt-1.5 size-2 shrink-0 rounded-full",
                       narrow && "mt-2 size-2.5",
-                      n.read ? "bg-crema/20" : "bg-ember shadow-[0_0_6px_rgba(240,180,110,0.7)]",
+                      n.read ? "bg-crema/20" : "bg-ember ",
                     )}
                     aria-hidden
                   />
@@ -261,7 +261,7 @@ export function NavNotifBell() {
                       </span>
                     ) : null}
                     {cat ? (
-                      <span className="mt-1 inline-block text-[0.65rem] font-semibold uppercase tracking-wider text-caramel/80">
+                      <span className="mt-1 inline-block text-xs font-semibold text-caramel/80">
                         {cat}
                       </span>
                     ) : null}

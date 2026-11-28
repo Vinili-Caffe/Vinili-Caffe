@@ -123,8 +123,8 @@ function VetrinaTopBar() {
           <SmartLink href={page("/vetrina/")} className="group flex shrink-0 items-center gap-2.5">
             <BotLogo />
             <span className="hidden leading-none sm:block">
-              <span className="block font-display text-lg font-semibold uppercase tracking-[0.14em] text-crema transition-colors group-hover:text-ember">Vetrina</span>
-              <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-crema/40">Vinili &amp; Caffè</span>
+              <span className="block font-display text-lg font-semibold text-crema transition-colors group-hover:text-ember">Vetrina</span>
+              <span className="block text-xs font-semibold text-crema/40">Vinili &amp; Caffè</span>
             </span>
           </SmartLink>
           <span className="hidden sm:block">
@@ -265,7 +265,7 @@ function VetrinaAccountMenu() {
               </span>
             </div>
             <div className="border-t border-sand/10 pt-1.5">
-              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Vetrina</p>
+              <p className="px-2.5 pb-1 text-xs font-semibold text-crema/45">Vetrina</p>
               {items.map((n) => {
                 const Icon = n.icon;
                 const active = pathname.startsWith(n.href);
@@ -286,14 +286,14 @@ function VetrinaAccountMenu() {
               })}
             </div>
             <div className="mt-1.5 border-t border-sand/10 px-1 pb-1 pt-2">
-              <p className="px-1.5 pb-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Tema</p>
+              <p className="px-1.5 pb-1.5 text-xs font-semibold text-crema/45">Tema</p>
               <ThemePrefRow />
             </div>
             <div className="mt-1.5 border-t border-sand/10 pt-1.5">
               <SmartLink
                 href="/"
                 role="menuitem"
-                className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-caramel to-ember px-2.5 py-2 text-sm font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-110"
+                className="flex items-center justify-center gap-2 rounded-lg bg-caramel px-2.5 py-2 text-sm font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(0,0,0,0.55)] transition hover:brightness-110"
               >
                 <House className="size-4 shrink-0" /> Torna al sito
               </SmartLink>
@@ -330,7 +330,7 @@ export function VetrinaHeader({
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="relative mx-auto max-w-6xl"
       >
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-caramel [&>svg]:size-4">
+        <p className="flex items-center gap-2 text-xs font-semibold text-caramel [&>svg]:size-4">
           {icon} {kicker}
         </p>
         <h1 className="mt-3 font-display text-5xl font-semibold leading-[1.02] sm:text-6xl">

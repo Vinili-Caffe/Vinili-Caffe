@@ -137,7 +137,7 @@ export function CommentImages({ urls, className }: { urls?: string[]; className?
       {urls.map((u) => (
         <a key={u} href={u} data-vc-lightbox className="block overflow-hidden rounded-xl ring-1 ring-sand/15">
           { }
-          <img src={u} alt="Foto nel commento" loading="lazy" className="h-28 w-auto max-w-[14rem] object-cover transition-transform duration-300 hover:scale-105 sm:h-32" />
+          <img src={u} alt="Foto nel commento" loading="lazy" className="h-28 w-auto max-w-[14rem] object-cover transition-transform duration-300  sm:h-32" />
         </a>
       ))}
     </div>

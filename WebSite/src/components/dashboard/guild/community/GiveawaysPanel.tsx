@@ -322,7 +322,7 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
           <div className="space-y-4">
             {scheduled.length ? (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-crema/55">Programmati</p>
+                <p className="mb-2 text-xs font-semibold text-crema/55">Programmati</p>
                 <ul className="space-y-2">
                   {scheduled.map((s) => (
                     <li key={s.id} className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
@@ -356,13 +356,13 @@ export function GiveawaysPanel({ guildId, token, onToast }: { guildId: string; t
             ) : null}
             {active.length ? (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-crema/55">In corso</p>
+                <p className="mb-2 text-xs font-semibold text-crema/55">In corso</p>
                 <ul className="space-y-2">{active.map(row)}</ul>
               </div>
             ) : null}
             {past.length ? (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-crema/55">Finiti</p>
+                <p className="mb-2 text-xs font-semibold text-crema/55">Finiti</p>
                 <ul className="space-y-2">{past.slice(0, 20).map(row)}</ul>
               </div>
             ) : null}

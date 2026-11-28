@@ -88,7 +88,7 @@ export function ListingReviews({ listing, onAggregate }: { listing: BoardListing
               </span>
               <span className="h-2 flex-1 overflow-hidden rounded-full bg-crema/8">
                 <motion.span
-                  className="block h-full rounded-full bg-gradient-to-r from-caramel to-ember"
+                  className="block h-full rounded-full bg-caramel"
                   initial={{ width: 0 }}
                   animate={{ width: `${(dist[n - 1] / maxBar) * 100}%` }}
                   transition={{ duration: 0.7, delay: (5 - n) * 0.05, ease: [0.22, 1, 0.36, 1] }}
@@ -122,7 +122,7 @@ export function ListingReviews({ listing, onAggregate }: { listing: BoardListing
 
       {data?.mine && (
         <div className="mt-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-ember">La tua recensione</p>
+          <p className="mb-2 text-xs font-semibold text-ember">La tua recensione</p>
           <ReviewCard review={data.mine} canReply={false} mine onChange={replace} />
         </div>
       )}
@@ -227,7 +227,7 @@ function WriteReview({ listingId, onDone }: { listingId: string; onDone: (avg: n
                     aria-label={`${n} stelle`}
                     onMouseEnter={() => setHover(n)}
                     onClick={() => setRating(n)}
-                    className="p-0.5 transition-transform hover:scale-110"
+                    className="p-0.5 transition-transform "
                   >
                     <Star className={cn("size-8 transition-colors", n <= shown ? "fill-ember text-ember" : "text-crema/25")} />
                   </button>
@@ -248,7 +248,7 @@ function WriteReview({ listingId, onDone }: { listingId: string; onDone: (avg: n
               <button type="button" onClick={() => setOpen(false)} className="ml-auto text-sm text-crema/50 hover:text-crema">
                 Annulla
               </button>
-              <button type="button" disabled={busy} onClick={send} className="rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2 text-sm font-bold text-ink disabled:opacity-60">
+              <button type="button" disabled={busy} onClick={send} className="rounded-full bg-caramel px-5 py-2 text-sm font-bold text-ink disabled:opacity-60">
                 {busy ? "Pubblico…" : "Pubblica recensione"}
               </button>
             </div>
@@ -346,7 +346,7 @@ function ReviewCard({ review, canReply, mine = false, onChange }: { review: Boar
 
           {review.reply && (
             <div className="mt-3 rounded-xl border-l-2 border-ember/60 bg-crema/5 px-4 py-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-ember">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-ember">
                 <Store className="size-3.5" /> Risposta del proprietario
                 {review.reply.at ? <span className="font-normal normal-case tracking-normal text-crema/40">· {timeAgo(review.reply.at)}</span> : null}
               </p>

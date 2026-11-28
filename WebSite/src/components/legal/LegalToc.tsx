@@ -22,7 +22,7 @@ export function LegalToc({
 
   return (
     <aside className="border-b border-sand/10 bg-espresso/40 px-4 py-5 lg:sticky lg:top-28 lg:max-h-[calc(100dvh-8rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-5 lg:py-8">
-      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-caramel">Indice</p>
+      <p className="text-xs font-semibold text-caramel">Indice</p>
       <nav aria-label="Indice del documento" className="mt-4">
         <ol className="space-y-1">
           {sections.map((s, i) => (
@@ -48,7 +48,7 @@ export function LegalToc({
 
       {siblings?.length ? (
         <div className="mt-8 border-t border-sand/10 pt-5">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-caramel">Altre policy</p>
+          <p className="text-xs font-semibold text-caramel">Altre policy</p>
           <ul className="mt-3 space-y-1.5">
             {siblings.map((s) => (
               <li key={s.slug}>

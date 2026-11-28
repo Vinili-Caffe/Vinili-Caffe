@@ -159,7 +159,7 @@ export function ModulesPanel({
                   <span
                     className={cn(
                       "flex size-10 shrink-0 items-center justify-center rounded-xl ring-1",
-                      m.on ? "bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-caramel/20" : "bg-crema/[0.05] text-crema/40 ring-sand/10",
+                      m.on ? "bg-caramel/10 text-ember ring-caramel/20" : "bg-crema/[0.05] text-crema/40 ring-sand/10",
                     )}
                   >
                     <Icon className="size-[1.1rem]" aria-hidden />
@@ -167,7 +167,7 @@ export function ModulesPanel({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <p className={cn("font-semibold", m.on ? "text-crema" : "text-crema/60")}>{m.title}</p>
-                      {m.tag ? <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/50">{m.tag}</span> : null}
+                      {m.tag ? <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/50">{m.tag}</span> : null}
                     </div>
                   </div>
                   {m.locked ? (

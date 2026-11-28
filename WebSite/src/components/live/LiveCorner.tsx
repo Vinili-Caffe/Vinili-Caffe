@@ -200,7 +200,7 @@ function LivePill({ stream, onOpen }: { stream: LiveStream; onOpen: () => void }
     <button
       type="button"
       onClick={onOpen}
-      className="pointer-events-auto inline-flex max-w-full items-center gap-1.5 rounded-full bg-roast/90 py-1 pr-2.5 pl-2 text-left shadow-[0_12px_32px_-16px_rgba(212,145,80,0.55)] ring-1 ring-caramel/35 backdrop-blur-md transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:ring-caramel/60"
+      className="pointer-events-auto inline-flex max-w-full items-center gap-1.5 rounded-full bg-roast/90 py-1 pr-2.5 pl-2 text-left shadow-[0_12px_32px_-16px_rgba(0,0,0,0.55)] ring-1 ring-caramel/35 backdrop-blur-md transition-[transform,filter] duration-200 ease-out  active:scale-[0.97] hover:ring-caramel/60"
       aria-label={t("live.pillAria", { name: stream.displayName, platform: brand })}
     >
       <span className="relative flex size-2 shrink-0" aria-hidden>
@@ -209,7 +209,7 @@ function LivePill({ stream, onOpen }: { stream: LiveStream; onOpen: () => void }
         )}
         <span className={`relative m-auto size-1.5 rounded-full ${live ? "bg-ember" : "bg-sand"}`} />
       </span>
-      <span className="text-[0.68rem] font-semibold tracking-[0.12em] text-caramel uppercase">{label}</span>
+      <span className="text-xs font-semibold text-caramel">{label}</span>
     </button>
   );
 }
@@ -234,14 +234,14 @@ function LiveStage({ stream, onClose }: { stream: LiveStream; onClose: () => voi
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 8 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-auto w-full overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/15 to-roast shadow-[0_24px_60px_-28px_rgba(212,145,80,0.4)] ring-1 ring-caramel/45"
+      className="pointer-events-auto w-full overflow-hidden rounded-2xl bg-roast shadow-[0_24px_60px_-28px_rgba(0,0,0,0.55)] ring-1 ring-caramel/45"
     >
       <header className="flex items-start gap-2.5 px-3 pt-2.5 pb-1.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-caramel/15 text-ember ring-1 ring-caramel/25">
           <Radio className="size-3.5" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[0.62rem] font-semibold tracking-[0.18em] text-caramel uppercase">
+          <p className="text-xs font-semibold text-caramel">
             {live ? t("live.lastLive") : t("live.lastVod")}
           </p>
           <h2 id={titleId} className="truncate font-display text-lg leading-tight font-semibold text-crema">
@@ -273,7 +273,7 @@ function LiveStage({ stream, onClose }: { stream: LiveStream; onClose: () => voi
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-2.5 py-1 text-xs font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
+              className="inline-flex items-center gap-1 rounded-full bg-caramel px-2.5 py-1 text-xs font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
             >
               {t("live.openTwitch")}
               <ExternalLink className="size-3.5" aria-hidden />
@@ -306,7 +306,7 @@ function PlayPlate({ label, onClick }: { label: string; onClick: () => void }) {
       aria-label={label}
       className="absolute inset-0 flex items-center justify-center bg-espresso/25"
     >
-      <span className="flex size-14 items-center justify-center rounded-full bg-gradient-to-r from-caramel to-ember text-ink shadow-[0_16px_40px_-12px_rgba(212,145,80,0.8)] ring-1 ring-crema/30 transition hover:scale-105">
+      <span className="flex size-14 items-center justify-center rounded-full bg-caramel text-ink shadow-[0_16px_40px_-12px_rgba(0,0,0,0.55)] ring-1 ring-crema/30 transition ">
         <Play className="ml-0.5 size-6 fill-current" aria-hidden />
       </span>
     </button>

@@ -133,7 +133,7 @@ export function VetrinaSearch({
           value={local.q}
           onChange={(e) => setLocal((prev) => ({ ...prev, q: e.target.value }))}
           placeholder={kind === "bot" ? "Cerca un bot per nome, funzione o tag…" : "Cerca un server per nome, tema o tag…"}
-          className="w-full rounded-full bg-roast/90 py-4 pl-[4.5rem] pr-32 text-lg text-crema shadow-[0_24px_60px_-30px_rgba(217,154,91,0.6)] outline-none ring-1 ring-sand/20 backdrop-blur placeholder:text-crema/35 focus:ring-2 focus:ring-ember/50"
+          className="w-full rounded-full bg-roast/90 py-4 pl-[4.5rem] pr-32 text-lg text-crema shadow-[0_24px_60px_-30px_rgba(0,0,0,0.55)] outline-none ring-1 ring-sand/20 backdrop-blur placeholder:text-crema/35 focus:ring-2 focus:ring-ember/50"
         />
         {local.q && (
           <button
@@ -149,7 +149,7 @@ export function VetrinaSearch({
             <X className="size-4" />
           </button>
         )}
-        <button type="submit" className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink">
+        <button type="submit" className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink">
           <Search className="size-4" /> Cerca
         </button>
       </label>
@@ -276,7 +276,7 @@ export function VetrinaSearch({
 function FilterBlock({ icon, label, className, children }: { icon: React.ReactNode; label: string; className?: string; children: React.ReactNode }) {
   return (
     <div className={className}>
-      <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45 [&>svg]:size-3.5">
+      <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-crema/45 [&>svg]:size-3.5">
         {icon} {label}
       </p>
       {children}

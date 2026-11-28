@@ -344,7 +344,7 @@ function ActivatePremium({
           {guild ? (
             <div className="grid gap-px bg-sand/10 sm:grid-cols-3">
               <div className="bg-espresso/70 px-4 py-3.5">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/45">Prezzo</p>
+                <p className="text-xs font-semibold text-crema/45">Prezzo</p>
                 <p className="mt-1 text-sm text-crema">
                   <span className="font-display text-xl font-semibold tabular-nums">{plan.credits}</span>
                   <span className="text-crema/55"> crediti</span>
@@ -356,12 +356,12 @@ function ActivatePremium({
                 {!enough ? <p className="mt-1 text-xs font-medium text-[#f0a493] light:text-[#a83a2c]">Crediti insufficienti</p> : null}
               </div>
               <div className="bg-espresso/70 px-4 py-3.5">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/45">Rinnovo</p>
+                <p className="text-xs font-semibold text-crema/45">Rinnovo</p>
                 <p className="mt-1 text-sm font-semibold text-crema">Nessun rinnovo automatico</p>
                 <p className="mt-0.5 text-xs leading-snug text-crema/55">Scade a fine periodo; per continuare spendi di nuovo crediti.</p>
               </div>
               <div className="bg-espresso/70 px-4 py-3.5">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-crema/45">Disdetta</p>
+                <p className="text-xs font-semibold text-crema/45">Disdetta</p>
                 <p className="mt-1 text-sm font-semibold text-crema">Scade da sola</p>
                 <p className="mt-0.5 text-xs leading-snug text-crema/55">
                   Rimozione anticipata via{" "}
@@ -497,7 +497,7 @@ function CreditsHistory({ token, guilds }: { token: string; guilds: DashboardGui
         <div className="space-y-4">
           {groups.map((g) => (
             <section key={g.day}>
-              <h3 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{g.day}</h3>
+              <h3 className="mb-1.5 text-xs font-semibold text-crema/60">{g.day}</h3>
               <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
                 {g.moves.map((m, i) => {
                   const plus = m.delta > 0;

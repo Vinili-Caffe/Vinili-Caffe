@@ -51,7 +51,7 @@ function Chart({ data }: { data: ResoItem["costanzaChart"] }) {
               className="w-2.5 rounded-t-full bg-gradient-to-t from-crema/20 to-crema/70 sm:w-3"
             />
           </div>
-          <span className="text-[0.65rem] uppercase tracking-wider text-crema/45">{DAYS[new Date(d.dayKey + "T12:00:00").getDay()]}</span>
+          <span className="text-xs text-crema/45">{DAYS[new Date(d.dayKey + "T12:00:00").getDay()]}</span>
         </div>
       ))}
     </div>
@@ -151,7 +151,7 @@ export function Resoconto({ token, userId, canDecide, onChanged }: { token: stri
   };
 
   return (
-    <section data-deeplink="staffOpen:resoconto" className="scroll-mt-28 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
+    <section data-deeplink="staffOpen:resoconto" className="scroll-mt-28 rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-display text-2xl font-semibold">
           <ClipboardList className="size-5 text-caramel" /> Resoconto
@@ -258,7 +258,7 @@ export function Resoconto({ token, userId, canDecide, onChanged }: { token: stri
           )}
 
           <div className="rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-caramel">Esito proposto</p>
+            <p className="text-xs font-semibold text-caramel">Esito proposto</p>
             <p className="mt-1 font-display text-xl font-semibold">{it.azioneDisplay || it.proposedLabel || "Nulla"}</p>
           </div>
 

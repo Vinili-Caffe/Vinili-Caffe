@@ -53,10 +53,10 @@ const ICON_BY_NAME: [RegExp, LucideIcon][] = [
 const iconFor = (name: string) => ICON_BY_NAME.find(([re]) => re.test(name))?.[1] ?? Globe;
 
 const TONE = {
-  [UP]: { led: "bg-emerald-400", glow: "shadow-[0_0_10px_2px_rgba(52,211,153,0.7)]", bar: "bg-emerald-400/85", text: "text-emerald-300", label: "Operativo" },
-  [DOWN]: { led: "bg-red-500", glow: "shadow-[0_0_10px_2px_rgba(239,68,68,0.8)]", bar: "bg-red-500", text: "text-red-300", label: "Non raggiungibile" },
-  [PENDING]: { led: "bg-amber-400", glow: "shadow-[0_0_10px_2px_rgba(251,191,36,0.7)]", bar: "bg-amber-400", text: "text-amber-300", label: "Rallentato" },
-  [MAINT]: { led: "bg-sky-400", glow: "shadow-[0_0_10px_2px_rgba(56,189,248,0.7)]", bar: "bg-sky-400", text: "text-sky-300", label: "In manutenzione" },
+  [UP]: { led: "bg-emerald-400", glow: "", bar: "bg-emerald-400/85", text: "text-emerald-300", label: "Operativo" },
+  [DOWN]: { led: "bg-red-500", glow: "", bar: "bg-red-500", text: "text-red-300", label: "Non raggiungibile" },
+  [PENDING]: { led: "bg-amber-400", glow: "", bar: "bg-amber-400", text: "text-amber-300", label: "Rallentato" },
+  [MAINT]: { led: "bg-sky-400", glow: "", bar: "bg-sky-400", text: "text-sky-300", label: "In manutenzione" },
 } as const;
 const tone = (s: number) => TONE[s as keyof typeof TONE] ?? TONE[PENDING];
 
@@ -157,7 +157,7 @@ function ProcessCard({ p, i }: { p: ProcessLive; i: number }) {
           <span
             className={cn(
               "absolute -right-0.5 -top-0.5 size-2.5 rounded-full",
-              ok ? "bg-emerald-400 shadow-[0_0_10px_2px_rgba(52,211,153,0.7)]" : "bg-red-500 shadow-[0_0_10px_2px_rgba(239,68,68,0.8)]",
+              ok ? "bg-emerald-400 " : "bg-red-500 ",
             )}
           />
         </span>
@@ -284,7 +284,7 @@ function ResponseTimeChart({ points }: { points: MetricPoint[] }) {
 function PastIncidents({ days }: { days: PastIncidentDay[] }) {
   return (
     <section className="mt-10">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-crema/40">Incidenti passati</h2>
+      <h2 className="text-xs font-semibold text-crema/40">Incidenti passati</h2>
       <ul className="mt-4 divide-y divide-sand/10">
         {days.map((d) => (
           <li key={d.key} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
@@ -450,7 +450,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
 
       {processes.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-crema/40">Processi live</h2>
+          <h2 className="text-xs font-semibold text-crema/40">Processi live</h2>
           <p className="mt-2 text-sm text-crema/50">Collegamento a Discord, risposte del sito, database e memoria, letti in tempo reale.</p>
           <ul className="mt-4 space-y-3">
             {processes.map((p, i) => (
@@ -462,7 +462,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
 
       <section className="mt-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-crema/40">Metriche di sistema</h2>
+          <h2 className="text-xs font-semibold text-crema/40">Metriche di sistema</h2>
           <div className="flex rounded-full bg-crema/[0.06] p-1 ring-1 ring-sand/12">
             {RANGE_OPTS.map((opt) => (
               <button
@@ -485,7 +485,7 @@ export function StatusBoard({ initial }: { initial: StatusData | null }) {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-crema/40">Servizi monitorati</h2>
+        <h2 className="text-xs font-semibold text-crema/40">Servizi monitorati</h2>
         <ul className="mt-4 space-y-3">
           {services.map((s, i) => (
             <Channel key={s.id} s={s} i={i} />

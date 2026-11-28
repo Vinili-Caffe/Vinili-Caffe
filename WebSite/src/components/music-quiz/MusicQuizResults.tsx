@@ -64,7 +64,7 @@ export function MusicQuizResults({
           <img src={packCover} alt="" className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-15 blur-2xl" />
         ) : null}
         <div className="relative">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{packTitle}</p>
+          <p className="text-xs font-semibold text-caramel">{packTitle}</p>
           <motion.p
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -89,7 +89,7 @@ export function MusicQuizResults({
             <button
               type="button"
               onClick={onAgain}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink transition "
             >
               <RotateCcw className="size-4" aria-hidden /> Rigioca
             </button>
@@ -105,7 +105,7 @@ export function MusicQuizResults({
 
       {recap.length ? (
         <section>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-crema/55">Le canzoni</h2>
+          <h2 className="mb-3 text-xs font-semibold text-crema/55">Le canzoni</h2>
           <ol className="space-y-2">
             {recap.map((r, i) => (
               <motion.li

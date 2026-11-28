@@ -432,7 +432,7 @@ export function PropositiBoard() {
                   type="button"
                   onClick={send}
                   disabled={sending}
-                  className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
                 >
                   {sending ? (
                     <Loader2 className="size-4 animate-spin" />

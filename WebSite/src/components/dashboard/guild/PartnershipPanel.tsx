@@ -609,7 +609,7 @@ export function PartnershipPanel({
 
           <section className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10 sm:p-5">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-crema">
-              <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-caramel to-ember" aria-hidden />
+              <span className="h-3.5 w-1 rounded-full bg-caramel" aria-hidden />
               Messaggio di ringraziamento <PremiumBadge active={bundle.premiumActive} />
             </h3>
             <p className="mt-1 text-xs text-crema/60">Il bot lo manda al server partner dopo la pubblicazione.</p>

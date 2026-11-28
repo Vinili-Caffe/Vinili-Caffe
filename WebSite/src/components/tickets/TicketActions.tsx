@@ -60,7 +60,7 @@ function UserPicker({ token, ticket, mode, onPick }: { token: string; ticket: Ti
                 <span className="block truncate text-sm font-semibold">{u.name}</span>
                 {u.username && <span className="block truncate text-xs text-crema/45">@{u.username}</span>}
               </span>
-              {u.roleName && <span className="shrink-0 text-[0.65rem] font-bold uppercase tracking-wider text-caramel">{u.roleName}</span>}
+              {u.roleName && <span className="shrink-0 text-xs font-semibold text-caramel">{u.roleName}</span>}
             </button>
           </li>
         ))}
@@ -122,7 +122,7 @@ export function TicketActions({ token, ticket, categories = [], onDone, onError 
   return (
     <div ref={box} className="relative flex shrink-0 items-center gap-1">
       {primary && (
-        <button type="button" disabled={busy} onClick={primary.onClick} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-3.5 py-1.5 text-sm font-semibold text-ink disabled:opacity-60">
+        <button type="button" disabled={busy} onClick={primary.onClick} className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-1.5 text-sm font-semibold text-ink disabled:opacity-60">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Hand className="size-4" />} Claim
         </button>
       )}

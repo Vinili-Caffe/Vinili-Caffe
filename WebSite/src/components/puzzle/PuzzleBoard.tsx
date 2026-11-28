@@ -213,7 +213,7 @@ export function PuzzleBoard() {
         ) : (
           <div className="space-y-4">
             <div className="rounded-3xl bg-gradient-to-b from-[#1a2744]/80 to-[#05070f] p-4 ring-1 ring-[#c9a227]/30 sm:p-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Scegli la rotta</p>
+              <p className="text-xs font-semibold text-[#e4c76b]">Scegli la rotta</p>
               <p className="mt-1 text-sm text-crema/65">
                 Devi aspettare? Con un annuncio l’attesa si accorcia del 35% (fino a tre volte). Durante la partita ti dà 45 secondi in più e il premio vale una volta e mezza.
               </p>
@@ -260,7 +260,7 @@ export function PuzzleBoard() {
                           {row.pieces} pezzi · {row.exp} EXP · {crateOddsLabel(row.crateOdds)}
                         </span>
                         <span className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[#e4c76b]/90">
+                          <span className="text-xs font-semibold text-[#e4c76b]/90">
                             {busy ? "Avvio…" : locked ? "In cooldown" : token ? "Gioca" : "Accedi per giocare"}
                           </span>
                           {locked && row.canCutCooldown ? (

@@ -253,17 +253,17 @@ export function GestioneBoard() {
 
   if (error && !data) {
     return (
-      <div className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-6 text-sm text-crema/70 ring-1 ring-sand/15">{error}</div>
+      <div className="rounded-2xl bg-roast/80 p-6 text-sm text-crema/70 ring-1 ring-sand/15">{error}</div>
     );
   }
 
   return (
     <div className="space-y-5">
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-      <section className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/15 sm:p-5">
+      <section className="rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/15 sm:p-5">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">Organico</p>
+            <p className="text-xs font-semibold text-caramel">Organico</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">
               {data?.counts?.total != null ? `${data.counts.total} membri` : "Staff"}
             </h3>
@@ -294,7 +294,7 @@ export function GestioneBoard() {
               return (
                 <div key={`${sec.roleId || sec.roleLabel}`}>
                   <p
-                    className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em]"
+                    className="mb-2 text-xs font-semibold"
                     style={{ color: sec.color || "var(--color-caramel)" }}
                   >
                     {sec.roleLabel}
@@ -356,7 +356,7 @@ export function GestioneBoard() {
             <button
               type="button"
               onClick={() => void lookupProspect()}
-              className="shrink-0 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink"
+              className="shrink-0 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink"
             >
               Apri
             </button>
@@ -364,7 +364,7 @@ export function GestioneBoard() {
         </div>
       </section>
 
-      <section className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/15 sm:p-5">
+      <section className="rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/15 sm:p-5">
         {!selectedId || !member ? (
           <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4 text-center">
             <Users className="size-10 text-crema/25" aria-hidden />
@@ -459,7 +459,7 @@ export function GestioneBoard() {
                       type="button"
                       onClick={() => void submitCareer()}
                       disabled={busy}
-                      className="mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
+                      className="mt-3 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
                     >
                       {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                       {pick.label}

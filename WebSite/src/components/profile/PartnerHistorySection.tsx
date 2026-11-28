@@ -62,8 +62,8 @@ export function PartnerHistorySection({
     <section
       className={cn(
         compact
-          ? "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6"
-          : "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6",
+          ? "rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6"
+          : "rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6",
         className,
       )}
     >

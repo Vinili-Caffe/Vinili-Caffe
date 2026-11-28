@@ -379,14 +379,14 @@ export function Turntable({ className }: { className?: string } = {}) {
             type="button"
             onClick={toggle}
             whileTap={{ scale: 0.92 }}
-            className="relative flex size-10 items-center justify-center rounded-xl bg-gradient-to-b from-zinc-300 to-zinc-500 text-[0.55rem] font-bold uppercase tracking-wider text-zinc-900 shadow-[0_4px_0_#3f3f46,0_8px_14px_rgba(0,0,0,0.6)] active:translate-y-[2px] active:shadow-[0_2px_0_#3f3f46]"
+            className="relative flex size-10 items-center justify-center rounded-xl bg-gradient-to-b from-zinc-300 to-zinc-500 text-xs font-semibold text-zinc-900 shadow-[0_4px_0_#3f3f46,0_8px_14px_rgba(0,0,0,0.6)] active:translate-y-[2px] active:shadow-[0_2px_0_#3f3f46]"
             aria-label={playing ? "Stop" : "Start"}
           >
             {playing ? "Stop" : "Start"}
             <span
               className={cn(
                 "absolute -top-2.5 right-1 size-1.5 rounded-full transition-[transform,opacity,background-color] duration-500",
-                playing ? "bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.8)]" : "bg-red-900",
+                playing ? "bg-emerald-400 " : "bg-red-900",
               )}
             />
           </motion.button>

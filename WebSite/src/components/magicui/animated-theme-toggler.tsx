@@ -148,7 +148,7 @@ export function AnimatedThemeToggler({
       </span>
       <span
         className={cn(
-          "relative z-10 flex size-7 items-center justify-center rounded-full bg-gradient-to-b from-caramel to-ember text-ink shadow-sm transition-transform duration-300",
+          "relative z-10 flex size-7 items-center justify-center rounded-full bg-caramel text-ink shadow-sm transition-transform duration-300",
           dark ? "translate-x-[1.35rem]" : "translate-x-0",
         )}
         aria-hidden

@@ -100,7 +100,7 @@ export function ClassificheBrowser({
                 {active && (
                   <motion.span
                     layoutId="classifiche-scope-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
+                    className="absolute inset-0 -z-10 rounded-full bg-crema"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}

@@ -137,7 +137,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
     <div className="mx-auto w-full max-w-2xl p-5 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Nuovo ticket</p>
+          <p className="text-xs font-semibold text-caramel">Nuovo ticket</p>
           <h2 className="mt-1 font-display text-3xl font-semibold">Di cosa hai bisogno?</h2>
         </div>
         {onCancel && (
@@ -157,7 +157,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
               role="radio"
               aria-checked={on}
               onClick={() => setCat(c.id)}
-              className={cn("flex gap-3 rounded-2xl p-4 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out", on ? "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/60" : "bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast ring-sand/15 hover:ring-sand/30")}
+              className={cn("flex gap-3 rounded-2xl p-4 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out", on ? "bg-roast ring-caramel/60" : "bg-roast/80 ring-sand/15 hover:ring-sand/30")}
             >
               <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl ring-1", on ? "bg-caramel text-ink ring-caramel" : "bg-crema/6 text-sand ring-sand/20")}>{ICONS[c.id] ?? <LifeBuoy className="size-5" />}</span>
               <span className="min-w-0">
@@ -177,7 +177,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
           <p className="min-w-0 flex-1 text-sm leading-relaxed text-crema/80">
             <strong className="text-crema">Attiva le notifiche</strong> per essere avvisato su ogni aggiornamento del ticket: servono per aprirne uno.
           </p>
-          <button type="button" onClick={turnOnPush} disabled={pushBusy} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60">
+          <button type="button" onClick={turnOnPush} disabled={pushBusy} className="inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60">
             {pushBusy ? <Loader2 className="size-4 animate-spin" /> : <BellRing className="size-4" />} Attiva
           </button>
         </motion.div>
@@ -231,7 +231,7 @@ export function NewTicket({ token, categories, isStaff, onCreated, onCancel }: {
         type="button"
         onClick={submit}
         disabled={busy || push === false}
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50"
+        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)] transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-50"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Apri il ticket
       </button>

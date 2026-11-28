@@ -1009,7 +1009,7 @@ function Quota({ label, used, max }: { label: string; used: number; max: number 
         </span>
       </p>
       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-crema/10" role="progressbar" aria-valuenow={used} aria-valuemin={0} aria-valuemax={max} aria-label={label}>
-        <div className={`h-full rounded-full ${full ? "bg-[#e0735f]" : "bg-gradient-to-r from-caramel to-ember"}`} style={{ width: `${pct}%` }} />
+        <div className={`h-full rounded-full ${full ? "bg-[#e0735f]" : "bg-caramel"}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

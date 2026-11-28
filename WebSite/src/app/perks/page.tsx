@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 function SectionTitle({ icon, kicker, title, text }: { icon: React.ReactNode; kicker: string; title: string; text?: string }) {
   return (
     <Reveal className="mb-8">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-caramel [&>svg]:size-4">
+      <p className="flex items-center gap-2 text-xs font-semibold text-caramel [&>svg]:size-4">
         {icon} {kicker}
       </p>
       <h2 className="mt-2 font-display text-4xl font-semibold sm:text-5xl">{title}</h2>
@@ -68,9 +68,7 @@ export default function PerksPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {BOOST.map((b, i) => (
               <Reveal key={b.title} delay={i * 0.1} className="h-full">
-                <article className="scheme-dark relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1530] via-roast to-roast p-6 ring-1 ring-[#ff73fa]/25 sm:p-7">
-                  <div className="absolute -right-10 -top-10 size-40 rounded-full bg-[#ff73fa]/15 blur-3xl" />
-                  <div className="relative flex flex-wrap items-start gap-3">
+                <article className="scheme-dark relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1530] via-roast to-roast p-6 ring-1 ring-[#ff73fa]/25 sm:p-7"><div className="relative flex flex-wrap items-start gap-3">
                     <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff73fa]/15 font-display text-xl font-bold text-[#ffb3fc] ring-1 ring-[#ff73fa]/30">
                       {i + 1}×
                     </span>
@@ -111,7 +109,7 @@ export default function PerksPage() {
             <Reveal>
               <ol className="space-y-3">
                 {SELFIE.steps.map((s, i) => (
-                  <li key={s} className="flex gap-4 rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-5 ring-1 ring-sand/12">
+                  <li key={s} className="flex gap-4 rounded-2xl bg-roast/80 p-5 ring-1 ring-sand/12">
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-caramel/20 font-display text-lg font-bold lining-nums text-ember">{i + 1}</span>
                     <p className="leading-relaxed text-crema/75">
                       <RichText text={s} />
@@ -148,14 +146,14 @@ export default function PerksPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {BADGES.map((b, i) => (
               <Reveal key={b.role} delay={(i % 3) * 0.06} className="h-full">
-                <article className="relative flex h-full flex-col rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 transition-colors hover:ring-sand/30">
+                <article className="relative flex h-full flex-col rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12 transition-colors hover:ring-sand/30">
                   <div className="flex flex-wrap items-start gap-2">
                     <h3 className="min-w-0 max-w-full font-display text-xl font-semibold leading-snug [&>span]:max-w-full">
                       <RichText text={`<<${b.role}>>`} />
                     </h3>
                     {b.isNew ? <NewTag /> : null}
                   </div>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-caramel">{b.how}</p>
+                  <p className="mt-1 text-xs font-semibold text-caramel">{b.how}</p>
                   {b.desc && (
                     <p className="mt-3 text-sm leading-relaxed text-crema/60">
                       <RichText text={b.desc} />

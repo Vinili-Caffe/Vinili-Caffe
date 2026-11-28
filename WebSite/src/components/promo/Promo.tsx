@@ -149,7 +149,7 @@ function Countdown({ to, accent }: { to: string; accent: string }) {
       {parts.map(([label, n]) => (
         <span key={label} className="flex w-14 flex-col items-center rounded-xl bg-white/[0.04] py-2 ring-1" style={{ ["--tw-ring-color" as string]: `${accent}40` }}>
           <span className="font-display text-2xl font-black leading-none text-white lining-nums tabular-nums">{n == null ? "--" : String(n).padStart(2, "0")}</span>
-          <span className="mt-1 text-[0.55rem] font-bold uppercase tracking-[0.18em] text-white/45">{label}</span>
+          <span className="mt-1 text-xs font-semibold text-white/45">{label}</span>
         </span>
       ))}
     </div>
@@ -175,10 +175,7 @@ export function PromoBanner() {
         aria-hidden
         className="absolute inset-0 opacity-[0.07]"
         style={{ backgroundImage: "repeating-linear-gradient(135deg, #fff 0 2px, transparent 2px 14px)" }}
-      />
-      <div aria-hidden className="absolute -left-20 top-1/2 size-72 -translate-y-1/2 rounded-full blur-3xl" style={{ background: `${promo.accent}2a` }} />
-
-      {/* nastro che scorre */}
+      />{/* nastro che scorre */}
       <div className="relative overflow-hidden py-1.5 text-[#0a0807]" style={{ background: promo.accent }}>
         <motion.div className="flex w-max" animate={still ? undefined : { x: ["0%", "-50%"] }} transition={{ duration: 22, ease: "linear", repeat: Infinity }} aria-hidden>
           {[0, 1].map((k) => (
@@ -194,7 +191,7 @@ export function PromoBanner() {
       </div>
 
       {preview ? (
-        <span className="absolute right-3 top-11 z-10 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-white/80 ring-1 ring-white/15">
+        <span className="absolute right-3 top-11 z-10 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/15">
           <Eye className="size-3" aria-hidden /> Anteprima
         </span>
       ) : null}
@@ -220,7 +217,7 @@ export function PromoBanner() {
         </div>
 
         <div className="flex flex-col items-start gap-2 lg:items-end">
-          <span className="text-[0.6rem] font-bold uppercase tracking-[0.24em] text-white/45">Finisce tra</span>
+          <span className="text-xs font-semibold text-white/45">Finisce tra</span>
           <Countdown to={promo.ends} accent={promo.accent} />
         </div>
       </div>

@@ -440,7 +440,7 @@ export function ListingPage() {
           >
             <div className="min-w-0">
               {(l.status !== "approved" || l.nsfw) && (
-                <p className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase">
+                <p className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
                   {l.status !== "approved" && <span className="rounded-full bg-crema/10 px-2 py-0.5 tracking-wider text-crema/80">{statusLabel(l.status)}</span>}
                   {l.nsfw && <span className="rounded-full bg-[#a83a2c] px-2 py-0.5 tracking-wider text-crema">18+</span>}
                 </p>
@@ -486,7 +486,7 @@ export function ListingPage() {
                 onClick={() => track("invite")}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink shadow-[0_18px_40px_-18px_rgba(240,180,110,0.9)] transition-transform hover:-translate-y-0.5 active:scale-[0.98]"
+                className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)] transition-transform  active:scale-[0.98]"
               >
                 {l.kind === "bot" ? "Aggiungi il bot" : "Entra nel server"} <ArrowUpRight className="size-4" />
               </a>
@@ -601,7 +601,7 @@ export function ListingPage() {
                 )}
                 {l.visitorNotes && (
                   <div className="mt-6 rounded-2xl bg-caramel/10 p-4 ring-1 ring-caramel/25">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember">Note per chi entra</p>
+                    <p className="text-xs font-semibold text-ember">Note per chi entra</p>
                     <p className="mt-2 text-sm leading-relaxed text-crema/75 [overflow-wrap:anywhere]">{l.visitorNotes}</p>
                   </div>
                 )}
@@ -739,7 +739,7 @@ export function ListingPage() {
                   <span className="size-10 rounded-full bg-mocha" />
                 )}
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.2em] text-crema/40">{isBot ? "Sviluppatore" : "Messa in vetrina da"}</p>
+                  <p className="text-xs text-crema/40">{isBot ? "Sviluppatore" : "Messa in vetrina da"}</p>
                   <p className="truncate font-semibold text-crema">{l.authorName || "Membro"}</p>
                 </div>
               </div>
@@ -833,7 +833,7 @@ function IconAction({ label, onClick, disabled, children }: { label: string; onC
 function StatTile({ icon, label, value, hint }: { icon: ReactNode; label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-2xl bg-roast p-4 ring-1 ring-sand/12">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-crema/45 [&>svg]:size-3.5 [&>svg]:text-caramel">
+      <p className="flex items-center gap-2 text-xs font-semibold text-crema/45 [&>svg]:size-3.5 [&>svg]:text-caramel">
         {icon} {label}
       </p>
       <p className="mt-2 font-display text-3xl font-semibold lining-nums text-crema">{value}</p>
@@ -857,7 +857,7 @@ export function Panel({ title, children, right }: { title: string; children: Rea
 function InfoRow({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-crema/40 [&>svg]:size-3.5">
+      <dt className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-crema/40 [&>svg]:size-3.5">
         {icon} {label}
       </dt>
       <dd className="text-crema/80">{children}</dd>
@@ -903,7 +903,7 @@ function CommandsPanel({ commands, prefix }: { commands: BotCommand[]; prefix: s
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <code className="min-w-0 font-mono text-sm font-semibold text-ember [overflow-wrap:anywhere]">{label(c)}</code>
               {c.type === "user" || c.type === "message" ? (
-                <span className="rounded-full bg-crema/8 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-crema/50">
+                <span className="rounded-full bg-crema/8 px-2 py-0.5 text-xs font-semibold text-crema/50">
                   {c.type === "user" ? "menu utente" : "menu messaggio"}
                 </span>
               ) : null}
@@ -950,7 +950,7 @@ function ActionTile({
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-roast p-4 ring-1 ring-sand/12 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 sm:min-w-[7.5rem]">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-crema/45 [&>svg]:size-3.5 [&>svg]:text-caramel">
+        <p className="flex items-center gap-2 text-xs font-semibold text-crema/45 [&>svg]:size-3.5 [&>svg]:text-caramel">
           {icon} {label}
         </p>
         <p className="mt-2 font-display text-3xl font-semibold lining-nums text-crema">{value}</p>
@@ -1030,7 +1030,7 @@ function StreakFlame({
         </div>
       </div>
       <p className="mt-0.5 font-display text-lg font-semibold leading-none lining-nums tabular-nums text-crema">{n}</p>
-      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-crema/40">{caption}</p>
+      <p className="mt-0.5 text-xs font-semibold text-crema/40">{caption}</p>
       {milestone ? (
         <span className="mt-1 rounded-full bg-gradient-to-r from-caramel/25 to-ember/20 px-2 py-0.5 text-[10px] font-bold text-ember ring-1 ring-ember/30">
           {milestone} giorni
@@ -1122,7 +1122,7 @@ function VoteTile({
           <SmartLink
             href={voteHref}
             onClick={onTrack}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5"
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink transition "
           >
             <ThumbsUp className="size-4" /> Vota
           </SmartLink>
@@ -1165,7 +1165,7 @@ function VotePromoCard({
         <SmartLink
           href={voteHref}
           onClick={onTrack}
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-bold text-ink transition-transform hover:-translate-y-0.5"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-bold text-ink transition-transform "
         >
           <ThumbsUp className="size-4" /> Vota ora
         </SmartLink>
@@ -1234,7 +1234,7 @@ function RelatedListings({
   if (!items || !items.length) return null;
   const isBot = listing.kind === "bot";
   return (
-    <section className="overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-caramel/15 via-roast/90 to-roast p-6 ring-1 ring-caramel/25 sm:p-7">
+    <section className="overflow-hidden rounded-[1.75rem] bg-roast/90 p-6 ring-1 ring-caramel/25 sm:p-7">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-script text-2xl text-caramel/90">{isBot ? "Dove gira" : "Bot in casa"}</p>

@@ -91,7 +91,7 @@ function Block({ block }: { block: LegalBlock }) {
       );
     case "label":
       return (
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
+        <p className="text-xs font-semibold text-caramel">
           <LegalProse text={block.text} />
         </p>
       );
@@ -153,7 +153,7 @@ function Block({ block }: { block: LegalBlock }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h4 className="font-display text-lg font-semibold text-crema">{block.title}</h4>
             {block.badge && (
-              <span className="rounded-full bg-caramel/15 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-ember ring-1 ring-caramel/25">
+              <span className="rounded-full bg-caramel/15 px-2.5 py-0.5 text-xs font-semibold text-ember ring-1 ring-caramel/25">
                 {block.badge}
               </span>
             )}
@@ -204,7 +204,7 @@ function Block({ block }: { block: LegalBlock }) {
         <p className="pt-2">
           <SmartLink
             href={page(block.href)}
-            className="inline-flex items-center rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
+            className="inline-flex items-center rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
           >
             {block.label}
           </SmartLink>

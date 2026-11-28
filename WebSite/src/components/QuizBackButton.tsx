@@ -33,7 +33,7 @@ export function QuizBackButton() {
       <SmartLink
         href={page(back.href)}
         aria-label={`Torna a ${back.label}`}
-        className="pointer-events-auto inline-flex h-10 items-center gap-1.5 rounded-full bg-espresso/85 pl-2.5 pr-4 text-xs font-bold uppercase tracking-wide text-crema shadow-lg ring-1 ring-sand/20 backdrop-blur transition hover:bg-caramel hover:text-ink"
+        className="pointer-events-auto inline-flex h-10 items-center gap-1.5 rounded-full bg-espresso/85 pl-2.5 pr-4 text-xs font-semibold text-crema shadow-lg ring-1 ring-sand/20 backdrop-blur transition hover:bg-caramel hover:text-ink"
       >
         <ArrowLeft className="size-4" /> {back.label}
       </SmartLink>

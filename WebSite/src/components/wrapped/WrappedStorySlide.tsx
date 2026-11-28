@@ -99,7 +99,7 @@ function Kicker({ text, mood }: { text: string; mood: WrappedMood }) {
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.45, ease }}
-      className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[0.68rem] font-bold uppercase tracking-[0.22em]"
+      className="inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold"
       style={{ borderColor: `${mood.ink}40`, color: mood.ink }}
     >
       <span className="size-1.5 rounded-full" style={{ background: mood.mark }} />
@@ -207,12 +207,12 @@ export function WrappedStorySlide({ card, mood, data }: { card: StoryCard; mood:
             className="relative flex aspect-square flex-col justify-between p-6 shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6)]"
             style={{ background: mood.mark, color: mood.paper }}
           >
-            <div className="flex items-start justify-between text-[0.65rem] font-bold uppercase tracking-[0.25em] opacity-80">
+            <div className="flex items-start justify-between text-xs font-semibold opacity-80">
               <span>Vinili & Caffè</span>
               <span>Lato A</span>
             </div>
             <p className="font-display text-[clamp(2.2rem,9vw,3.4rem)] font-semibold leading-[0.92]">{card.title}</p>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] opacity-80">{data.user.displayName}</p>
+            <p className="text-xs font-semibold opacity-80">{data.user.displayName}</p>
           </motion.div>
         </div>
         <Body card={card} mood={mood} delay={0.6} />

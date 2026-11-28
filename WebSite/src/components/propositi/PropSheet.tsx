@@ -137,7 +137,7 @@ export function PropSheet({ c, token, viewer, onClose, onUpdate }: { c: Proposit
         className="scheme-dark relative flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-[#120b08] shadow-2xl ring-1 ring-sand/10"
       >
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-sand/10 bg-[#120b08] px-5 py-4 sm:px-7">
-          <span className="text-xs font-bold uppercase tracking-[0.2em] text-crema/55">Proposito · {STATUS[c.status]}</span>
+          <span className="text-xs font-semibold text-crema/55">Proposito · {STATUS[c.status]}</span>
           <button type="button" onClick={onClose} aria-label="Chiudi" className="ml-auto rounded-full p-2 text-crema/60 hover:bg-crema/8 hover:text-crema">
             <X className="size-5" />
           </button>
@@ -147,7 +147,7 @@ export function PropSheet({ c, token, viewer, onClose, onUpdate }: { c: Proposit
           <article className="relative overflow-hidden rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] sm:p-8">
             <Seal status={c.status} className="absolute -top-4 right-6 z-10 rotate-[-8deg]" />
             {c.status === "soft_deleted" && (
-              <p className="relative z-10 mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-ink/55">Eliminato</p>
+              <p className="relative z-10 mb-3 text-center text-xs font-semibold text-ink/55">Eliminato</p>
             )}
             <div className={cn(c.status === "soft_deleted" && "select-none blur-[4px] saturate-50")}>
               <p className="text-xs text-ink/50">{c.createdAt ? timeAgo(c.createdAt) : ""}</p>
@@ -189,7 +189,7 @@ export function PropSheet({ c, token, viewer, onClose, onUpdate }: { c: Proposit
 
           {canDelete && (
             <div className="rounded-2xl bg-crema/[0.04] p-5 ring-1 ring-sand/10">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/45">
+              <p className="text-xs font-semibold text-crema/45">
                 {canDeleteOwn && !isHighStaff ? "Il tuo proposito" : canDeleteOwn ? "Il tuo proposito" : "Moderazione High Staff"}
               </p>
               <p className="mt-1 text-sm text-crema/50">
@@ -355,7 +355,7 @@ function CommentComposer({
           type="button"
           onClick={() => void send()}
           disabled={busy || attach.busy || (!text.trim() && !hasImages)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {parentId ? "Rispondi" : "Pubblica"}
         </button>

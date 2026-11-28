@@ -173,7 +173,7 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
                     />
                   ) : null}
                 </div>
-                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{KIND_LABEL[pack.kind || ""] || "Quiz"}</p>
+                <p className="mt-5 text-xs font-semibold text-caramel">{KIND_LABEL[pack.kind || ""] || "Quiz"}</p>
                 <h1 className="mt-1 font-display text-4xl font-semibold leading-tight text-crema [overflow-wrap:anywhere] sm:text-5xl">{pack.title}</h1>
                 <p className="mt-2 text-sm text-crema/65">
                   {pack.trackCount ? `${pack.trackCount} brani` : "Brani da Deezer"} · {pack.plays ?? 0} partite giocate
@@ -208,7 +208,7 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
 
           <div className="space-y-5">
             <div>
-              <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-crema/60">Quanto ascolti</h2>
+              <h2 className="mb-2.5 text-xs font-semibold text-crema/60">Quanto ascolti</h2>
               <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-ink/40 p-1.5 ring-1 ring-sand/10">
                 {DIFFS.map((d) => (
                   <button
@@ -217,7 +217,7 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
                     onClick={() => setDifficulty(d.id)}
                     className={cn("relative rounded-xl px-2 py-3 text-center transition", difficulty === d.id ? "text-ink" : "text-crema/75 hover:text-crema")}
                   >
-                    {difficulty === d.id ? <motion.span layoutId="mq-diff" className="absolute inset-0 rounded-xl bg-gradient-to-br from-caramel to-ember" transition={{ type: "spring", stiffness: 380, damping: 30 }} /> : null}
+                    {difficulty === d.id ? <motion.span layoutId="mq-diff" className="absolute inset-0 rounded-xl bg-caramel" transition={{ type: "spring", stiffness: 380, damping: 30 }} /> : null}
                     <span className="relative block font-display text-xl font-semibold">{d.label}</span>
                     <span className={cn("relative block text-[0.7rem]", difficulty === d.id ? "text-ink/70" : "text-crema/50")}>{d.hint}</span>
                   </button>
@@ -231,7 +231,7 @@ export function MusicQuizPackSetup({ slug }: { slug: string }) {
               whileTap={{ scale: 0.98 }}
               disabled={!pack || Boolean(busy)}
               onClick={() => void startSolo()}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-caramel to-ember px-6 py-4 text-ink shadow-[0_20px_40px_-20px_rgba(212,145,80,0.8)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-caramel px-6 py-4 text-ink shadow-[0_20px_40px_-20px_rgba(0,0,0,0.55)] transition  disabled:translate-y-0 disabled:opacity-60"
             >
               <Play className="size-6 fill-current" aria-hidden />
               <span className="font-display text-2xl font-semibold">{busy === "solo" ? "Preparo i brani…" : "Gioca"}</span>

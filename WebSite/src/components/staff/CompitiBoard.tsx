@@ -473,7 +473,7 @@ export function CompitiBoard() {
             aria-hidden
           />
           <span className="scheme-dark flex min-h-[22rem] flex-col justify-between bg-gradient-to-br from-[#6a442c] via-[#4a2e1c] to-[#2a1810] p-8 sm:min-h-[26rem] sm:p-10">
-            <span className="inline-flex w-fit rounded-full bg-crema/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-sand/80 ring-1 ring-sand/20">
+            <span className="inline-flex w-fit rounded-full bg-crema/10 px-3 py-1 text-xs font-semibold text-sand/80 ring-1 ring-sand/20">
               Staff
             </span>
             <span>
@@ -499,7 +499,7 @@ export function CompitiBoard() {
   return (
     <div className="space-y-3">
       {hs && staffList.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-1 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-2 ring-1 ring-sand/12">
+        <div className="flex flex-wrap items-center gap-1 rounded-3xl bg-roast/85 p-2 ring-1 ring-sand/12">
           <button
             type="button"
             aria-label="Staff precedente"
@@ -538,7 +538,7 @@ export function CompitiBoard() {
               <p className="text-xs text-crema/45">@{data.identity.username || "staff"}</p>
             </div>
           </div>
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-caramel">
+          <p className="text-xs font-semibold text-caramel">
             {hs ? "Settimane" : "Questa settimana"}
           </p>
           <p className="mt-1 text-sm text-crema/70">
@@ -610,7 +610,7 @@ export function CompitiBoard() {
                             {t.difficulty ? (
                               <span
                                 className={cn(
-                                  "rounded-full px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider ring-1",
+                                  "rounded-full px-1.5 py-px text-xs font-semibold ring-1",
                                   t.difficulty === "facile" && "bg-emerald-400/10 text-emerald-300 ring-emerald-300/25",
                                   t.difficulty === "medio" && "bg-amber-400/10 text-amber-300 ring-amber-300/25",
                                   t.difficulty === "difficile" && "bg-rose-400/10 text-rose-300 ring-rose-300/25",
@@ -620,7 +620,7 @@ export function CompitiBoard() {
                               </span>
                             ) : null}
                             {t.auto ? (
-                              <span className="text-[0.65rem] uppercase tracking-wider text-crema/40">Auto</span>
+                              <span className="text-xs text-crema/40">Auto</span>
                             ) : null}
                           </span>
                         </span>
@@ -688,7 +688,7 @@ export function CompitiBoard() {
                 <p className="text-xs text-crema/45">{leafMeta}</p>
                 <span
                   className={cn(
-                    "rounded-full px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider ring-1",
+                    "rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
                     pillClass(leafStatus.kind),
                   )}
                 >
@@ -711,7 +711,7 @@ export function CompitiBoard() {
               ) : null}
 
               <label htmlFor="compiti-note" className="block text-sm">
-                <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">
+                <span className="text-xs font-semibold text-crema/45">
                   {hs ? "Nota dello staff" : "Scrivi"}
                 </span>
                 <textarea id="compiti-note" name="compiti-note"
@@ -786,7 +786,7 @@ export function CompitiBoard() {
                         type="button"
                         disabled={busy || !canEditLeaf}
                         onClick={() => doSave(true)}
-                        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
+                        className="inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
                       >
                         <Send className="size-4" />
                         {canRetry ? "Reinvia prove" : "Invia prove"}
@@ -883,7 +883,7 @@ function ProofsBlock({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">
+        <span className="text-xs font-semibold text-crema/45">
           {hs ? "Prove allegate" : "Prove (foto / file)"}
         </span>
         {canEdit ? (

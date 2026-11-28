@@ -120,10 +120,10 @@ export function BrandMark({ className, navUnderline }: { className?: string; nav
         <HeaderNameMarquee
           text={main}
           underline={underline}
-          className="min-w-0 font-sans text-sm font-medium uppercase leading-none tracking-[0.04em] text-crema [font-variant-ligatures:none]"
+          className="min-w-0 font-sans text-sm font-medium leading-none text-crema [font-variant-ligatures:none]"
         />
         {tagline ? (
-          <span className="mt-0.5 hidden truncate font-sans text-[0.62rem] font-medium uppercase leading-none tracking-[0.12em] text-crema/50 [font-variant-ligatures:none] sm:block">
+          <span className="mt-0.5 hidden truncate font-sans text-xs font-medium leading-none text-crema/50 [font-variant-ligatures:none] sm:block">
             {tagline}
           </span>
         ) : null}

@@ -37,7 +37,7 @@ function ArchiveFolder({ className }: { className?: string }) {
   return (
     <div className={cn("relative mx-auto w-40 select-none", className)} aria-hidden>
       <div className="absolute -top-2 left-6 h-4 w-16 rounded-t-md bg-caramel/70" />
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/15 to-roast p-4 shadow-[0_24px_50px_-28px_rgba(212,145,80,0.55)] ring-1 ring-caramel/40">
+      <div className="relative overflow-hidden rounded-2xl bg-roast p-4 shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)] ring-1 ring-caramel/40">
         <div className="space-y-2">
           <span className="block h-2 rounded-full bg-crema/15" />
           <span className="block h-2 w-[80%] rounded-full bg-crema/10" />
@@ -85,8 +85,8 @@ function Card({
       className={cn(
         "rounded-3xl p-6 ring-1 sm:p-7",
         tone === "danger" && "bg-roast/70 ring-[#a83a2c]/35",
-        tone === "info" && "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.35)]",
-        tone === "default" && "bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-sand/15",
+        tone === "info" && "bg-roast ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)]",
+        tone === "default" && "bg-roast/85 ring-sand/15",
       )}
     >
       <div className="flex items-center gap-3">
@@ -250,7 +250,7 @@ export function DatiBoard() {
           <div className="flex flex-wrap gap-3">
             <SmartLink
               href="/tickets/"
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
+              className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
             >
               <Ticket className="size-4" /> Apri un ticket
             </SmartLink>
@@ -280,7 +280,7 @@ export function DatiBoard() {
                 type="button"
                 disabled={!!busy}
                 onClick={onExport}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
               >
                 {busy === "export" ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                 Scarica i miei dati
@@ -304,7 +304,7 @@ export function DatiBoard() {
                         : "Cancellazione completata per i dati eliminabili.")}
                   </p>
                   <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
+                    <h3 className="text-xs font-semibold text-caramel">
                       {preview.preview ? "Cosa verrebbe eliminato" : "Cosa è stato eliminato"}
                     </h3>
                     <div className="mt-3 rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/10">
@@ -312,7 +312,7 @@ export function DatiBoard() {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
+                    <h3 className="text-xs font-semibold text-caramel">
                       Cosa resterebbe (obblighi / sicurezza)
                     </h3>
                     <div className="mt-3 rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/10">
@@ -361,7 +361,7 @@ export function DatiBoard() {
                 type="button"
                 disabled={!!busy}
                 onClick={onEraseClick}
-                className="inline-flex items-center gap-2 rounded-full bg-[#a83a2c] px-5 py-2.5 text-sm font-semibold text-crema transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-[#a83a2c] px-5 py-2.5 text-sm font-semibold text-crema transition-[transform,filter] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
               >
                 {busy === "erase" ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 Cancella i miei dati
