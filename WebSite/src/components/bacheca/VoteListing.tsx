@@ -247,7 +247,7 @@ export function VoteListing() {
       return;
     }
     setRemindAt(r.data.remindAt || null);
-    const okMsg = r.data.message || "Voto registrato. Grazie!";
+    const okMsg = r.data.message || "Voto registrato, grazie";
     setMsg(okMsg);
     showToast(okMsg);
     setVoteStreak(Math.max(0, Number(r.data.voteStreak) || 0));
@@ -481,7 +481,7 @@ export function VoteListing() {
               <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-caramel text-ink ">
                 <Check className="size-10" strokeWidth={3} />
               </span>
-              <p className="mt-5 font-display text-3xl font-semibold">Voto registrato!</p>
+              <p className="mt-5 font-display text-3xl font-semibold">Voto registrato</p>
               <p className="mt-2 text-crema/60">{msg || "Grazie: hai dato una spinta a questa scheda."}</p>
               {voteStreak > 0 ? (
                 <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-ember/15 px-4 py-2 text-sm font-semibold text-ember ring-1 ring-ember/30">

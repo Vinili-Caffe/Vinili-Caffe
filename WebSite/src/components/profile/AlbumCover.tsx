@@ -186,7 +186,7 @@ export function AlbumCover({
               className="inline-flex items-center gap-1.5 rounded-full bg-crema/6 px-2.5 py-0.5 text-xs font-medium text-crema/65 ring-1 ring-sand/15 transition-colors hover:bg-crema/10 hover:text-crema"
             >
               {linkCopied ? <Check className="size-3.5 text-ember" /> : <Link2 className="size-3.5" />}
-              {linkCopied ? "Link copiato!" : "Copia link profilo"}
+              {linkCopied ? "Link copiato" : "Copia link profilo"}
             </button>
             {p.birthday && (
               <button
@@ -203,7 +203,7 @@ export function AlbumCover({
                 )}
               >
                 <Cake className="size-3.5" />
-                {p.birthday.isToday ? "Oggi è il suo compleanno!" : p.birthday.showAge === false ? p.birthday.label?.replace(/\s\d{4}$/, "") : p.birthday.label}
+                {p.birthday.isToday ? "Oggi è il suo compleanno" : p.birthday.showAge === false ? p.birthday.label?.replace(/\s\d{4}$/, "") : p.birthday.label}
               </button>
             )}
           </div>

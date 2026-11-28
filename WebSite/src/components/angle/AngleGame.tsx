@@ -94,7 +94,7 @@ type Row = { guess: number; diff: number };
 
 function closeness(diff: number) {
   const d = Math.abs(diff);
-  if (d <= ANGLE_TOLERANCE) return { label: "Preso!", cls: "bg-emerald-500 text-white" };
+  if (d <= ANGLE_TOLERANCE) return { label: "Preso", cls: "bg-emerald-500 text-white" };
   if (d <= 8) return { label: "Bollente", cls: "bg-ember text-white" };
   if (d <= 20) return { label: "Caldo", cls: "bg-caramel text-ink" };
   if (d <= 45) return { label: "Tiepido", cls: "bg-sand/70 text-ink" };
@@ -542,7 +542,7 @@ function Challenge({ angle }: { angle: number }) {
   const [done, setDone] = useState(false);
   return (
     <>
-      <p className="mb-4 text-center text-sm text-crema/60">Un amico ti ha sfidato: indovina il suo angolo!</p>
+      <p className="mb-4 text-center text-sm text-crema/60">Un amico ti ha sfidato: indovina il suo angolo</p>
       <Round key={round} answer={angle} rotate={rotationFor(angle)} onDone={(g, solved) => (solved || g.length >= ANGLE_ATTEMPTS) && setDone(true)} />
       {done ? (
         <div className="mt-6 text-center">

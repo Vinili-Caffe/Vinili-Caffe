@@ -35,7 +35,7 @@ const DIFFS: { id: MusicQuizDifficulty; label: string; hint: string }[] = [
 
 function categoryLabel(id: string) {
   const c = QUIZ_CATEGORIES.find((x) => x.id === id);
-  return c ? `${c.emoji} ${c.label}` : id;
+  return c ? c.label : id;
 }
 
 const KIND_LABEL: Record<string, string> = { artist: "Artista", playlist: "Playlist", community: "Quiz della community" };

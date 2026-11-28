@@ -406,7 +406,7 @@ export function MusicQuizStream({
           </p>
         </div>
         <h2 className="font-display text-3xl font-semibold text-crema sm:text-4xl">
-          {reveal ? "Era questa!" : <>Scrivi in chat il <span className="text-caramel">numero</span></>}
+          {reveal ? "Era questa" : <>Scrivi in chat il <span className="text-caramel">numero</span></>}
         </h2>
 
         <div className="grid gap-2.5">

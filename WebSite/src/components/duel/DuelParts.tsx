@@ -232,10 +232,10 @@ export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () =
   const practice = state.mode === "practice";
   const title = practice
     ? state.result === "win"
-      ? "Indovinato!"
+      ? "Indovinato"
       : "Non questa volta"
     : state.result === "win"
-      ? "Hai vinto!"
+      ? "Hai vinto"
       : state.result === "lose"
         ? "Hai perso"
         : "Pari";

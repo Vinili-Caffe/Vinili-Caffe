@@ -76,7 +76,7 @@ export function Composer({
   if (kind === "staff" && viewer && !viewer.canWriteStaffReview) {
     return (
       <div className="rounded-3xl bg-roast/85 p-6 text-center text-sm text-crema/60 ring-1 ring-sand/12">
-        Fai parte dello staff: le recensioni allo staff le lasciano i membri. 🙂
+        Fai parte dello staff: le recensioni allo staff le lasciano i membri.
       </div>
     );
   }
@@ -90,7 +90,7 @@ export function Composer({
     setMsg(null);
     const res = await submitReview(token, { kind, rating, content: text.trim(), ...(kind === "staff" ? { staffUserId: staffId } : {}) });
     setBusy(false);
-    setMsg(res.ok ? { ok: true, text: res.message || (existing ? "Recensione aggiornata!" : "Grazie, recensione pubblicata!") } : { ok: false, text: res.message });
+    setMsg(res.ok ? { ok: true, text: res.message || (existing ? "Recensione aggiornata" : "Grazie, recensione pubblicata!") } : { ok: false, text: res.message });
     if (res.ok) {
       draft.clear();
       onSaved();

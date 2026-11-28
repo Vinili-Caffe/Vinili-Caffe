@@ -51,7 +51,7 @@ async function post(url: string, token: string, body: object): Promise<{ ok: boo
   try {
     const r = await fetch(url, { method: "POST", headers: auth(token), body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    return { ok: r.ok && j?.ok !== false, message: j?.message || (r.ok ? "Fatto!" : `Errore ${r.status}`) };
+    return { ok: r.ok && j?.ok !== false, message: j?.message || (r.ok ? "Fatto" : `Errore ${r.status}`) };
   } catch {
     return { ok: false, message: "Connessione non riuscita, riprova." };
   }

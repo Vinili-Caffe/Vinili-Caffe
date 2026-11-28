@@ -140,7 +140,7 @@ function Track({ rule, open, onToggle, query }: { rule: Rule; open: boolean; onT
                 className="mt-4 inline-flex items-center gap-1.5 text-xs text-crema/40 transition-colors hover:text-crema/70"
               >
                 <Link2 className="size-3.5" />
-                {copied ? "Link copiato!" : `Copia link alla regola ${rule.id}`}
+                {copied ? "Link copiato" : `Copia link alla regola ${rule.id}`}
               </button>
             </div>
           </motion.div>

@@ -1099,7 +1099,7 @@ function FirstSetupModal({
           <span className="flex size-12 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Rocket className="size-6" aria-hidden />
           </span>
-          <h2 id="first-setup-title" className="mt-4 font-display text-2xl font-semibold text-crema">Benvenuto su Vinili!</h2>
+          <h2 id="first-setup-title" className="mt-4 font-display text-2xl font-semibold text-crema">Benvenuto su Vinili</h2>
           <p className="mt-1 text-sm text-crema/65">Prima di iniziare imposta le basi per <span className="font-semibold text-crema">{guildName}</span>. Puoi cambiarle quando vuoi da Impostazioni.</p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">

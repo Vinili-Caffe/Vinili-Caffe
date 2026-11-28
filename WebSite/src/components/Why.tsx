@@ -1,12 +1,9 @@
 "use client";
 
-import { motion } from "motion/react";
 import { Bot, PartyPopper, TrendingUp } from "lucide-react";
 import { WHY } from "@/lib/site";
 import { useI18n } from "@/lib/i18n";
 import { Reveal } from "./Reveal";
-import { GlareHover, ScrollFloat, ShinyText, TrueFocus } from "./react-bits";
-import { Spotlight } from "./ui/spotlight-card";
 
 const ICONS = [TrendingUp, PartyPopper, Bot];
 
@@ -15,24 +12,10 @@ export function Why() {
   return (
     <section id="perche" className="mx-auto max-w-6xl scroll-mt-28 px-6 py-20 sm:py-24">
       <Reveal className="mb-12 max-w-2xl">
-        <p className="text-xs font-semibold text-caramel">
-          <ShinyText speed={4.2}>{t("why.kicker")}</ShinyText>
-        </p>
-        <div className="mt-3 space-y-1">
-          <ScrollFloat
-            className="my-0 font-display text-4xl font-semibold leading-tight text-balance sm:text-5xl"
-            textClassName="font-display text-4xl font-semibold sm:text-5xl"
-            stagger={0.025}
-            distance={90}
-          >
-            {t("why.title")}
-          </ScrollFloat>
-          <TrueFocus
-            sentence={t("why.titleEm")}
-            className="font-display text-4xl italic text-sand sm:text-5xl"
-            intervalMs={2600}
-          />
-        </div>
+        <p className="text-sm font-medium text-caramel">{t("why.kicker")}</p>
+        <h2 className="mt-3 font-display text-4xl font-semibold leading-tight text-balance sm:text-5xl">
+          {t("why.title")} <span className="block italic text-sand">{t("why.titleEm")}</span>
+        </h2>
       </Reveal>
 
       <div className="grid gap-4 md:grid-cols-3 md:gap-5">
@@ -40,31 +23,23 @@ export function Why() {
           const Icon = ICONS[i];
           return (
             <Reveal key={w.n} delay={i * 0.12}>
-              <GlareHover className="h-full rounded-3xl" glareColor="rgba(244,233,216,0.28)">
-                <motion.article
-                  whileHover="hover"
-                  className="group/spot group relative h-full overflow-hidden rounded-3xl bg-roast p-7 ring-1 ring-sand/15 transition-[box-shadow,ring-color] duration-300 hover:ring-caramel/35 hover:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)]"
-                >
-                  <Spotlight />
-                  <motion.div
-                    variants={{ hover: { x: -28, y: 10, rotate: 90 } }}
-                    transition={{ type: "spring", stiffness: 120, damping: 16 }}
+              <article className="relative h-full overflow-hidden rounded-3xl bg-roast p-7 ring-1 ring-sand/15">
+                  {/* il disco che spunta dall'angolo: l'oggetto del mondo vinili, fermo */}
+                  <div
+                    aria-hidden
                     className="absolute -right-20 -top-20 size-48 rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#2a1c14_1.5px_3px)] shadow-[0_10px_30px_rgba(0,0,0,0.6)] ring-1 ring-sand/20"
                   >
                     <div className="absolute inset-[36%] rounded-full bg-caramel" />
                     <div className="absolute inset-[48%] rounded-full bg-espresso" />
-                  </motion.div>
-
-                  <div className="relative inline-flex size-12 items-center justify-center rounded-2xl bg-caramel/20 text-ember ring-1 ring-caramel/35">
-                    <Icon className="size-6" />
                   </div>
+
+                  <Icon className="relative size-6 text-ember" aria-hidden />
                   <span className="absolute bottom-4 right-6 font-display text-7xl font-semibold lining-nums text-caramel/[0.12]">
                     {w.n}
                   </span>
                   <h3 className="relative mt-5 font-display text-3xl font-semibold">{t(w.titleKey)}</h3>
                   <p className="relative mt-3 leading-relaxed text-crema/70">{t(w.textKey)}</p>
-                </motion.article>
-              </GlareHover>
+              </article>
             </Reveal>
           );
         })}

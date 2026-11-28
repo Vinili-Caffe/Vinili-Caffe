@@ -8,7 +8,6 @@ import { Reveal } from "./Reveal";
 import { SmartLink } from "./SmartLink";
 import { CircularText } from "./ui/circular-text";
 import { Marquee } from "./ui/marquee";
-import { Spotlight } from "./ui/spotlight-card";
 import { EmojiText } from "./discord/EmojiText";
 import { loadReviews, type Review } from "@/lib/reviews";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -18,7 +17,6 @@ import { page } from "@/lib/site";
 function ReviewCard({ r }: { r: Review }) {
   return (
     <figure className="group/spot relative flex w-[280px] shrink-0 snap-start flex-col overflow-hidden rounded-3xl bg-roast p-5 ring-1 ring-sand/15 sm:w-[340px]">
-      <Spotlight size={240} />
       <Quote className="absolute right-4 top-4 size-8 text-caramel/25" aria-hidden />
       <div className="relative flex gap-0.5 text-ember" aria-label={`${r.rating} su 5`}>
         {Array.from({ length: 5 }, (_, i) => (

@@ -136,7 +136,7 @@ function Question({
                   className="inline-flex items-center gap-1.5 text-xs text-crema/40 transition-colors hover:text-crema/70"
                 >
                   <Link2 className="size-3.5" />
-                  {copied ? "Link copiato!" : "Copia link alla domanda"}
+                  {copied ? "Link copiato" : "Copia link alla domanda"}
                 </button>
                 <span className="text-crema/20" aria-hidden>
                   ·

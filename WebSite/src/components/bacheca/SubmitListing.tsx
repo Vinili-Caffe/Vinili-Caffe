@@ -507,7 +507,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
       showToast("Bozza salvata nelle tue schede");
       return;
     }
-    const doneMsg = message || (editing ? "Modifiche salvate." : "Scheda inviata in revisione!");
+    const doneMsg = message || (editing ? "Modifiche salvate." : "Scheda inviata in revisione");
     draft.clear();
     setSent(doneMsg);
     showToast(doneMsg);
@@ -735,7 +735,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 <span className="mt-1.5 block text-xs text-crema/40">Formato di Discord: **grassetto**, *corsivo*, # titoli, &gt; citazioni, elenchi e link.</span>
               </div>
               <Field label="Note per chi entra" hint="Facoltativo: cosa fare appena arrivati.">
-                <input value={form.visitorNotes} onChange={(e) => set({ visitorNotes: e.target.value })} maxLength={300} placeholder="Leggi le regole in #benvenuto e presentati!" className={INPUT} />
+                <input value={form.visitorNotes} onChange={(e) => set({ visitorNotes: e.target.value })} maxLength={300} placeholder="Leggi le regole in #benvenuto e presentati" className={INPUT} />
               </Field>
             </div>
           </Step>

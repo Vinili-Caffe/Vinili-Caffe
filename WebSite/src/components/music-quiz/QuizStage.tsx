@@ -367,7 +367,7 @@ export function RevealCard({
           <img src={cover || "/images/logo-disco.png"} alt="" className="size-16 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
           <div className="min-w-0 flex-1">
             <p className={cn("text-xs font-semibold", correct ? "text-emerald-300" : "text-ember")}>
-              {correct ? "Giusto!" : timeout ? "Tempo scaduto" : "Sbagliato"}
+              {correct ? "Giusto" : timeout ? "Tempo scaduto" : "Sbagliato"}
             </p>
             <p className="mt-0.5 truncate font-display text-xl font-semibold text-crema">{title}</p>
             <p className="truncate text-sm text-crema/60">{artist}</p>

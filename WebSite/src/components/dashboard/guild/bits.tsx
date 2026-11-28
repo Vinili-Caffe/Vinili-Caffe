@@ -282,7 +282,7 @@ export function GlobalSaveBar() {
               <span className="relative size-2.5 rounded-full bg-ember" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-crema">{alert ? "Attenzione: salva o annulla prima di uscire!" : "Hai modifiche non salvate"}</p>
+              <p className="text-sm font-semibold text-crema">{alert ? "Salva o annulla prima di uscire" : "Hai modifiche non salvate"}</p>
               <p className="hidden text-xs text-crema/55 sm:block">Salvale prima di cambiare pagina, o annullale per tornare a com&apos;era.</p>
             </div>
             {st.canReset ? (

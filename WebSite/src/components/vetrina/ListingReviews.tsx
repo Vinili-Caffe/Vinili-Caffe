@@ -199,7 +199,7 @@ function WriteReview({ listingId, onDone }: { listingId: string; onDone: (avg: n
     const r = await createReview(token, listingId, rating, text.trim());
     setBusy(false);
     if (!r.ok) return showToast(r.message, true);
-    showToast(r.data.message || "Recensione pubblicata, grazie!");
+    showToast(r.data.message || "Recensione pubblicata, grazie");
     const d = r.data as unknown as { ratingAvg?: number; reviewsCount?: number };
     onDone(Number(d.ratingAvg) || rating, Number(d.reviewsCount) || 1);
   }

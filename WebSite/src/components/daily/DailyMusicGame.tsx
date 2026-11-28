@@ -361,7 +361,7 @@ function Result({ kind, state, reward }: { kind: DailyKind; state: DailyState; r
         state.solved ? "bg-emerald-500/10 ring-emerald-400/30" : "bg-roast/80 ring-sand/12",
       )}
     >
-      <p className={cn("font-display text-3xl", state.solved ? "text-emerald-300" : "text-crema")}>{state.solved ? "Indovinato!" : "Non questa volta"}</p>
+      <p className={cn("font-display text-3xl", state.solved ? "text-emerald-300" : "text-crema")}>{state.solved ? "Indovinato" : "Non questa volta"}</p>
       <p className="mt-1 text-sm text-crema/60">{state.solved ? `In ${state.attempts} su ${state.maxAttempts}` : "Tentativi finiti"}</p>
       {state.answer ? (
         <div className="mt-4 flex w-full items-center gap-3 rounded-2xl bg-espresso/60 p-3 text-left ring-1 ring-sand/10">

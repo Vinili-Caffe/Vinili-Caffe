@@ -7,7 +7,6 @@ import { PageHero } from "@/components/PageHero";
 import { Reveal } from "@/components/Reveal";
 import { RichText } from "@/components/RichText";
 import { SiteShell } from "@/components/SiteShell";
-import { BorderBeam } from "@/components/ui/border-beam";
 import { BADGES, BOOST, SELFIE } from "@/lib/perks";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
@@ -81,8 +80,6 @@ export default function PerksPage() {
                     {b.isNew ? <NewTag /> : null}
                   </div>
                   <PerkList perks={b.perks} className="relative mt-6" />
-                  {/* il pacchetto migliore: scia di luce lungo il bordo (Border Beam) */}
-                  {i === BOOST.length - 1 ? <BorderBeam size={110} duration={8} /> : null}
                 </article>
               </Reveal>
             ))}

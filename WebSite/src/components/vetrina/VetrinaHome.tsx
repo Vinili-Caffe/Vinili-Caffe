@@ -329,7 +329,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
             <Info className="mt-0.5 size-6 shrink-0 text-ember" />
             <div className="min-w-0">
               <p className="font-display text-2xl font-semibold text-crema">La vetrina sta allestendo gli scaffali</p>
-              <p className="mt-1 text-crema/70">{closedMsg || cfg?.message || "Per ora è visibile solo allo staff. Torna a trovarci presto!"}</p>
+              <p className="mt-1 text-crema/70">{closedMsg || cfg?.message || "Per ora è visibile solo allo staff."}</p>
               {!token && ready && (
                 <button type="button" onClick={login} className="mt-4 inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink">
                   <LogIn className="size-4" /> Accedi con Discord

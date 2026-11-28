@@ -2,7 +2,25 @@
 
 import { useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { motion } from "motion/react";
-import { CloudUpload, Globe, Lock, Plus, X } from "lucide-react";
+import {
+  CassetteTape,
+  Clapperboard,
+  CloudUpload,
+  Disc3,
+  Drum,
+  Globe,
+  Guitar,
+  Headphones,
+  Heart,
+  KeyboardMusic,
+  Lock,
+  Mic,
+  Plus,
+  Radio,
+  Tv,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
 
@@ -49,6 +67,22 @@ export const QUIZ_CATEGORIES: Array<{ id: string; label: string; emoji: string }
   { id: "kpop", label: "K-Pop", emoji: "💜" },
   { id: "world", label: "Mondo", emoji: "🌍" },
 ];
+
+/** icone a linea dei generi (le emoji restano nei dati per Discord) */
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  general: Disc3,
+  pop: Mic,
+  rap: Headphones,
+  rock: Guitar,
+  metal: Drum,
+  electronic: KeyboardMusic,
+  jazz: Radio,
+  retro: CassetteTape,
+  soundtrack: Clapperboard,
+  anime: Tv,
+  kpop: Heart,
+  world: Globe,
+};
 
 export const QUIZ_LANGUAGES: Array<{ id: string; label: string }> = [
   { id: "it", label: "Italiano" },
@@ -240,9 +274,10 @@ export function MusicQuizSettings({
                 )}
               >
                 {on ? <motion.span layoutId="quiz-category" className="absolute inset-0 rounded-2xl bg-caramel/15" /> : null}
-                <span className="relative text-lg leading-none" aria-hidden>
-                  {c.emoji}
-                </span>
+                {(() => {
+                  const Icon = CATEGORY_ICONS[c.id] || Disc3;
+                  return <Icon className="relative size-4 shrink-0 opacity-80" aria-hidden />;
+                })()}
                 <span className="relative">{c.label}</span>
               </button>
             );

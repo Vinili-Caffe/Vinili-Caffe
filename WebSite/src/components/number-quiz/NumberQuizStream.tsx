@@ -431,9 +431,9 @@ export function StreamHigherLower({
                   : skipped
                     ? "Nessun voto: si va avanti."
                     : phase === "wrong"
-                      ? "La chat ha sbagliato!"
+                      ? "La chat ha sbagliato"
                       : phase === "right"
-                        ? "Giusto!"
+                        ? "Giusto"
                         : "Vediamo…"}
               </p>
               {phase === "vote" ? (

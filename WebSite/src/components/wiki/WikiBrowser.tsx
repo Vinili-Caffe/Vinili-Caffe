@@ -207,7 +207,7 @@ function CommandRow({
               className="mb-4 ml-4 inline-flex items-center gap-1.5 text-xs text-crema/40 transition-colors hover:text-crema/70 sm:ml-6"
             >
               <Link2 className="size-3.5" />
-              {copied ? "Link copiato!" : "Copia link al comando"}
+              {copied ? "Link copiato" : "Copia link al comando"}
             </button>
           </motion.div>
         )}

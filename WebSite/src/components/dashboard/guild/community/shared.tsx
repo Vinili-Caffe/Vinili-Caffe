@@ -599,7 +599,7 @@ export function TestDraftButton({
         sent ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-crema/[0.05] text-crema/80 ring-sand/15 hover:bg-crema/[0.09] hover:text-crema",
       )}
     >
-      <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Prova"}
+      <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata" : "Prova"}
     </button>
   );
 }
