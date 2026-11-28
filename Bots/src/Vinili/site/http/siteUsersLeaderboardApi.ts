@@ -1,6 +1,6 @@
 
 const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getResolvedWeeklyExpMultiplier } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
+const { getLevelInfo, getGlobalMultiplier, getGuildExpSettings, getResolvedWeeklyExpMultiplier, backfillMinigameMonthlyNovember2026 } = require("../../Level/services/expService") as typeof import("../../Level/services/expService");
 const {
   getRomeDayKey,
 } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
@@ -9,7 +9,7 @@ const { getEffectiveJoinedAt } = require("../../Community/services/effectiveMemb
 const { isLitePerf, resolveSitePerfTier } = require("./sitePerfHints") as typeof import("./sitePerfHints");
 const { getRomeDateParts } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { LIST_CACHE_TTL_MS, LIST_STALE_KEEP_MS, listCache, listCacheInflight, cacheGet, cacheSet, startCacheBuild, cacheGetOrBuild, cacheLookupMeta } = require("./usersLbCache") as typeof import("./usersLbCache");
-const { parseIntSafe, nInt, resolveGuildId, parseBoard, parsePeriod, resolveRankBoardPeriod, isComputedListBoard, parseCalendarMonth, parseCalendarYear, boardQuery, boardSort, boardSelect, numericSortExpr, parseSearchUserId } = require("./usersLbParams") as typeof import("./usersLbParams");
+const { parseIntSafe, nInt, resolveGuildId, parseBoard, parsePeriod, resolveRankBoardPeriod, isComputedListBoard, parseCalendarMonth, parseCalendarYear, boardQuery, boardSort, boardSelect, numericSortExpr, parseSearchUserId, minigameValue, minigameMatch } = require("./usersLbParams") as typeof import("./usersLbParams");
 const { replyUsers, siteSafeRankCard, siteSafeResolvedWallpaper, siteMemberAvatarUrl, resolveIdentitiesForList, resolveMembersApprox, publicDisplayNameFromMemberOrUser, identityFromCacheOnly } = require("./usersLbIdentity") as typeof import("./usersLbIdentity");
 const { buildBirthdaysMonthPayload } = require("./usersLbBirthdays") as typeof import("./usersLbBirthdays");
 const { buildCustomProfileData } = require("./usersLbCustomProfile") as typeof import("./usersLbCustomProfile");
@@ -215,33 +215,6 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
       const guild =
         client?.guilds?.cache?.get?.(guildId) || (await client?.guilds?.fetch?.(guildId).catch(() => null)) || null;
       const membersApprox = await resolveMembersApprox(client, guild, guildId);
-      if (rankBoard === "minigames" && rankPeriod === "monthly") {
-        res.setHeader("Cache-Control", "no-store");
-        return res.json({
-          ok: true,
-          search: true,
-          notFound: true,
-          board,
-          period: responsePeriod,
-          page: 1,
-          perPage: 1,
-          total: 0,
-          totalPages: 1,
-          stats: {
-            rankedUsers: 0,
-            membersApprox,
-            topDisplayName: "",
-            topPlayerUsername: "",
-            topLevel: null,
-            topWeeklyExp: null,
-            topMessagesTotal: null,
-            topVoiceSeconds: null,
-            topMinigameTotal: null,
-            globalExpMultiplier: null,
-          },
-          rows: [],
-        });
-      }
       const doc = await ActivityUserProfile.findOne({ guildId, userId: searchId }).select(SEARCH_SELECT).lean().catch(() => null);
       if (!doc) {
         res.setHeader("Cache-Control", "no-store");
@@ -323,20 +296,13 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
         const higher = nInt(higherAgg?.[0]?.n);
         searchRank = vs > 0 ? higher + 1 : 0;
       } else if (rankBoard === "minigames") {
-        const mt =
-          rankPeriod === "weekly"
-            ? nInt(doc.profile?.totals?.exp?.minigame?.weeklyExp)
-            : nInt(doc.profile?.totals?.exp?.minigame?.totalExp);
+        const mt = minigameValue(doc, rankPeriod);
         pageMaxSecondary = Math.max(1, mt);
-        const field =
-          rankPeriod === "weekly"
-            ? "profile.totals.exp.minigame.weeklyExp"
-            : "profile.totals.exp.minigame.totalExp";
         const higher =
           mt > 0
             ? await ActivityUserProfile.countDocuments({
                 guildId,
-                [field]: { $gt: mt },
+                ...minigameMatch(rankPeriod, mt),
               }).catch(() => 0)
             : 0;
         searchRank = mt > 0 ? higher + 1 : 0;
@@ -451,6 +417,8 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
       });
     }
 
+    /* mgMonthly1: alla prima richiesta del mensile minigames, novembre si riempie con le settimane già salvate */
+    if (rankBoard === "minigames" && rankPeriod === "monthly") await backfillMinigameMonthlyNovember2026().catch(() => null);
     const page = parseIntSafe(q.page, 1, 100000, 1);
     /* ulNineAlways1: UI /user/ è 3×3 — lite non deve clampare sotto 9 */
     const perPageMax = lite ? 9 : perfTier === "mid" ? 12 : 24;
@@ -459,39 +427,12 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     /* siteUsersSwr1: cache hit prima di Discord/membersApprox */
     let guild = client?.guilds?.cache?.get?.(guildId) || null;
     let computedBoard = Boolean(guild) && isComputedListBoard(rankBoard, rankPeriod);
-    const emptyMinigamesMonthly = rankBoard === "minigames" && rankPeriod === "monthly";
     const romeDayKey = rankBoard === "messages" || rankBoard === "voice" ? getRomeDayKey(new Date()) : "";
     /* periodLb1: bump cache key for board+period */
     let cacheKey = `v6:${guildId}:${board}:${responsePeriod}${computedBoard ? ":computed" : ""}:p${page}:n${perPage}:perf${perfTier}`;
     const listCcFresh = lite ? "public, max-age=45" : "public, max-age=20";
     const listCcStale = "public, max-age=5, stale-while-revalidate=120";
     const forceRebuild = Boolean(req && req.__vcForceUsersRebuild);
-
-    if (emptyMinigamesMonthly) {
-      const emptyPayload = {
-        ok: true,
-        board,
-        period: responsePeriod,
-        page: 1,
-        perPage,
-        total: 0,
-        totalPages: 1,
-        stats: {
-          rankedUsers: 0,
-          membersApprox: null,
-          topDisplayName: "",
-          topPlayerUsername: "",
-          topLevel: null,
-          topWeeklyExp: null,
-          topMessagesTotal: null,
-          topVoiceSeconds: null,
-          topMinigameTotal: null,
-          globalExpMultiplier: null,
-        },
-        rows: [],
-      };
-      return replyUsers(req, res, emptyPayload, listCcFresh, { "X-VC-Perf": perfTier });
-    }
 
     let listMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);
     if (listMeta.hit && !listMeta.stale) {
@@ -755,11 +696,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
               : topDoc.profile?.totals?.voiceTotalSeconds),
         );
       } else if (rankBoard === "minigames") {
-        topMinigameTotal = nInt(
-          rankPeriod === "weekly"
-            ? topDoc.profile?.totals?.exp?.minigame?.weeklyExp
-            : topDoc.profile?.totals?.exp?.minigame?.totalExp,
-        );
+        topMinigameTotal = minigameValue(topDoc, rankPeriod);
       }
     }
 
@@ -790,11 +727,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
       for (const d of docs) {
         pageMaxSecondary = Math.max(
           pageMaxSecondary,
-          nInt(
-            rankPeriod === "weekly"
-              ? d.profile?.totals?.exp?.minigame?.weeklyExp
-              : d.profile?.totals?.exp?.minigame?.totalExp,
-          ),
+          minigameValue(d, rankPeriod),
         );
       }
     }

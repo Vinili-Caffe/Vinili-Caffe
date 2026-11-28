@@ -63,19 +63,9 @@ export async function recordDailyResult(userId: string, game: DailyGame, day: st
   const entry = { p: opts.points != null ? Math.max(0, Math.min(10, Math.round(opts.points))) : pointsFor(game, Boolean(opts.solved), Number(opts.attempts) || 0), s: Boolean(opts.solved), a: Math.max(0, Math.floor(Number(opts.attempts) || 0)) };
   await ActivityUserProfile.updateOne({ guildId, userId }, { $setOnInsert: { guildId, userId } }, { upsert: true }).catch(() => null);
   const r = await ActivityUserProfile.updateOne({ guildId, userId, [path]: { $exists: false } }, { $set: { [path]: entry } }).catch(() => null);
-  /* i giorni più vecchi di 70 si tolgono, così il profilo non cresce all'infinito */
-  if (r?.modifiedCount) void pruneOld(userId).catch(() => null);
+  /* dailyAllTime1: niente più pulizia dei giorni vecchi, servono alla classifica All-Time
+     (5 voci piccole al giorno: il profilo cresce poco) */
   return Boolean(r?.modifiedCount);
-}
-
-async function pruneOld(userId: string) {
-  const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-  const guildId = mainGuildId();
-  const doc: any = await ActivityUserProfile.findOne({ guildId, userId }).select("profile.dailyGames").lean().catch(() => null);
-  const limit = shiftDay(romeDay(), -70);
-  const old = Object.keys(doc?.profile?.dailyGames || {}).filter((d) => d < limit);
-  if (!old.length) return;
-  await ActivityUserProfile.updateOne({ guildId, userId }, { $unset: Object.fromEntries(old.map((d) => [`profile.dailyGames.${d}`, ""])) }).catch(() => null);
 }
 
 type DayMap = Record<string, Partial<Record<DailyGame, { p: number; s: boolean; a: number }>>>;
@@ -171,30 +161,37 @@ export async function weekLeaderboard(monday = weekStart()): Promise<WeekRow[]> 
   return daysLeaderboard(weekDays(monday));
 }
 
-/** classifica sui giorni indicati (un giorno, una settimana, un mese) */
-export async function daysLeaderboard(days: string[]): Promise<WeekRow[]> {
+/** classifica sui giorni indicati (una settimana, un mese); null = tutti i giorni salvati (All-Time) */
+export async function daysLeaderboard(days: string[] | null): Promise<WeekRow[]> {
   const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-  if (!days.length) return [];
-  const select = ["userId", WORDLE_FIELDS, ...days.map((d) => `profile.dailyGames.${d}`)].join(" ");
+  if (days && !days.length) return [];
+  const select = days
+    ? ["userId", WORDLE_FIELDS, ...days.map((d) => `profile.dailyGames.${d}`)].join(" ")
+    : ["userId", WORDLE_FIELDS, "profile.dailyGames"].join(" ");
   const docs: any[] = await ActivityUserProfile.find({
     guildId: mainGuildId(),
-    $or: [
-      ...days.map((d) => ({ [`profile.dailyGames.${d}`]: { $exists: true } })),
-      /* anche chi ha solo Wordle o Quordle salvati (non ancora nel registro) */
-      ...WORDLE_LANGS.flatMap((l) => [{ [`profile.siteWordleDaily.${l}.day`]: { $in: days } }, { [`profile.siteWordleQuadDaily.${l}.day`]: { $in: days } }]),
-    ],
+    $or: days
+      ? [
+          ...days.map((d) => ({ [`profile.dailyGames.${d}`]: { $exists: true } })),
+          /* anche chi ha solo Wordle o Quordle salvati (non ancora nel registro) */
+          ...WORDLE_LANGS.flatMap((l) => [{ [`profile.siteWordleDaily.${l}.day`]: { $in: days } }, { [`profile.siteWordleQuadDaily.${l}.day`]: { $in: days } }]),
+        ]
+      : [
+          { "profile.dailyGames": { $exists: true } },
+          ...WORDLE_LANGS.flatMap((l) => [{ [`profile.siteWordleDaily.${l}.done`]: true }, { [`profile.siteWordleQuadDaily.${l}.done`]: true }]),
+        ],
   })
     .select(select)
     .lean()
     .catch(() => []);
   const rows: WeekRow[] = [];
-  const inWeek = new Set(days);
+  const inRange = days ? new Set(days) : undefined;
   for (const doc of docs) {
-    if (doc?.profile) doc.profile.dailyGames = mergeWordleSaves(String(doc.userId), doc.profile, { ...(doc.profile.dailyGames || {}) }, inWeek);
+    if (doc?.profile) doc.profile.dailyGames = mergeWordleSaves(String(doc.userId), doc.profile, { ...(doc.profile.dailyGames || {}) }, inRange);
     let points = 0;
     let games = 0;
     let solved = 0;
-    for (const d of days) {
+    for (const d of days || Object.keys(doc?.profile?.dailyGames || {})) {
       for (const g of DAILY_GAMES) {
         const e = doc?.profile?.dailyGames?.[d]?.[g];
         if (!e) continue;

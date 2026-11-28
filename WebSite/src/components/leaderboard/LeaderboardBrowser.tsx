@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
   Calendar,
-  CalendarCheck,
   CalendarDays,
   Crosshair,
   Gamepad2,
@@ -53,7 +52,7 @@ const VIEW_BOARDS: { id: ViewBoard; label: string; icon: LucideIcon }[] = [
   { id: "daily", label: "Giochi del giorno", icon: Puzzle },
 ];
 const DAILY_PERIODS: { id: DailyPeriod; label: string; icon: LucideIcon }[] = [
-  { id: "day", label: "Giornaliero", icon: CalendarCheck },
+  { id: "all", label: "All-Time", icon: InfinityIcon },
   { id: "week", label: "Settimanale", icon: CalendarDays },
   { id: "month", label: "Mensile", icon: Calendar },
 ];
@@ -195,7 +194,7 @@ export function LeaderboardBrowser({
 }) {
   const [board, setBoard] = useState<ViewBoard>(initialBoard);
   const [period, setPeriod] = useState<PeriodId>("alltime");
-  const [dailyPeriod, setDailyPeriod] = useState<DailyPeriod>("week");
+  const [dailyPeriod, setDailyPeriod] = useState<DailyPeriod>("all");
 
   useEffect(() => {
     setBoard(initialBoard);
@@ -490,10 +489,7 @@ function CommunityBoard({ initial, board, period }: { initial: LeaderPage | null
   const boardInfo = BOARDS.find((b) => b.id === board)!;
   const unit = boardUnit(board, viewPeriod);
   const podiumLoading = boardBoot || listLoading || !dataReady;
-  const emptyHint =
-    board === "minigames" && period === "monthly"
-      ? "La classifica mensile minigames non è ancora tracciata."
-      : "Nessun dato in classifica al momento.";
+  const emptyHint = "Nessun dato in classifica al momento.";
 
   return (
     <>

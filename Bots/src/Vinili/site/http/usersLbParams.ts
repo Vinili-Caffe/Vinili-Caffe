@@ -67,6 +67,38 @@ function parseCalendarYear(raw?, fallback?) {
   return fallback;
 }
 
+/** mgMonthly1: mese di Roma "YYYY-MM" — l'EXP mensile minigames vale solo se è del mese corrente */
+function romeMonthKey(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).format(d).slice(0, 7);
+}
+
+/** campo dell'EXP minigames per il periodo */
+function minigameField(period?) {
+  const p = parsePeriod(period);
+  return p === "weekly"
+    ? "profile.totals.exp.minigame.weeklyExp"
+    : p === "monthly"
+      ? "profile.totals.exp.minigame.monthlyExp"
+      : "profile.totals.exp.minigame.totalExp";
+}
+
+/** EXP minigames del periodo (mese vecchio = 0) */
+function minigameValue(doc?, period?) {
+  const mg = doc?.profile?.totals?.exp?.minigame || {};
+  const p = parsePeriod(period);
+  if (p === "weekly") return nInt(mg.weeklyExp);
+  if (p === "monthly") return mg.monthlyKey === romeMonthKey() ? nInt(mg.monthlyExp) : 0;
+  return nInt(mg.totalExp);
+}
+
+/** filtro "conta nel periodo" per le query minigames */
+function minigameMatch(period?, min = 0) {
+  const p = parsePeriod(period);
+  const q: Record<string, any> = { [minigameField(p)]: { $gt: min } };
+  if (p === "monthly") q["profile.totals.exp.minigame.monthlyKey"] = romeMonthKey();
+  return q;
+}
+
 function boardQuery(board?, guildId?, period?) {
   const p = parsePeriod(period);
   const g = { guildId, "profile.totals.exp.totalExp": { $gt: 0 } };
@@ -80,10 +112,7 @@ function boardQuery(board?, guildId?, period?) {
     if (p === "weekly") return { ...g, "profile.totals.voiceWeeklySeconds": { $gt: 0 } };
     return { ...g, "profile.totals.voiceTotalSeconds": { $gt: 0 } };
   }
-  if (board === "minigames") {
-    if (p === "weekly") return { guildId, "profile.totals.exp.minigame.weeklyExp": { $gt: 0 } };
-    return { guildId, "profile.totals.exp.minigame.totalExp": { $gt: 0 } };
-  }
+  if (board === "minigames") return { guildId, ...minigameMatch(p) };
   return g;
 }
 
@@ -99,10 +128,7 @@ function boardSort(board?, period?) {
     if (p === "weekly") return { "profile.totals.voiceWeeklySeconds": -1 };
     return { "profile.totals.voiceTotalSeconds": -1 };
   }
-  if (board === "minigames") {
-    if (p === "weekly") return { "profile.totals.exp.minigame.weeklyExp": -1 };
-    return { "profile.totals.exp.minigame.totalExp": -1 };
-  }
+  if (board === "minigames") return { [minigameField(p)]: -1 };
   return { "profile.totals.exp.totalExp": -1 };
 }
 
@@ -161,4 +187,4 @@ function parseSearchUserId(raw?) {
   return s;
 }
 
-export = { parseIntSafe, nInt, resolveGuildId, parseBoard, parsePeriod, resolveRankBoardPeriod, isComputedListBoard, parseCalendarMonth, parseCalendarYear, boardQuery, boardSort, boardSelect, numericSortExpr, parseSearchUserId };
+export = { romeMonthKey, minigameField, minigameValue, minigameMatch, parseIntSafe, nInt, resolveGuildId, parseBoard, parsePeriod, resolveRankBoardPeriod, isComputedListBoard, parseCalendarMonth, parseCalendarYear, boardQuery, boardSort, boardSelect, numericSortExpr, parseSearchUserId };

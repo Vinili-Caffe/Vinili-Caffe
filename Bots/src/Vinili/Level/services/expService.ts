@@ -195,6 +195,62 @@ async function addExp(guildId?, userId?, amount?, applyMultiplier = false, weekl
   };
 }
 
+/** mese di Roma "YYYY-MM" (classifica mensile minigames) */
+function romeMonthKey(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).format(d).slice(0, 7);
+}
+
+/**
+ * mgMonthly1: una tantum — il mensile minigames è nato il 28/11/2026, quindi novembre si riempie con le due
+ * settimane già salvate e tutte dentro il mese (W47 = 16–22, W48 = 23–29). L'1–15 novembre non è recuperabile.
+ * Il W48 contiene anche le partite fatte dopo la nascita del mensile: si somma e basta, niente doppi conteggi.
+ */
+let minigameMonthlyBackfillRun: Promise<void> | null = null;
+function backfillMinigameMonthlyNovember2026() {
+  if (minigameMonthlyBackfillRun) return minigameMonthlyBackfillRun;
+  minigameMonthlyBackfillRun = (async () => {
+    if (romeMonthKey() !== "2026-11" || !isMongoReady()) return;
+    const { getBotState, setBotState } = require("../../../shared/botState/botStateStore") as typeof import("../../../shared/botState/botStateStore");
+    const FLAG = "mgMonthlyBackfill.2026-11";
+    if (await getBotState(FLAG, null)) return;
+    const mg = "$profile.totals.exp.minigame";
+    const mainGuildId = String(IDs.guilds?.main || "").trim();
+    if (!mainGuildId) return;
+    const r = await ActivityUserProfile.updateMany(
+      {
+        guildId: mainGuildId,
+        $or: [
+          { "profile.totals.exp.minigame.weeklyKey": "2026-W48", "profile.totals.exp.minigame.weeklyExp": { $gt: 0 } },
+          { "profile.totals.exp.minigame.prevWeekKey": "2026-W47", "profile.totals.exp.minigame.prevWeekExp": { $gt: 0 } },
+        ],
+      },
+      [
+        {
+          $set: {
+            "profile.totals.exp.minigame.monthlyKey": "2026-11",
+            "profile.totals.exp.minigame.monthlyExp": {
+              $add: [
+                { $cond: [{ $eq: [`${mg}.weeklyKey`, "2026-W48"] }, { $ifNull: [`${mg}.weeklyExp`, 0] }, 0] },
+                { $cond: [{ $eq: [`${mg}.prevWeekKey`, "2026-W47"] }, { $ifNull: [`${mg}.prevWeekExp`, 0] }, 0] },
+              ],
+            },
+          },
+        },
+      ],
+    ).catch((err?) => {
+      global.logger?.warn?.("[expService] mensile minigames, riempimento novembre fallito:", err?.message || err);
+      return null;
+    });
+    if (!r) {
+      minigameMonthlyBackfillRun = null;
+      return;
+    }
+    await setBotState(FLAG, { at: new Date().toISOString(), updated: Number(r.modifiedCount || 0) });
+    global.logger?.info?.(`[expService] mensile minigames: novembre riempito per ${Number(r.modifiedCount || 0)} utenti`);
+  })();
+  return minigameMonthlyBackfillRun;
+}
+
 async function incrementMinigameWinCounters(guildId?, userId?, effectiveExp?, newStreak?, bestStreak?) {
   if (!isLevelExpGuild(guildId)) return null;
   if (!isValidGuildUserId(guildId, userId)) return null;
@@ -203,6 +259,7 @@ async function incrementMinigameWinCounters(guildId?, userId?, effectiveExp?, ne
   const eff = Math.max(0, Math.floor(Number(effectiveExp)));
   if (!Number.isFinite(eff)) return null;
   const weekKey = getIsoWeekKey(new Date());
+  const monthKey = romeMonthKey();
   const ns = Math.max(0, Math.floor(Number(newStreak)));
   const bs = Math.max(0, Math.floor(Number(bestStreak)));
   try {
@@ -221,6 +278,14 @@ async function incrementMinigameWinCounters(guildId?, userId?, effectiveExp?, ne
               $cond: [
                 { $eq: [{ $ifNull: ["$profile.totals.exp.minigame.weeklyKey", ""] }, weekKey] },
                 { $add: [{ $ifNull: ["$profile.totals.exp.minigame.weeklyExp", 0] }, eff] },
+                eff,
+              ],
+            },
+            "profile.totals.exp.minigame.monthlyKey": monthKey,
+            "profile.totals.exp.minigame.monthlyExp": {
+              $cond: [
+                { $eq: [{ $ifNull: ["$profile.totals.exp.minigame.monthlyKey", ""] }, monthKey] },
+                { $add: [{ $ifNull: ["$profile.totals.exp.minigame.monthlyExp", 0] }, eff] },
                 eff,
               ],
             },
@@ -495,6 +560,7 @@ export = {
   getResolvedWeeklyExpMultiplier,
   getCurrentWeekKey,
   incrementMinigameWinCounters,
+  backfillMinigameMonthlyNovember2026,
   sendLevelUpAnnouncement,
   getTopExpGainsInPeriod,
   PERIOD_LOOKBACK_DAYS,

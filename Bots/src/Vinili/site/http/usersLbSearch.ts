@@ -6,7 +6,7 @@ const { discordRoleIconUrl } = require("../utils/discordRoleIconUrl") as typeof 
 const { fetchWebsiteGuildMember, readCachedWebsiteMember } = require("./websiteGuildMemberFetch") as typeof import("./websiteGuildMemberFetch");
 const { getRomeDateParts } = require("../../Community/services/birthdayService") as typeof import("../../Community/services/birthdayService");
 const { listCache } = require("./usersLbCache") as typeof import("./usersLbCache");
-const { nInt, parsePeriod, numericSortExpr } = require("./usersLbParams") as typeof import("./usersLbParams");
+const { nInt, parsePeriod, numericSortExpr, minigameValue } = require("./usersLbParams") as typeof import("./usersLbParams");
 const { PROFILE_MEMBER_SOFT_TIMEOUT_MS, siteSafeRankCard, siteSafeResolvedWallpaper, siteMemberAvatarUrl, publicDisplayNameFromMemberOrUser, resolveMemberForProfileFast, fetchUserIdentity, pickMembersFromGuild } = require("./usersLbIdentity") as typeof import("./usersLbIdentity");
 const { buildPublicBirthdayPayload } = require("./usersLbBirthdays") as typeof import("./usersLbBirthdays");
 const { buildCustomProfileData } = require("./usersLbCustomProfile") as typeof import("./usersLbCustomProfile");
@@ -616,7 +616,9 @@ async function buildRowFromDoc(
     const currentStreak =
       ov && ov.currentStreak != null ? nInt(ov.currentStreak) : nInt(mg.currentStreak);
     const bestStreak = ov && ov.bestStreak != null ? nInt(ov.bestStreak) : nInt(mg.bestStreak);
-    const primary = periodNorm === "weekly" ? minigameWeeklyExp : minigameTotalExp;
+    const minigameMonthlyExp = ov && ov.minigameMonthlyExp != null ? nInt(ov.minigameMonthlyExp) : minigameValue(d, "monthly");
+    const primary =
+      periodNorm === "weekly" ? minigameWeeklyExp : periodNorm === "monthly" ? minigameMonthlyExp : minigameTotalExp;
     return {
       rank,
       userId,
@@ -628,6 +630,7 @@ async function buildRowFromDoc(
       avatarUrl: id.avatarUrl,
       minigameTotalExp,
       minigameWeeklyExp,
+      minigameMonthlyExp,
       currentStreak,
       bestStreak,
       minigameBarPct: pctBar(primary, pageMaxSecondary),

@@ -54,6 +54,7 @@ export type LeaderRow = {
   voiceWeeklyBarPct?: number;
   minigameTotalExp?: number;
   minigameWeeklyExp?: number;
+  minigameMonthlyExp?: number;
   bestStreak?: number;
   minigameBarPct?: number;
 };
@@ -146,7 +147,7 @@ export function metric(board: BoardId, period: PeriodId, r: LeaderRow): { main: 
         return { main: `${fmt(r.minigameWeeklyExp)} EXP`, sub: `serie migliore ${r.bestStreak ?? 0}`, pct: r.minigameBarPct ?? 0 };
       }
       if (period === "monthly") {
-        return { main: `${fmt(0)} EXP`, sub: "mensile non disponibile", pct: 0 };
+        return { main: `${fmt(r.minigameMonthlyExp)} EXP`, sub: `serie migliore ${r.bestStreak ?? 0}`, pct: r.minigameBarPct ?? 0 };
       }
       return { main: `${fmt(r.minigameTotalExp)} EXP`, sub: `serie migliore ${r.bestStreak ?? 0}`, pct: r.minigameBarPct ?? 0 };
   }

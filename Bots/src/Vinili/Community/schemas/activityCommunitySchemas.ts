@@ -507,6 +507,9 @@ const activityUserProfileSchema = new Schema(
             weeklyKey: { type: String, default: "" },
                         prevWeekExp: { type: Number, default: 0 },
             prevWeekKey: { type: String, default: "" },
+            /* mgMonthly1: EXP minigames del mese (mese di Roma, "YYYY-MM") */
+            monthlyExp: { type: Number, default: 0 },
+            monthlyKey: { type: String, default: "" },
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
           },
