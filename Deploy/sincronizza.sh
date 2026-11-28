@@ -3,7 +3,7 @@
 # carica ogni .js di build/js e toglie dal server i .js che in locale non esistono più.
 # Non tocca: node_modules, Vinili/Data, Caffè/Data, Groove/Data, font/cache binari, log, idsCatalog.js (lo rigenera il bot).
 # Backup completo del codice e ripristino in ~/vc_bot_bak_<data>-sync (home dell'utente SSH).
-# VPS: di default quella nuova (vinili-ca), come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/sincronizza.sh
+# VPS: di default vinili-standby, come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/sincronizza.sh
 # Uso:
 #   bash Deploy/sincronizza.sh                       → riavvia tutti i processi dei bot
 #   PROVA=1 bash Deploy/sincronizza.sh               → mostra cosa farebbe, niente sulla VPS
@@ -15,7 +15,7 @@ BOTS_DIR="$REPO_ROOT/Bots"
 cd "$BOTS_DIR"
 
 PROCS="${PROCS:-bots-vinyls bots-coffee bots-groove site-api bot-workers vote-intake}"
-SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
+SSH_HOST="${VC_SSH_HOST:-vinili-standby}"
 echo "VPS: $SSH_HOST"
 # Sync completo ancora compila in locale: serve Bots/node_modules (esbuild).
 # Per publish normali usa Deploy/pubblica.sh (compile sulla VPS, zero node_modules locale).

@@ -191,17 +191,79 @@ async function getEligibleChannelIdSet(guild?) {
   return set;
 }
 
+function romeDayStartMs(now = new Date()) {
+  const parts = getRomeDayParts(now);
+  /* Trova l'inizio del giorno Rome (00:00) scorrendo indietro di massimo 48h. */
+  let cursorMs = floorToHourMs(now.getTime());
+  for (let i = 0; i < 48; i += 1) {
+    const p = getRomeDayParts(new Date(cursorMs));
+    if (p.year === parts.year && p.month === parts.month && p.day === parts.day && p.hour === 0) return cursorMs;
+    cursorMs -= 60 * 60 * 1000;
+  }
+  return floorToHourMs(now.getTime() - parts.hour * 60 * 60 * 1000);
+}
+
+/** Inizio mese Rome (giorno 1, 00:00): da qui è disponibile il Wrapped del mese precedente. */
+function romeMonthStartMs(now = new Date()) {
+  const parts = getRomeDayParts(now);
+  let cursorMs = floorToHourMs(now.getTime());
+  /* Max ~32 giorni indietro a passi di 1h fino a day=1 hour=0 dello stesso mese Rome. */
+  for (let i = 0; i < 32 * 24; i += 1) {
+    const p = getRomeDayParts(new Date(cursorMs));
+    if (p.year === parts.year && p.month === parts.month && p.day === 1 && p.hour === 0) return cursorMs;
+    cursorMs -= 60 * 60 * 1000;
+  }
+  return romeDayStartMs(now);
+}
+
 async function computeLeaderboardRows(guild?, mode = "alltime", maxCandidates = TOP_LIMIT * 5) {
   if (!guild?.id) return [];
   const weeklyStartMs = mode === "weekly" ? findLastSunday21RomeMs(new Date()) : 0;
+  const dailyStartMs = mode === "daily" ? romeDayStartMs(new Date()) : 0;
   const romeNow = getRomeDayParts(new Date());
   const monthlySlice =
     mode === "monthly" ? `${romeNow.year}-${pad2(romeNow.month)}` : "";
+  const dailySlice = mode === "daily" ? `${romeNow.year}-${pad2(romeNow.month)}-${pad2(romeNow.day)}` : "";
   const key = `${guild.id}:${mode}:${
-    mode === "weekly" ? weeklyStartMs : mode === "monthly" ? monthlySlice : ""
+    mode === "weekly" ? weeklyStartMs : mode === "monthly" ? monthlySlice : mode === "daily" ? dailySlice : ""
   }:n${maxCandidates}`;
   const cached = leaderboardCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.rows;
+
+  if (mode === "daily") {
+    const hourKeys = buildHourKeysBetweenRome(dailyStartMs, Date.now());
+    const hourlyRows = await loadHourlyRows(guild.id, hourKeys).catch(() => []);
+    const perUser = new Map();
+    for (const row of hourlyRows) {
+      const userId = String(row?.userId || "");
+      if (!userId) continue;
+      const textCount = Math.max(0, Number(row?.textCount || 0));
+      const voiceSeconds = Math.max(0, Number(row?.voiceSeconds || 0));
+      if (textCount <= 0 && voiceSeconds <= 0) continue;
+      const current = perUser.get(userId) || { userId, textCount: 0, voiceSeconds: 0 };
+      current.textCount += textCount;
+      current.voiceSeconds += voiceSeconds;
+      perUser.set(userId, current);
+    }
+    const rows = Array.from(perUser.values())
+      .map((entry?) => {
+        const baseExpFromText = entry.textCount * MESSAGE_EXP;
+        const baseExpFromVoice = Math.floor((entry.voiceSeconds * VOICE_EXP_PER_MINUTE) / 60);
+        const exp = Math.max(0, Math.floor(baseExpFromText + baseExpFromVoice));
+        return {
+          userId: entry.userId,
+          exp,
+          level: getLevelInfo(exp).level,
+          textCount: entry.textCount,
+          voiceSeconds: entry.voiceSeconds,
+        };
+      })
+      .filter((entry?) => entry.userId && entry.exp > 0)
+      .sort((a?, b?) => b.exp - a.exp)
+      .slice(0, Math.max(TOP_LIMIT * 5, maxCandidates));
+    leaderboardCache.set(key, { rows, expiresAt: Date.now() + LEADERBOARD_CACHE_TTL_MS });
+    return rows;
+  }
 
   if (mode === "weekly") {
     const startMs = weeklyStartMs;
@@ -423,4 +485,6 @@ export = {
   computeLeaderboardRows,
   computeWeeklyExpFromProfileDoc,
   getRomeDayKey,
+  romeDayStartMs,
+  romeMonthStartMs,
 };

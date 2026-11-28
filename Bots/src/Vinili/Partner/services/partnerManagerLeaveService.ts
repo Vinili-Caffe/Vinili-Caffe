@@ -162,8 +162,37 @@ async function deletePartnerActionMessages(guild?, action?) {
   if (!channelId) return;
   const channel = await getGuildChannelCached(guild, channelId).catch(() => null);
   if (!channel?.isTextBased?.()) return;
-  for (const messageId of action?.partnerMessageIds || []) {
-    if (!messageId) continue;
+  const ids = [
+    ...new Set(
+      (Array.isArray(action?.partnerMessageIds) ? action.partnerMessageIds : [])
+        .map((id?) => String(id || "").trim())
+        .filter((id?) => /^\d{5,30}$/.test(id)),
+    ),
+  ];
+  const toDelete = new Set(ids);
+
+  /* Fallback: l'embed «PARTNER EFFETTUATA» a volte non è in partnerMessageIds
+   * (save a due fasi / REST fail). Cerca il messaggio successivo entro 2 minuti. */
+  const { isThankYouPartnershipMessage } = require("../runtime/partnershipLogMessageUtils") as typeof import("../runtime/partnershipLogMessageUtils");
+  for (const messageId of ids) {
+    const msg = await channel.messages.fetch(messageId).catch(() => null);
+    if (!msg) continue;
+    if (isThankYouPartnershipMessage(msg)) continue;
+    const newer = await channel.messages.fetch({ after: messageId, limit: 6 }).catch(() => null);
+    if (!newer?.size) continue;
+    const sorted = [...newer.values()].sort(
+      (a?, b?) => Number(a.createdTimestamp || 0) - Number(b.createdTimestamp || 0),
+    );
+    for (const next of sorted) {
+      const delta = Number(next.createdTimestamp || 0) - Number(msg.createdTimestamp || 0);
+      if (delta < 0 || delta > 120_000) continue;
+      if (!isThankYouPartnershipMessage(next)) continue;
+      toDelete.add(String(next.id));
+      break;
+    }
+  }
+
+  for (const messageId of toDelete) {
     await channel.messages.delete(String(messageId)).catch(() => null);
   }
 }

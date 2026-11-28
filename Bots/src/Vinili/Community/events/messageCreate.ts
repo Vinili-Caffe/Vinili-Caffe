@@ -573,6 +573,24 @@ export = {
       setImmediate(() => {
         runCommunitySideEffects().catch(() => null);
       });
+
+      if (!message.author?.bot && message.guild) {
+        setImmediate(() => {
+          const { ingestMarkovMessageCreate } = require("../services/markovMessageCollectorService") as typeof import("../services/markovMessageCollectorService");
+          const {
+            handleMarkovAutoSendMessageCreate,
+            handleMarkovReplyMessageCreate,
+          } = require("../services/markovAutoSendService") as typeof import("../services/markovAutoSendService");
+          void ingestMarkovMessageCreate(message, resolvedClient)
+            .then(async () => {
+              const replied = await handleMarkovReplyMessageCreate(message, resolvedClient);
+              if (!replied) {
+                void handleMarkovAutoSendMessageCreate(message, resolvedClient);
+              }
+            })
+            .catch((error?) => logEventError(resolvedClient, "MARKOV MESSAGE ERROR", error));
+        });
+      }
     }
 
     let overrideCommand = null;

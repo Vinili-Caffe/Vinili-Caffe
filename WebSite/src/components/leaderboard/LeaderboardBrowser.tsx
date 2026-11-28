@@ -55,6 +55,7 @@ const DAILY_PERIODS: { id: DailyPeriod; label: string; icon: LucideIcon }[] = [
   { id: "all", label: "All-Time", icon: InfinityIcon },
   { id: "week", label: "Settimanale", icon: CalendarDays },
   { id: "month", label: "Mensile", icon: Calendar },
+  { id: "day", label: "Oggi", icon: Crosshair },
 ];
 
 type Metric = { main: string; sub?: string; pct: number };
@@ -63,6 +64,7 @@ const PERIOD_ICONS: Record<PeriodId, LucideIcon> = {
   alltime: InfinityIcon,
   weekly: CalendarDays,
   monthly: Calendar,
+  daily: Crosshair,
 };
 
 // i primi 3: oro, argento, bronzo

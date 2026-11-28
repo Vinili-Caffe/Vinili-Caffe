@@ -1,6 +1,7 @@
 "use client";
 
 import { DiscordContent } from "@/components/discord/DiscordContent";
+import { SafeImage } from "@/components/bacheca-wall/BachecaCards";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -204,14 +205,13 @@ function Card({
   return (
     <li className="flex flex-col overflow-hidden rounded-2xl bg-crema/[0.04] ring-1 ring-sand/12">
       {item.previewImageUrl ? (
-         
-        <img
-          src={item.previewImageUrl}
-          alt=""
-          data-vc-lightbox
-          className="aspect-video w-full cursor-zoom-in object-cover bg-crema/[0.03]"
-          loading="lazy"
-        />
+        <div data-vc-lightbox className="aspect-video w-full cursor-zoom-in overflow-hidden bg-crema/[0.03]">
+          <SafeImage
+            src={item.previewImageUrl}
+            alt=""
+            className="aspect-video w-full object-cover"
+          />
+        </div>
       ) : item.previewVideoUrl ? (
         <video src={item.previewVideoUrl} controls preload="metadata" playsInline className="aspect-video w-full bg-black object-contain" />
       ) : item.previewAudioUrl ? (

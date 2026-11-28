@@ -428,8 +428,8 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     let guild = client?.guilds?.cache?.get?.(guildId) || null;
     let computedBoard = Boolean(guild) && isComputedListBoard(rankBoard, rankPeriod);
     const romeDayKey = rankBoard === "messages" || rankBoard === "voice" ? getRomeDayKey(new Date()) : "";
-    /* periodLb1: bump cache key for board+period */
-    let cacheKey = `v6:${guildId}:${board}:${responsePeriod}${computedBoard ? ":computed" : ""}:p${page}:n${perPage}:perf${perfTier}`;
+    /* periodLb1: bump cache key for board+period — v7: daily messages/voice filtrati su *DailyKey */
+    let cacheKey = `v7:${guildId}:${board}:${responsePeriod}${computedBoard ? ":computed" : ""}:p${page}:n${perPage}:perf${perfTier}`;
     const listCcFresh = lite ? "public, max-age=45" : "public, max-age=20";
     const listCcStale = "public, max-age=5, stale-while-revalidate=120";
     const forceRebuild = Boolean(req && req.__vcForceUsersRebuild);
@@ -466,7 +466,7 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     if (!guild) {
       guild = (await client?.guilds?.fetch?.(guildId).catch(() => null)) || null;
       computedBoard = Boolean(guild) && isComputedListBoard(rankBoard, rankPeriod);
-      cacheKey = `v6:${guildId}:${board}:${responsePeriod}${computedBoard ? ":computed" : ""}:p${page}:n${perPage}:perf${perfTier}`;
+      cacheKey = `v7:${guildId}:${board}:${responsePeriod}${computedBoard ? ":computed" : ""}:p${page}:n${perPage}:perf${perfTier}`;
       listMeta = cacheLookupMeta(cacheKey, LIST_STALE_KEEP_MS);
       if (listMeta.hit && !listMeta.stale) {
         return replyUsers(req, res, listMeta.hit, lite ? "public, max-age=45" : "public, max-age=15", {
@@ -629,8 +629,9 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     let topDoc = null;
     if (rankBoard === "messages" || rankBoard === "voice") {
       const sortExpr = numericSortExpr(rankBoard, rankPeriod);
+      /* Usa boardQuery (dailyKey/giorno di Roma) — senza key i daily vecchi restano in classifica a 0. */
       const agg = await ActivityUserProfile.aggregate([
-        { $match: { guildId, "profile.totals.exp.totalExp": { $gt: 0 } } },
+        { $match: filter },
         { $addFields: { __sortVal: sortExpr } },
         { $match: { __sortVal: { $gt: 0 } } },
         { $sort: { __sortVal: -1 } },
@@ -686,14 +687,18 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
           topDoc.__sortVal ??
             (rankPeriod === "weekly"
               ? topDoc.profile?.totals?.messagesWeekly
-              : topDoc.profile?.totals?.messagesTotal),
+              : rankPeriod === "daily"
+                ? topDoc.profile?.totals?.messagesDaily
+                : topDoc.profile?.totals?.messagesTotal),
         );
       } else if (rankBoard === "voice") {
         topVoiceSeconds = nInt(
           topDoc.__sortVal ??
             (rankPeriod === "weekly"
               ? topDoc.profile?.totals?.voiceWeeklySeconds
-              : topDoc.profile?.totals?.voiceTotalSeconds),
+              : rankPeriod === "daily"
+                ? topDoc.profile?.totals?.voiceDailySeconds
+                : topDoc.profile?.totals?.voiceTotalSeconds),
         );
       } else if (rankBoard === "minigames") {
         topMinigameTotal = minigameValue(topDoc, rankPeriod);
@@ -707,7 +712,11 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
           pageMaxSecondary,
           nInt(
             d.__sortVal ??
-              (rankPeriod === "weekly" ? d.profile?.totals?.messagesWeekly : d.profile?.totals?.messagesTotal),
+              (rankPeriod === "weekly"
+                ? d.profile?.totals?.messagesWeekly
+                : rankPeriod === "daily"
+                  ? d.profile?.totals?.messagesDaily
+                  : d.profile?.totals?.messagesTotal),
           ),
         );
       }
@@ -719,7 +728,9 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
             d.__sortVal ??
               (rankPeriod === "weekly"
                 ? d.profile?.totals?.voiceWeeklySeconds
-                : d.profile?.totals?.voiceTotalSeconds),
+                : rankPeriod === "daily"
+                  ? d.profile?.totals?.voiceDailySeconds
+                  : d.profile?.totals?.voiceTotalSeconds),
           ),
         );
       }
@@ -742,16 +753,22 @@ async function handleSiteUsersLeaderboardGet(client?, req?, res?) {
     const rows = await Promise.all(
       docs.map(async (d?, i?) => {
         const dayOvr =
-          rankPeriod === "alltime" ? siteRomeDayOverridesFromDoc(d, rankBoard, romeDayKey) : {};
+          rankPeriod === "alltime" || rankPeriod === "daily"
+            ? siteRomeDayOverridesFromDoc(d, rankBoard, romeDayKey)
+            : {};
         const totalOvr =
           rankBoard === "messages"
             ? rankPeriod === "weekly"
               ? { messagesWeekly: nInt(d.__sortVal ?? d.profile?.totals?.messagesWeekly) }
-              : { messagesTotal: nInt(d.__sortVal ?? d.profile?.totals?.messagesTotal) }
+              : rankPeriod === "daily"
+                ? { messagesDaily: nInt(d.__sortVal ?? d.profile?.totals?.messagesDaily) }
+                : { messagesTotal: nInt(d.__sortVal ?? d.profile?.totals?.messagesTotal) }
             : rankBoard === "voice"
               ? rankPeriod === "weekly"
                 ? { voiceWeeklySeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceWeeklySeconds) }
-                : { voiceTotalSeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceTotalSeconds) }
+                : rankPeriod === "daily"
+                  ? { voiceDailySeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceDailySeconds) }
+                  : { voiceTotalSeconds: nInt(d.__sortVal ?? d.profile?.totals?.voiceTotalSeconds) }
               : {};
         return buildRowFromDoc(
           client,

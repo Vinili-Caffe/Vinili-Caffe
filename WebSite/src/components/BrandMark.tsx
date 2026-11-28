@@ -11,6 +11,15 @@ const FALLBACK = cdnUrl("/images/logo-disco.png");
 const FALLBACK_NAME = "📀 VINILI & CAFFÈ ☕";
 /** Brand Discord: disco/tazza + varianti stagionali (Babbo/neve/albero…). */
 const KEEP_BRAND_EMOJI = new Set(["📀", "☕", "🎅", "❄", "🎄", "✨", "🎁", "🎃"]);
+/**
+ * Dingbat Unicode (U+26xx/27xx): senza VS16 (U+FE0F) il browser li disegna come testo
+ * monocolore (es. ❄ bianco invece di ❄️ emoji). Santa 🎅 non serve VS16.
+ */
+function withEmojiPresentation(ch: string): string {
+  const cp = ch.codePointAt(0) ?? 0;
+  if (cp >= 0x2600 && cp <= 0x27bf) return `${ch}\uFE0F`;
+  return ch;
+}
 
 /**
  * Discord usa lettere “decorative” (es. ɑ al posto di a) che con `uppercase`
@@ -21,10 +30,13 @@ function scrubDiscordText(raw: string): string {
   return String(raw || "")
     .replace(/\u0251/g, "a") // ɑ
     .replace(/\u2C6D/g, "A") // Ɑ
+    /* Togli ZWSP + text-style VS15; FE0F lo rimettiamo sotto dove serve. */
     .replace(/[\u200B-\u200D\uFE0E\uFE0F]/g, "")
     .normalize("NFKC")
     .normalize("NFC")
-    .replace(/\p{Extended_Pictographic}/gu, (ch) => (KEEP_BRAND_EMOJI.has(ch) ? ch : ""))
+    .replace(/\p{Extended_Pictographic}/gu, (ch) =>
+      KEEP_BRAND_EMOJI.has(ch) ? withEmojiPresentation(ch) : "",
+    )
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -35,8 +47,9 @@ function splitGuildBrand(raw: string): { main: string; tagline: string } {
   const left = (cut > 0 ? cleaned.slice(0, cut) : cleaned).trim();
   const right = cut > 0 ? cleaned.slice(cut + 1).trim() : "";
   if (/vinili\s*&\s*caff/i.test(left)) {
-    const prefix = (left.match(/^(?:\p{Extended_Pictographic}\s*)+/u) || [""])[0];
-    const suffix = (left.match(/(?:\s*\p{Extended_Pictographic})+$/u) || [""])[0];
+    /* \uFE0F opzionale: emoji dingbat (❄️) altrimenti il match sul suffix fallisce. */
+    const prefix = (left.match(/^(?:\p{Extended_Pictographic}\uFE0F?\s*)+/u) || [""])[0];
+    const suffix = (left.match(/(?:\s*\p{Extended_Pictographic}\uFE0F?)+$/u) || [""])[0];
     const main = `${prefix}VINILI & CAFFÈ${suffix}`.replace(/\s+/g, " ").trim();
     return {
       main: main || FALLBACK_NAME,

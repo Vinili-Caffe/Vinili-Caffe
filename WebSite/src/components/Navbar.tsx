@@ -29,6 +29,7 @@ import {
   type NavLink,
 } from "@/lib/site";
 import { SeasonLiveNavDot, SeasonLiveNavTag, useNavSeasonTick } from "./SeasonLiveNav";
+import { useNavActivityBadges } from "@/lib/nav-activity";
 import { avatarUrl, displayName, useAuth } from "@/lib/auth";
 import { loadStaffAccess, staffNavFor, type StaffAccess } from "@/lib/staff";
 import { useI18n } from "@/lib/i18n";
@@ -264,11 +265,15 @@ function NavDrop({
   links,
   highStaff,
   eventoNavOpen,
+  activityHas,
+  activityVisited,
 }: {
   labelKey: string;
   links: NavLink[];
   highStaff: boolean;
   eventoNavOpen: boolean;
+  activityHas: (href?: string | null) => boolean;
+  activityVisited: (href?: string | null) => boolean;
 }) {
   const { t } = useI18n();
   const pathname = useSitePathname() || "/";
@@ -287,7 +292,10 @@ function NavDrop({
       void seasonTick;
       return navLinkSeasonLive(l);
     });
-  const newGroup = links.some((l) => Boolean(l.isNew) && !linkLocked(l, highStaff, eventoNavOpen));
+  const newGroup = links.some(
+    (l) => Boolean(l.isNew) && !linkLocked(l, highStaff, eventoNavOpen) && !activityVisited(l.href),
+  );
+  const activityGroup = links.some((l) => !linkLocked(l, highStaff, eventoNavOpen) && activityHas(l.href));
 
   const collapse = useCallback(() => {
     setHover(false);
@@ -350,7 +358,7 @@ function NavDrop({
         {links.some((l) => isPromoHref(l.href)) ? <PromoNavDot className="-ml-0.5 self-start mt-1" /> : null}
         {seasonLiveGroup ? (
           <SeasonLiveNavDot className="-ml-0.5 self-center" />
-        ) : newGroup ? (
+        ) : newGroup || activityGroup ? (
           <SeasonLiveNavDot className="-ml-0.5 self-center" tone="new" />
         ) : null}
         <ChevronDown className={cn("size-3.5 opacity-60 transition-transform", open && "rotate-180")} aria-hidden />
@@ -369,7 +377,8 @@ function NavDrop({
                 const on = pathActive(pathname, l.href);
                 const locked = linkLocked(l, highStaff, eventoNavOpen);
                 const live = seasonReady && !locked && navLinkSeasonLive(l);
-                const fresh = !locked && Boolean(l.isNew);
+                const fresh = !locked && Boolean(l.isNew) && !activityVisited(l.href);
+                const activity = !locked && !live && !fresh && activityHas(l.href);
                 const ico = <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-70" />;
                 return (
                   <li key={l.href}>
@@ -391,7 +400,13 @@ function NavDrop({
                       >
                         {ico}
                         {t(l.labelKey)}
-                        {live ? <SeasonLiveNavTag className="ml-auto" /> : fresh ? <SeasonLiveNavTag className="ml-auto" label={t("nav.new")} tone="new" /> : null}
+                        {live ? (
+                          <SeasonLiveNavTag className="ml-auto" />
+                        ) : fresh ? (
+                          <SeasonLiveNavTag className="ml-auto" label={t("nav.new")} tone="new" />
+                        ) : activity ? (
+                          <SeasonLiveNavDot className="ml-auto" tone="new" />
+                        ) : null}
                         {!live && isPromoHref(l.href) ? <PromoNavTag className="ml-auto" /> : null}
                       </SmartLink>
                     )}
@@ -641,6 +656,7 @@ export function Navbar() {
     eventoChrome && !eventoNeedsSort ? eventoEventiNavForViewer(staffAccess) : [];
   const soon = t("auth.comingSoon");
   const { tick: seasonTick, ready: seasonReady } = useNavSeasonTick();
+  const navActivity = useNavActivityBadges();
   const navGroups = navGroupsForSeason();
   const navMobile = navMobileSectionsForSeason();
   void seasonTick;
@@ -768,7 +784,14 @@ export function Navbar() {
                 <li aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-crema/20" />
                 {navGroups.map((g) => (
                   <li key={g.labelKey}>
-                    <NavDrop labelKey={g.labelKey} links={g.links} highStaff={highStaff} eventoNavOpen={eventoNavOpen} />
+                    <NavDrop
+                      labelKey={g.labelKey}
+                      links={g.links}
+                      highStaff={highStaff}
+                      eventoNavOpen={eventoNavOpen}
+                      activityHas={navActivity.hasPath}
+                      activityVisited={navActivity.hasVisited}
+                    />
                   </li>
                 ))}
               </>
@@ -955,7 +978,8 @@ export function Navbar() {
                       const on = pathActive(pathname, l.href);
                       const locked = linkLocked(l, highStaff, eventoNavOpen);
                       const live = seasonReady && !locked && navLinkSeasonLive(l);
-                      const fresh = !locked && Boolean(l.isNew);
+                      const fresh = !locked && Boolean(l.isNew) && !navActivity.hasVisited(l.href);
+                      const activity = !locked && navActivity.hasPath(l.href);
                       const ico = <NavIcon labelKey={l.labelKey} className="size-3.5 shrink-0 opacity-75" />;
                       return (
                       <li key={l.href}>
@@ -982,10 +1006,15 @@ export function Navbar() {
                               {ico}
                               {t(l.labelKey)}
                               {/* sul telefono niente etichette: solo un puntino discreto nell'angolo */}
-                              {live || fresh || isPromoHref(l.href) ? (
+                              {live || fresh || activity || isPromoHref(l.href) ? (
                                 <span className="absolute right-2 top-2 flex size-2" aria-hidden>
                                   {live ? <span className="absolute inline-flex size-full animate-ping rounded-full bg-ember/60" /> : null}
-                                  <span className={cn("relative inline-flex size-2 rounded-full", live ? "bg-ember" : "bg-caramel")} />
+                                  <span
+                                    className={cn(
+                                      "relative inline-flex size-2 rounded-full",
+                                      live ? "bg-ember" : activity && !fresh ? "bg-[#3fbf7f]" : "bg-caramel",
+                                    )}
+                                  />
                                 </span>
                               ) : null}
                         </SmartLink>

@@ -14,6 +14,7 @@ const { resolveWebsiteGuildMember } = require("../../site/http/siteRoleRequestAp
 const { getClientGuildCached } = require("../../../shared/discord/interactionEntityCache") as typeof import("../../../shared/discord/interactionEntityCache");
 const { BACHECA_EMOJIS, toggleBachecaReaction, loadBachecaReactions } = require("./bachecaReactions") as typeof import("./bachecaReactions");
 const { broadcastBachecaChanged, isSiteBoardChannel } = require("./bachecaSite") as typeof import("./bachecaSite");
+const { stabilizeQuoteMedia } = require("../boards/boardMediaStable") as typeof import("../boards/boardMediaStable");
 
 const PER_PAGE = 24;
 const KINDS = new Set(["all", "quote", "repost", "clip", "skull"]);
@@ -172,6 +173,15 @@ async function hydrate(client?, rows?: any[], viewerId = "") {
     loadBachecaReactions(guildId, ids, viewerId),
     viewerRepostedSources(guildId, rows, viewerId),
   ]);
+  /* Quote site: imageUrl Discord scaduto → ripara da origin / CDN prima di serializzare. */
+  await Promise.all(
+    rows.map(async (r?) => {
+      const doc = r?.doc || r;
+      if (String(doc?.type || "") !== "quote") return;
+      const fixed = await stabilizeQuoteMedia(client, doc).catch(() => "");
+      if (fixed) doc.imageUrl = fixed;
+    }),
+  );
   return rows.map((r) => {
     const id = String(r.doc?.boardMessageId || r._id || "");
     const item = serializeItem(r, guild, guildId, counts.get(id), mine.get(id), viewerId);

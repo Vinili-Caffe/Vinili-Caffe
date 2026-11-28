@@ -18,7 +18,9 @@ const {
   isSiteCdnConfigured,
   savePublicSiteMedia,
   guessContentType,
+  cdnUrlForKey,
 } = require("../../site/http/siteCdnMedia") as typeof import("../../site/http/siteCdnMedia");
+const { isSiteBoardChannel } = require("../bacheca/bachecaSite") as typeof import("../bacheca/bachecaSite");
 
 function isDiscordMediaUrl(url?) {
   const s = String(url || "").trim();
@@ -141,19 +143,100 @@ async function fetchBoardMessageMedia(client?, guildId?, channelId?, messageId?)
   }
 }
 
+async function probeUrlAlive(url?) {
+  const target = String(url || "").trim();
+  if (!/^https?:\/\//i.test(target)) return false;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => {
+    try {
+      ctrl.abort();
+    } catch (_) {}
+  }, 6000);
+  try {
+    const res = await fetch(target, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "User-Agent": "ViniliECaffeBoardMedia/1.0" },
+    });
+    if (res.ok) return true;
+    /* alcuni CDN non amano HEAD → prova GET leggero */
+    if (res.status === 403 || res.status === 405) {
+      const get = await fetch(target, {
+        method: "GET",
+        redirect: "follow",
+        signal: ctrl.signal,
+        headers: { Range: "bytes=0-0", "User-Agent": "ViniliECaffeBoardMedia/1.0" },
+      });
+      return get.ok || get.status === 206;
+    }
+    return false;
+  } catch (_) {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function probeSiteQuoteCdn(doc?) {
+  const itemId = String(doc?.boardMessageId || doc?._id || "").trim();
+  if (!itemId || !/^[a-f0-9]{24}$/i.test(itemId)) return "";
+  for (const name of ["quote.png", "quote.gif", "quote.webp", "quote.jpg", "quote.jpeg"]) {
+    const url = cdnUrlForKey(`bacheca/quote/${itemId}/${name}`);
+    if (url && (await probeUrlAlive(url))) return url;
+  }
+  return "";
+}
+
 async function stabilizeQuoteMedia(client?, doc?) {
   const id = String(doc?._id || "").trim();
   let imageUrl = String(doc?.imageUrl || "").trim();
-  if (!needsStableMedia(imageUrl) && imageUrl) return imageUrl;
+  const siteQuote = isSiteBoardChannel(doc?.boardChannelId);
 
-  const fresh = await fetchBoardMessageMedia(client, doc?.guildId, doc?.boardChannelId, doc?.boardMessageId);
+  /* CDN già ok e raggiungibile → stop. Se il file manca su R2, riprova da origin. */
+  if (imageUrl && isCdnMediaUrl(imageUrl)) {
+    if (await probeUrlAlive(imageUrl)) return imageUrl;
+    imageUrl = "";
+  } else if (!needsStableMedia(imageUrl) && imageUrl) {
+    return imageUrl;
+  }
+
+  /* Quote sul sito: boardChannelId=site non è un canale Discord — prova CDN atteso + messaggio originale. */
+  if (siteQuote) {
+    const onCdn = await probeSiteQuoteCdn(doc);
+    if (onCdn) {
+      if (id && onCdn !== String(doc?.imageUrl || "")) {
+        await GuildQuoteBoard.updateOne({ _id: id }, { $set: { imageUrl: onCdn } }).catch(() => null);
+      }
+      return onCdn;
+    }
+  }
+
+  let fresh = { imageUrl: "", files: [] as { url: string; name: string }[] };
+  if (siteQuote) {
+    fresh = await fetchBoardMessageMedia(client, doc?.guildId, doc?.originChannelId, doc?.originMessageId);
+  } else {
+    fresh = await fetchBoardMessageMedia(client, doc?.guildId, doc?.boardChannelId, doc?.boardMessageId);
+    if (!fresh.imageUrl) {
+      fresh = await fetchBoardMessageMedia(client, doc?.guildId, doc?.originChannelId, doc?.originMessageId);
+    }
+  }
   if (fresh.imageUrl) imageUrl = fresh.imageUrl;
   if (!imageUrl) return "";
 
-  if (isCdnMediaUrl(imageUrl)) return imageUrl;
+  if (isCdnMediaUrl(imageUrl)) {
+    if (id && imageUrl !== String(doc?.imageUrl || "")) {
+      await GuildQuoteBoard.updateOne({ _id: id }, { $set: { imageUrl } }).catch(() => null);
+    }
+    return imageUrl;
+  }
 
   const ext = extFromUrlOrName(imageUrl, "") || ".png";
-  const cdn = await migrateUrlToCdn(imageUrl, `boards/quotes/${id || "tmp"}/quote${ext}`, `quote${ext}`);
+  const itemId = String(doc?.boardMessageId || id || "tmp").trim();
+  const cdnKey = siteQuote
+    ? `bacheca/quote/${itemId}/quote${ext}`
+    : `boards/quotes/${id || "tmp"}/quote${ext}`;
+  const cdn = await migrateUrlToCdn(imageUrl, cdnKey, `quote${ext}`);
   if (cdn && id) {
     await GuildQuoteBoard.updateOne({ _id: id }, { $set: { imageUrl: cdn } }).catch(() => null);
     return cdn;

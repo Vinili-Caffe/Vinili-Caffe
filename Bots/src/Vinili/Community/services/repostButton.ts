@@ -103,7 +103,19 @@ async function createRepostFromMessage(ctx?) {
   if (!quoteAuthorId && author?.bot) {
     quoteAuthorId = resolveQuotedAuthorIdFromQuoteMessage(targetMessage) || "";
   }
-  const imageUrlFromMessage = pickImageUrlFromMessage(targetMessage);
+  let imageUrlFromMessage = pickImageUrlFromMessage(targetMessage);
+  /* Allegato quote perso (edit componenti senza keep) → CDN/DB */
+  if (!imageUrlFromMessage) {
+    const { findQuoteImageUrlByMessage } = require("../utils/Quote/quoteBoardService") as typeof import("../utils/Quote/quoteBoardService");
+    const chId = String(targetMessage?.channel?.id || targetMessage?.channelId || "").trim();
+    const msgId = String(targetMessage?.id || "").trim();
+    const stored = await findQuoteImageUrlByMessage(guildId, chId, msgId).catch(() => null);
+    const storedUrl = String(stored?.imageUrl || "").trim();
+    if (storedUrl) imageUrlFromMessage = storedUrl;
+    if (!quoteAuthorId && /^\d{16,20}$/.test(String(stored?.quotedUserId || ""))) {
+      quoteAuthorId = String(stored.quotedUserId);
+    }
+  }
   const fromQuoteCanvas = Boolean(
     quoteAuthorId && /^\d{16,20}$/.test(quoteAuthorId) && imageUrlFromMessage,
   );

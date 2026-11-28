@@ -547,6 +547,31 @@ async function buildRowFromDoc(
       progressPercent: Math.max(0, Math.min(100, Math.round(Number(li.progressPercent || 0)))),
     };
   }
+  if (board === "daily") {
+    const dailyExp = ov && ov.dailyExp != null ? nInt(ov.dailyExp) : 0;
+    const totalExp = nInt(d.profile?.totals?.exp?.totalExp);
+    const li = getLevelInfo(totalExp);
+    let level = Math.max(0, Math.floor(Number(d.profile?.totals?.exp?.level || 0)));
+    if (level < li.level) level = li.level;
+    return {
+      rank,
+      userId,
+      username: id.username,
+      displayName: id.displayName,
+      discriminator: id.discriminator,
+      avatar: id.avatar,
+      memberAvatar: id.memberAvatar || "",
+      avatarUrl: id.avatarUrl,
+      level,
+      exp: totalExp,
+      dailyExp,
+      dailyBarPct: pctBar(dailyExp, pageMaxSecondary),
+      currentLevelExp: Number(li.currentLevelExp || 0),
+      nextLevelExp: Number(li.nextLevelExp || 0),
+      remainingToNext: Number(li.remainingToNext || 0),
+      progressPercent: Math.max(0, Math.min(100, Math.round(Number(li.progressPercent || 0)))),
+    };
+  }
   if (board === "messages") {
     const messagesTotal =
       ov && ov.messagesTotal != null ? nInt(ov.messagesTotal) : nInt(d.profile?.totals?.messagesTotal);
@@ -554,10 +579,23 @@ async function buildRowFromDoc(
       ov && ov.messagesWeekly != null ? nInt(ov.messagesWeekly) : nInt(d.profile?.totals?.messagesWeekly);
     const messagesMonthly =
       ov && ov.messagesMonthly != null ? nInt(ov.messagesMonthly) : 0;
-    const messagesDaily =
+    const messagesDailyRaw =
       ov && ov.messagesDaily != null ? nInt(ov.messagesDaily) : nInt(d.profile?.totals?.messagesDaily);
+    const messagesDailyKey = String(d.profile?.totals?.messagesDailyKey || "").trim();
+    const messagesDaily =
+      ov && ov.messagesDaily != null
+        ? messagesDailyRaw
+        : messagesDailyKey === getRomeDayKey(new Date())
+          ? messagesDailyRaw
+          : 0;
     const primary =
-      periodNorm === "weekly" ? messagesWeekly : periodNorm === "monthly" ? messagesMonthly : messagesTotal;
+      periodNorm === "weekly"
+        ? messagesWeekly
+        : periodNorm === "monthly"
+          ? messagesMonthly
+          : periodNorm === "daily"
+            ? messagesDaily
+            : messagesTotal;
     return {
       rank,
       userId,
@@ -583,14 +621,23 @@ async function buildRowFromDoc(
         : nInt(d.profile?.totals?.voiceWeeklySeconds);
     const voiceMonthlySeconds =
       ov && ov.voiceMonthlySeconds != null ? nInt(ov.voiceMonthlySeconds) : 0;
-    const voiceDailySeconds =
+    const voiceDailyRaw =
       ov && ov.voiceDailySeconds != null ? nInt(ov.voiceDailySeconds) : nInt(d.profile?.totals?.voiceDailySeconds);
+    const voiceDailyKey = String(d.profile?.totals?.voiceDailyKey || "").trim();
+    const voiceDailySeconds =
+      ov && ov.voiceDailySeconds != null
+        ? voiceDailyRaw
+        : voiceDailyKey === getRomeDayKey(new Date())
+          ? voiceDailyRaw
+          : 0;
     const primary =
       periodNorm === "weekly"
         ? voiceWeeklySeconds
         : periodNorm === "monthly"
           ? voiceMonthlySeconds
-          : voiceTotalSeconds;
+          : periodNorm === "daily"
+            ? voiceDailySeconds
+            : voiceTotalSeconds;
     return {
       rank,
       userId,
@@ -617,8 +664,16 @@ async function buildRowFromDoc(
       ov && ov.currentStreak != null ? nInt(ov.currentStreak) : nInt(mg.currentStreak);
     const bestStreak = ov && ov.bestStreak != null ? nInt(ov.bestStreak) : nInt(mg.bestStreak);
     const minigameMonthlyExp = ov && ov.minigameMonthlyExp != null ? nInt(ov.minigameMonthlyExp) : minigameValue(d, "monthly");
+    const minigameDailyExp =
+      ov && ov.minigameDailyExp != null ? nInt(ov.minigameDailyExp) : minigameValue(d, "daily");
     const primary =
-      periodNorm === "weekly" ? minigameWeeklyExp : periodNorm === "monthly" ? minigameMonthlyExp : minigameTotalExp;
+      periodNorm === "weekly"
+        ? minigameWeeklyExp
+        : periodNorm === "monthly"
+          ? minigameMonthlyExp
+          : periodNorm === "daily"
+            ? minigameDailyExp
+            : minigameTotalExp;
     return {
       rank,
       userId,
@@ -631,6 +686,7 @@ async function buildRowFromDoc(
       minigameTotalExp,
       minigameWeeklyExp,
       minigameMonthlyExp,
+      minigameDailyExp,
       currentStreak,
       bestStreak,
       minigameBarPct: pctBar(primary, pageMaxSecondary),

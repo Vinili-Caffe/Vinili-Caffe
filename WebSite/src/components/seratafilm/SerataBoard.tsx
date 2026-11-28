@@ -14,11 +14,13 @@ import {
   CREDITS_SKIP,
   FINAL_COUNTDOWN_MS,
   SERATA_EVENT,
+  SERATA_SW_NIGHTS,
   SERATA_XMAS_NIGHTS,
   countdownParts,
   filmPoster,
   filmSynopsis,
   filmTitle,
+  isSerataSwScheduleLive,
   isSerataXmasScheduleLive,
   loadSerataAccess,
   liveFilmStartMs,
@@ -392,9 +394,11 @@ export function SerataBoard() {
           <div className="mt-8">
             <Countdown now={now} target={target} />
           </div>
-          {now != null && isSerataXmasScheduleLive(now) && SERATA_XMAS_NIGHTS.length ? (
+          {now != null &&
+          ((isSerataXmasScheduleLive(now) && SERATA_XMAS_NIGHTS.length) ||
+            (isSerataSwScheduleLive(now) && !isSerataXmasScheduleLive(now) && SERATA_SW_NIGHTS.length)) ? (
             <ul className="mx-auto mt-8 grid max-w-3xl gap-2 text-left sm:grid-cols-2">
-              {SERATA_XMAS_NIGHTS.map((n) => {
+              {(isSerataXmasScheduleLive(now) ? SERATA_XMAS_NIGHTS : SERATA_SW_NIGHTS).map((n) => {
                 const active = n.title === title;
                 return (
                   <li

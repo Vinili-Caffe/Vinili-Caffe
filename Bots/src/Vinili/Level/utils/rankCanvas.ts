@@ -677,7 +677,7 @@ async function renderRankPngBuffer(data?, avatarImageOverride = null, wallpaperI
   const usernameMaxW = Math.max(200, copyW - levelWidth - 88 - sepGap * 2);
   const username = fitRichText(
     ctx,
-    String(data.username || "utente").replace(/s{2,}/g, " ").trim(),
+    String(data.username || "utente").replace(/\s{2,}/g, " ").trim(),
     usernameMaxW,
     34,
     "900",

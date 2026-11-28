@@ -57,6 +57,7 @@ function isReadOnlySiteGet(req?) {
   const path = webhookPath(req);
   if (path.includes("/push/vapid-public-key")) return true;
   if (path === "/webhooks/site-chrome-prefs") return true;
+  if (path === "/webhooks/site-nav-activity") return true;
   if (path === "/webhooks/site-discord-me") return true;
   if (path === "/webhooks/site-auth/session") return true;
   if (path === "/webhooks/site-auth/oauth/meta") return true;

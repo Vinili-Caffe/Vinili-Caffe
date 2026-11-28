@@ -255,7 +255,17 @@ export = {
         );
       }
       if (siteBoard) repostRow.addComponents(buildBachecaLinkButton(siteItemId));
-      await replyMsg.edit({ components: mergeBoardComponents(replyMsg, [repostRow as any]) }).catch(() => {});
+      /* edit senza attachments cancella quote.png/gif → Reposta fallisce */
+      const keepAtt = [...(replyMsg.attachments?.values() || [])]
+        .map((att?) => String(att?.id || "").trim())
+        .filter((id?) => /^\d{16,20}$/.test(id))
+        .map((id?) => ({ id }));
+      await replyMsg
+        .edit({
+          components: mergeBoardComponents(replyMsg, [repostRow as any]),
+          ...(keepAtt.length ? { attachments: keepAtt } : {}),
+        })
+        .catch(() => {});
     }
 
     if (siteBoard) {

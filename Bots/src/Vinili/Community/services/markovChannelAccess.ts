@@ -182,8 +182,16 @@ async function resolveMarkovOutputChannel(guild?, client?) {
   if (!guild || !client) return null;
   const channelId = resolveMarkovOutputChannelId(client);
   if (!channelId) return null;
-  const channel = guild.channels.cache.get(channelId)
-    || await guild.channels.fetch(channelId).catch(() => null);
+  if (!guild.members?.me && typeof guild.members?.fetchMe === "function") {
+    await guild.members.fetchMe().catch(() => null);
+  }
+  const channel = guild.channels?.cache?.get?.(channelId)
+    || (typeof guild.channels?.fetch === "function"
+      ? await guild.channels.fetch(channelId).catch(() => null)
+      : null)
+    || (typeof client.channels?.fetch === "function"
+      ? await client.channels.fetch(channelId).catch(() => null)
+      : null);
   if (!channel || !channel.isTextBased?.()) return null;
   if (!hasBotReadWrite(channel, guild)) return null;
   return channel;

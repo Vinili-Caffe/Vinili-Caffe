@@ -1,6 +1,6 @@
 /** Classifiche utenti: moltiplicatori della settimana e classifiche calcolate. */
 const IDs = require("../../Config/ids") as typeof import("../../Config/ids");
-const { computeLeaderboardRows } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+const { computeLeaderboardRows, getRomeDayKey } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
 const { cacheGet, cacheGetOrBuild } = require("./usersLbCache") as typeof import("./usersLbCache");
 const { nInt } = require("./usersLbParams") as typeof import("./usersLbParams");
 
@@ -178,10 +178,21 @@ async function getCachedMonthlyActivitySorted(guild?, board?) {
   });
 }
 
+async function getCachedDailyHourlySorted(guild?) {
+  if (!guild?.id) return [];
+  const dayKey = getRomeDayKey(new Date());
+  const cacheKey = `usersLb:hourlyDailySorted:v1:${guild.id}:${dayKey}`;
+  return cacheGetOrBuild(cacheKey, async () => {
+    const breakdown = await computeLeaderboardRows(guild, "daily", 8000).catch(() => []);
+    return sortHourlyBreakdownForBoard(breakdown, "level");
+  });
+}
+
 async function getComputedSortedForBoard(guild?, rankBoard?, rankPeriod?) {
   if (!guild) return [];
   if (rankBoard === "level" && rankPeriod === "weekly") return getCachedWeeklyHourlySorted(guild);
   if (rankBoard === "level" && rankPeriod === "monthly") return getCachedMonthlyExpSorted(guild);
+  if (rankBoard === "level" && rankPeriod === "daily") return getCachedDailyHourlySorted(guild);
   if (rankBoard === "messages" && rankPeriod === "monthly") return getCachedMonthlyActivitySorted(guild, "messages");
   if (rankBoard === "voice" && rankPeriod === "monthly") return getCachedMonthlyActivitySorted(guild, "voice");
   return [];
@@ -198,6 +209,7 @@ function computedOverridesFromAgg(rankBoard?, rankPeriod?, agg?) {
   const v = computedMetricFromAgg(rankBoard, rankPeriod, agg);
   if (rankBoard === "level" && rankPeriod === "weekly") return { weeklyExp: v };
   if (rankBoard === "level" && rankPeriod === "monthly") return { monthlyExp: v };
+  if (rankBoard === "level" && rankPeriod === "daily") return { dailyExp: v };
   if (rankBoard === "messages" && rankPeriod === "monthly") return { messagesMonthly: v };
   if (rankBoard === "voice" && rankPeriod === "monthly") return { voiceMonthlySeconds: v };
   return {};

@@ -25,9 +25,12 @@ function markovAutoTickKey(guildId?) {
   return `markovAutoTick_${String(guildId || "").trim()}`;
 }
 
+/* Markov non deve ereditare il gap 5m “any Vinili post”: i reminder lo starvevano per sempre.
+ * Default 60s tra un post Vinili e Markov; tra due Markov resta kindGap (8m). */
 const CHAT_HUB_SAME_BOT_GAP_MS = Math.max(
-  60_000,
-  Number(process.env.VC_CHAT_HUB_SAME_BOT_GAP_MS || DEFAULT_SAME_BOT_GAP_MS),
+  30_000,
+  Number(process.env.VC_CHAT_HUB_MARKOV_SAME_BOT_GAP_MS || process.env.VC_CHAT_HUB_SAME_BOT_GAP_MS || 60_000) ||
+    60_000,
 );
 const CHAT_HUB_AFTER_MINIGAME_MS = Math.max(
   90_000,
@@ -749,7 +752,8 @@ async function runMarkovAutoSendForGuild(client?, guild?) {
 
     const hubOk = await claimMarkovHubSlot(outputChannel.id, guildId);
     if (!hubOk) {
-      state.due = false;
+      /* Hub occupato: tieni due=true così il worker ritenta al prossimo tick. */
+      state.due = true;
       state.inFlight = false;
       await setBotState(key, state);
       return false;
@@ -857,10 +861,23 @@ function startMarkovAutoSendWorkerLoop(client?) {
   client._markovAutoSendWorkerStarted = true;
   const tickMs = Math.max(5_000, Math.min(120_000, Number(process.env.VC_MARKOV_AUTO_SEND_POLL_MS || 15_000) || 15_000));
   const tick = () => {
-    const guilds = [...(client.guilds?.cache?.values?.() || [])];
-    for (const guild of guilds) {
-      void runMarkovAutoSendForGuild(client, guild).catch(() => {});
-    }
+    void (async () => {
+      const mainId = String(client?.config?.mainGuildId || "").trim();
+      const cached = [...(client.guilds?.cache?.values?.() || [])];
+      const ids = new Set(
+        [mainId, ...cached.map((g?) => String(g?.id || "").trim())].filter((id?) => /^\d{17,22}$/.test(id)),
+      );
+      for (const gid of ids) {
+        let guild = client.guilds?.cache?.get?.(gid);
+        if (!guild?.channels?.fetch) {
+          guild =
+            (await client.guilds?.fetchLite?.(gid).catch(() => null)) ||
+            (await client.guilds?.fetch?.(gid).catch(() => null));
+        }
+        if (!guild) continue;
+        await runMarkovAutoSendForGuild(client, guild).catch(() => {});
+      }
+    })().catch(() => {});
   };
   tick();
   const timer = setInterval(tick, tickMs);

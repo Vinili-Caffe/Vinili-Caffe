@@ -5,6 +5,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { QuizHubCards } from "@/components/number-quiz/QuizHubCards";
+import { NavActivitySeen } from "@/components/NavActivitySeen";
 import { pageSocialMeta } from "@/lib/og";
 
 /* giochi del giorno: fatto o da fare e serie combinata */
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 export default function QuizPage() {
   return (
     <SiteShell>
+      <NavActivitySeen path="/quiz" />
       <DiscordComponentEmbed path="/quiz/" title="Quiz" description={DESCRIPTION} />
       <PageHero
         compact

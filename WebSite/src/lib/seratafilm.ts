@@ -1,6 +1,7 @@
 /** Serata film: accesso high-staff + stream firmato. API /webhooks/site-seratafilm-access|film */
 
 import { cdnUrl } from "@/lib/site";
+import { isEventoPublicWindowOpen } from "@/lib/evento-starwars";
 
 export type SerataEvent = {
   timezone: string;
@@ -30,17 +31,17 @@ export const SERATA_EVENT: SerataEvent = {
   recurring: { weekday: 6, hour: 21, minute: 0 },
   /** Vuoto = sabato 21:00 Europe/Rome (recurring). Imposta ISO solo per una data fissa. */
   overrideIso: "",
-  filmTitle: "Il ragazzo dai pantaloni rosa",
+  filmTitle: "Mia",
   nextFilmTitle: "",
   filmSynopsis:
-    "Andrea, un ragazzo sensibile, indossa un paio di pantaloni rosa e diventa bersaglio di bullismo a scuola. Ispirato a una storia vera, il film racconta famiglia, coraggio e il prezzo di essere se stessi.",
+    "In una famiglia semplice e felice entra un ragazzo manipolatore che stravolge la vita di Mia, quindicenne. Quando lei, con l’aiuto del padre, riesce ad allontanarsi, lui decide di distruggerla: al padre resta la vendetta.",
 };
 
 /** Locandina default (sabato ricorrente) — CDN (`vc-media`). */
 export const FILM_POSTER =
-  "https://cdn.viniliecaffe.it/images/seratafilm/il-ragazzo-dai-pantaloni-rosa-poster.jpg?v=20261121rosa1";
+  "https://cdn.viniliecaffe.it/images/seratafilm/mia-poster.jpg?v=20261128mia1";
 
-const POSTER_V = "20261121rosa1";
+const POSTER_V = "20261128mia1";
 
 /** Locandine ufficiali dei film (CDN R2). */
 function filmPosterUrl(file: string) {
@@ -105,6 +106,104 @@ export const SERATA_XMAS_NIGHTS: SerataNight[] = [
 
 /** Finestra calendario Rome in cui programmazione Natale è pubblica. */
 export const SERATA_XMAS_VISIBLE = { startDate: "2026-12-21", endDate: "2026-12-27" } as const;
+
+const SW_POSTER_V = "20261128sw1";
+function swFilmPosterUrl(slug: string) {
+  return `${cdnUrl(`/images/starwars/posters/${slug}.jpg`)}?v=${SW_POSTER_V}`;
+}
+
+/**
+ * Serate film Star Wars (sabati, 21:00 Rome). Allineato al calendario bot.
+ * Visibili / attive solo con evento SW pubblico (vedi isSerataSwScheduleLive).
+ * 26 dic e 6 feb assenti (skip).
+ */
+export const SERATA_SW_NIGHTS: SerataNight[] = [
+  {
+    id: "2026-12-05",
+    date: "2026-12-05",
+    title: "La minaccia fantasma",
+    synopsis:
+      "Due Jedi indagano su una crisi commerciale e incontrano Anakin Skywalker, un bambino con un destino legato alla Forza. Inizia l’ascesa di Darth Sidious e delle Guerre dei Cloni.",
+    poster: swFilmPosterUrl("la-minaccia-fantasma"),
+  },
+  {
+    id: "2026-12-12",
+    date: "2026-12-12",
+    title: "L'attacco dei cloni",
+    synopsis:
+      "Dieci anni dopo, la Repubblica è sull’orlo della guerra civile. Anakin e Padmé si avvicinano mentre Obi-Wan scopre un esercito di cloni e un complotto che cambia la galassia.",
+    poster: swFilmPosterUrl("lattacco-dei-cloni"),
+  },
+  {
+    id: "2026-12-19",
+    date: "2026-12-19",
+    title: "La vendetta dei Sith",
+    synopsis:
+      "La Guerra dei Cloni volge al termine. Anakin cade nel Lato Oscuro, l’Ordine Jedi viene tradito e nasce Darth Vader: la Repubblica diventa Impero.",
+    poster: swFilmPosterUrl("la-vendetta-dei-sith"),
+  },
+  {
+    id: "2027-01-02",
+    date: "2027-01-02",
+    title: "Rogue One",
+    synopsis:
+      "Un gruppo di ribelli rischia tutto per rubare i piani della Morte Nera. Una missione disperata che rende possibile Una nuova speranza.",
+    poster: swFilmPosterUrl("rogue-one"),
+  },
+  {
+    id: "2027-01-09",
+    date: "2027-01-09",
+    title: "Una nuova speranza",
+    synopsis:
+      "Luke Skywalker lascia Tatooine, si unisce alla Ribellione e, con Han Solo e la Principessa Leia, affronta l’Impero per distruggere la Morte Nera.",
+    poster: swFilmPosterUrl("una-nuova-speranza"),
+  },
+  {
+    id: "2027-01-16",
+    date: "2027-01-16",
+    title: "L'impero colpisce ancora",
+    synopsis:
+      "L’Impero insegue i Ribelli. Luke si allena con Yoda su Dagobah, mentre Han e Leia fuggono da Vader: un confronto che rivela una verità devastante.",
+    poster: swFilmPosterUrl("limpero-colpisce-ancora"),
+  },
+  {
+    id: "2027-01-23",
+    date: "2027-01-23",
+    title: "Il ritorno dello Jedi",
+    synopsis:
+      "Luke affronta Vader e l’Imperatore mentre i Ribelli attaccano la nuova Morte Nera. Redenzione, sacrificio e la fine della Guerra Civile Galattica.",
+    poster: swFilmPosterUrl("il-ritorno-dello-jedi"),
+  },
+  {
+    id: "2027-01-30",
+    date: "2027-01-30",
+    title: "Il risveglio della forza",
+    synopsis:
+      "Trent’anni dopo, Rey, Finn e Poe si ritrovano nella lotta contro il Primo Ordine. Una mappa porta a Luke Skywalker e a un nuovo capitolo della saga.",
+    poster: swFilmPosterUrl("il-risveglio-della-forza"),
+  },
+  {
+    id: "2027-02-13",
+    date: "2027-02-13",
+    title: "Gli ultimi Jedi",
+    synopsis:
+      "Rey cerca di convincere Luke a tornare. Mentre la Resistenza fugge dal Primo Ordine, Kylo Ren e Snoke mettono alla prova lealià e speranza.",
+    poster: swFilmPosterUrl("gli-ultimi-jedi"),
+  },
+  {
+    id: "2027-02-20",
+    date: "2027-02-20",
+    title: "L'ascesa di Skywalker",
+    synopsis:
+      "La Resistenza affronta l’ultima minaccia dei Sith. Rey e Kylo Ren chiudono il cerchio della dinastia Skywalker in uno scontro decisivo.",
+    poster: swFilmPosterUrl("lascesa-di-skywalker"),
+  },
+];
+
+/** True mentre l’evento Star Wars è aperto al pubblico (1 dic 12:00 → 28 feb 21:00 Rome). */
+export function isSerataSwScheduleLive(now = Date.now()): boolean {
+  return isEventoPublicWindowOpen(new Date(now));
+}
 
 /** Skip titoli di coda (disattivato). */
 export const CREDITS_SKIP = {
@@ -302,7 +401,7 @@ function asNightResolved(night: SerataNight, startMs: number): ResolvedSerata {
   };
 }
 
-/** Serata attiva (live window) o prossima: schedule Natale ha priorità sul sabato ricorrente. */
+/** Serata attiva (live window) o prossima: Natale > Star Wars > sabato ricorrente. */
 export function resolveSerata(event: SerataEvent = SERATA_EVENT, now = Date.now()): ResolvedSerata {
   const iso = String(event.overrideIso || "").trim();
   if (iso) {
@@ -312,13 +411,14 @@ export function resolveSerata(event: SerataEvent = SERATA_EVENT, now = Date.now(
     }
   }
 
-  const scheduled = (
-    isSerataXmasScheduleLive(now, event)
-      ? SERATA_XMAS_NIGHTS.map((night) => ({ night, startMs: nightStartMs(night, event) })).filter((x) =>
-          Number.isFinite(x.startMs),
-        )
-      : []
-  );
+  const scheduleNights = isSerataXmasScheduleLive(now, event)
+    ? SERATA_XMAS_NIGHTS
+    : isSerataSwScheduleLive(now)
+      ? SERATA_SW_NIGHTS
+      : [];
+  const scheduled = scheduleNights
+    .map((night) => ({ night, startMs: nightStartMs(night, event) }))
+    .filter((x) => Number.isFinite(x.startMs));
 
   const liveNight = scheduled.find((x) => now >= x.startMs && now - x.startMs < LIVE_WINDOW_MS);
   if (liveNight) return asNightResolved(liveNight.night, liveNight.startMs);

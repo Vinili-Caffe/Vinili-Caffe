@@ -44,7 +44,7 @@ type FixedMovieNightEntry = {
 };
 
 const SW_POSTER_CDN = "https://cdn.viniliecaffe.it/images/starwars/posters";
-const SW_POSTER_V = "20261104p1";
+const SW_POSTER_V = "20261128sw1";
 function swPoster(slug?) {
   return `${SW_POSTER_CDN}/${String(slug || "").trim()}.jpg?v=${SW_POSTER_V}`;
 }
@@ -74,31 +74,121 @@ const HARRY_POTTER_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>(
 ]);
 
 const STAR_WARS_MOVIE_NIGHT_SCHEDULE = new Map<string, FixedMovieNightEntry>([
-  ["2026-12-05", { title: "Star Wars: La minaccia fantasma", event: "starwars", poster: swPoster("la-minaccia-fantasma") }],
-  ["2026-12-12", { title: "Star Wars: L'attacco dei cloni", event: "starwars", poster: swPoster("lattacco-dei-cloni") }],
-  ["2026-12-19", { title: "Star Wars: La vendetta dei Sith", event: "starwars", poster: swPoster("la-vendetta-dei-sith") }],
+  [
+    "2026-12-05",
+    {
+      title: "Star Wars: La minaccia fantasma",
+      event: "starwars",
+      poster: swPoster("la-minaccia-fantasma"),
+      description:
+        "Due Jedi indagano su una crisi commerciale e incontrano Anakin Skywalker, un bambino con un destino legato alla Forza. Inizia l’ascesa di Darth Sidious e delle Guerre dei Cloni.",
+    },
+  ],
+  [
+    "2026-12-12",
+    {
+      title: "Star Wars: L'attacco dei cloni",
+      event: "starwars",
+      poster: swPoster("lattacco-dei-cloni"),
+      description:
+        "Dieci anni dopo, la Repubblica è sull’orlo della guerra civile. Anakin e Padmé si avvicinano mentre Obi-Wan scopre un esercito di cloni e un complotto che cambia la galassia.",
+    },
+  ],
+  [
+    "2026-12-19",
+    {
+      title: "Star Wars: La vendetta dei Sith",
+      event: "starwars",
+      poster: swPoster("la-vendetta-dei-sith"),
+      description:
+        "La Guerra dei Cloni volge al termine. Anakin cade nel Lato Oscuro, l’Ordine Jedi viene tradito e nasce Darth Vader: la Repubblica diventa Impero.",
+    },
+  ],
   /* 26 dic: serata Natale extra (Mamma ho perso l'aereo) — niente SW / niente thread voto */
   ["2026-12-26", { skip: true, event: "starwars" }],
-  ["2027-01-02", { title: "Star Wars: Rogue One", event: "starwars", poster: swPoster("rogue-one") }],
-  ["2027-01-09", { title: "Star Wars: Una nuova speranza", event: "starwars", poster: swPoster("una-nuova-speranza") }],
-  ["2027-01-16", { title: "Star Wars: L'impero colpisce ancora", event: "starwars", poster: swPoster("limpero-colpisce-ancora") }],
-  ["2027-01-23", { title: "Star Wars: Il ritorno dello Jedi", event: "starwars", poster: swPoster("il-ritorno-dello-jedi") }],
-  ["2027-01-30", { title: "Star Wars: Il risveglio della forza", event: "starwars", poster: swPoster("il-risveglio-della-forza") }],
+  [
+    "2027-01-02",
+    {
+      title: "Star Wars: Rogue One",
+      event: "starwars",
+      poster: swPoster("rogue-one"),
+      description:
+        "Un gruppo di ribelli rischia tutto per rubare i piani della Morte Nera. Una missione disperata che rende possibile Una nuova speranza.",
+    },
+  ],
+  [
+    "2027-01-09",
+    {
+      title: "Star Wars: Una nuova speranza",
+      event: "starwars",
+      poster: swPoster("una-nuova-speranza"),
+      description:
+        "Luke Skywalker lascia Tatooine, si unisce alla Ribellione e, con Han Solo e la Principessa Leia, affronta l’Impero per distruggere la Morte Nera.",
+    },
+  ],
+  [
+    "2027-01-16",
+    {
+      title: "Star Wars: L'impero colpisce ancora",
+      event: "starwars",
+      poster: swPoster("limpero-colpisce-ancora"),
+      description:
+        "L’Impero insegue i Ribelli. Luke si allena con Yoda su Dagobah, mentre Han e Leia fuggono da Vader: un confronto che rivela una verità devastante.",
+    },
+  ],
+  [
+    "2027-01-23",
+    {
+      title: "Star Wars: Il ritorno dello Jedi",
+      event: "starwars",
+      poster: swPoster("il-ritorno-dello-jedi"),
+      description:
+        "Luke affronta Vader e l’Imperatore mentre i Ribelli attaccano la nuova Morte Nera. Redenzione, sacrificio e la fine della Guerra Civile Galattica.",
+    },
+  ],
+  [
+    "2027-01-30",
+    {
+      title: "Star Wars: Il risveglio della forza",
+      event: "starwars",
+      poster: swPoster("il-risveglio-della-forza"),
+      description:
+        "Trent’anni dopo, Rey, Finn e Poe si ritrovano nella lotta contro il Primo Ordine. Una mappa porta a Luke Skywalker e a un nuovo capitolo della saga.",
+    },
+  ],
   /* Gap: niente serata / niente thread voto */
   ["2027-02-06", { skip: true, event: "starwars" }],
-  ["2027-02-13", { title: "Star Wars: Gli ultimi Jedi", event: "starwars", poster: swPoster("gli-ultimi-jedi") }],
-  ["2027-02-20", { title: "Star Wars: L'ascesa di Skywalker", event: "starwars", poster: swPoster("lascesa-di-skywalker") }],
+  [
+    "2027-02-13",
+    {
+      title: "Star Wars: Gli ultimi Jedi",
+      event: "starwars",
+      poster: swPoster("gli-ultimi-jedi"),
+      description:
+        "Rey cerca di convincere Luke a tornare. Mentre la Resistenza fugge dal Primo Ordine, Kylo Ren e Snoke mettono alla prova lealià e speranza.",
+    },
+  ],
+  [
+    "2027-02-20",
+    {
+      title: "Star Wars: L'ascesa di Skywalker",
+      event: "starwars",
+      poster: swPoster("lascesa-di-skywalker"),
+      description:
+        "La Resistenza affronta l’ultima minaccia dei Sith. Rey e Kylo Ren chiudono il cerchio della dinastia Skywalker in uno scontro decisivo.",
+    },
+  ],
 ]);
 
 const EXTRA_FIXED_MOVIE_NIGHTS = new Map<string, FixedMovieNightEntry>([
   ["2026-10-28", { title: "La sposa cadavere" }],
   [
-    "2026-11-21",
+    "2026-11-28",
     {
-      title: "Il ragazzo dai pantaloni rosa",
-      poster: serataPoster("il-ragazzo-dai-pantaloni-rosa-poster.jpg"),
+      title: "Mia",
+      poster: serataPoster("mia-poster.jpg"),
       description:
-        "Andrea, un ragazzo sensibile, indossa un paio di pantaloni rosa e diventa bersaglio di bullismo a scuola. Ispirato a una storia vera, il film racconta famiglia, coraggio e il prezzo di essere se stessi.",
+        "In una famiglia semplice e felice entra un ragazzo manipolatore che stravolge la vita di Mia, quindicenne. Quando lei, con l’aiuto del padre, riesce ad allontanarsi, lui decide di distruggerla: al padre resta la vendetta.",
     },
   ],
   /* Serate extra Natale 2026 (21:00 Rome). 25 dic assente. Allineato a WebSite SERATA_XMAS_NIGHTS. */

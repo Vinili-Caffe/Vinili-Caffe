@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
+import { NavActivitySeen } from "@/components/NavActivitySeen";
 import { SiteShell } from "@/components/SiteShell";
 import { WrappedBoard } from "@/components/wrapped/WrappedBoard";
 import { pageSocialMeta } from "@/lib/og";
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
 export default function WrappedPage() {
   return (
     <SiteShell>
+      <NavActivitySeen path="/wrapped" />
       <DiscordComponentEmbed
         path="/wrapped/"
         title="Vinili Wrapped"

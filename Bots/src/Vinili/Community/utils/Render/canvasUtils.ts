@@ -15,10 +15,13 @@ function replaceCanvasCompatChars(value?) {
 function stripCanvasNoiseChars(value?) {
   return String(value || "")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .replace(/[\u00AD\u034F\u200B-\u200D\u2060\uFEFF]/g, "")
+    /* ZWSP/WJ/BOM: nei nick Discord spesso fungono da "spazio" tra emoji e testo — non cancellarli. */
+    .replace(/[\u200B\u2060\uFEFF]/g, " ")
+    /* Soft hyphen / CGJ / ZWNJ: rumore invisibile. ZWJ (U+200D) resta per le emoji composite. */
+    .replace(/[\u00AD\u034F\u200C]/g, "")
     .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
     .replace(/\uFFFD/g, "")
-        .replace(/[\u1B80-\u1BBF\u1CC0-\u1CC7]/g, "")
+    .replace(/[\u1B80-\u1BBF\u1CC0-\u1CC7]/g, "")
     .replace(/ {2,}/g, " ")
     .trim();
 }

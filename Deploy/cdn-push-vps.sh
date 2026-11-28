@@ -4,11 +4,11 @@
 # Uso:
 #   bash Deploy/cdn-push-vps.sh
 #   PROVA=1 bash Deploy/cdn-push-vps.sh
-# VPS: di default quella nuova (vinili-ca), come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/cdn-push-vps.sh
+# VPS: di default vinili-standby, come pubblica.sh. Vecchia: VC_SSH_HOST=vinili bash Deploy/cdn-push-vps.sh
 set -euo pipefail
 
 DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
-SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
+SSH_HOST="${VC_SSH_HOST:-vinili-standby}"
 export VC_SSH_HOST="$SSH_HOST"
 bash "$DEPLOY_DIR/pubblica.sh" "Vinili/site/http/siteCdnMedia.ts Vinili/site/contest/siteContestApi.ts Vinili/site/boards/siteBoardsApi.ts" "site-api bot-workers"
 ssh "$SSH_HOST" "mkdir -p /opt/bot/bots-ts/tools"

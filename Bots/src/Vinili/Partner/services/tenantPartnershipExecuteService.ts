@@ -467,7 +467,11 @@ async function executeTenantPartnership(interaction?, { description: rawDescript
       const ids = Array.isArray(staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds)
         ? staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds.slice()
         : sentMessageIds.slice();
-      ids.push(thankYouMessage.id);
+      for (const extraId of thankYouMessage.extraIds || []) {
+        const eid = String(extraId || "").trim();
+        if (eid && !ids.includes(eid)) ids.push(eid);
+      }
+      if (!ids.includes(thankYouMessage.id)) ids.push(thankYouMessage.id);
       staffAfterAudit.staff.partnerActions[actionIndex].partnerMessageIds = ids;
       staffAfterAudit.markModified("staff");
       await staffAfterAudit.save().catch(() => {});

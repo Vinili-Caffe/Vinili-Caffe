@@ -301,24 +301,31 @@ async function buildThankYouEmbed({
 /**
  * Manda il ringraziamento: embed classico o messaggio completo della dashboard.
  * `above` = ping/riga sopra; con Components V2 (niente testo libero) parte come messaggio a sé prima.
- * Ritorna il messaggio inviato (con id) o null.
+ * Ritorna `{ id, extraIds }` (extraIds = ping V2 separato) o null.
  */
 async function sendThankYouMessage(channel?, ty?, above?: string | null, allowedMentions?, clientHint?) {
   if (!channel || !ty) return null;
+  const extraIds: string[] = [];
   if (!ty.body) {
     const payload: Record<string, any> = { embeds: [ty.embed] };
     if (above) {
       payload.content = above;
       if (allowedMentions) payload.allowedMentions = allowedMentions;
     }
-    return channel.send(payload).catch(() => null);
+    const sent = await channel.send(payload).catch(() => null);
+    const id = String(sent?.id || "").trim();
+    return id ? { id, extraIds } : null;
   }
   const { Routes } = require("discord.js") as typeof import("discord.js");
   const body: Record<string, any> = { ...ty.body };
   const isV2 = (Number(body.flags) & 32768) === 32768;
   if (above) {
     if (isV2) {
-      await channel.send({ content: above, ...(allowedMentions ? { allowedMentions } : {}) }).catch(() => null);
+      const aboveMsg = await channel
+        .send({ content: above, ...(allowedMentions ? { allowedMentions } : {}) })
+        .catch(() => null);
+      const aboveId = String(aboveMsg?.id || "").trim();
+      if (aboveId) extraIds.push(aboveId);
     } else {
       body.content = [above, body.content].filter(Boolean).join("\n").slice(0, 2000);
       if (allowedMentions) body.allowed_mentions = { parse: allowedMentions.parse || [], users: allowedMentions.users || [], roles: allowedMentions.roles || [] };
@@ -330,10 +337,12 @@ async function sendThankYouMessage(channel?, ty?, above?: string | null, allowed
     global.logger?.warn?.("[PARTNER] invio ringraziamento: nessun client REST disponibile");
     return null;
   }
-  return rest.post(Routes.channelMessages(channel.id), { body }).catch((err?) => {
+  const sent: any = await rest.post(Routes.channelMessages(channel.id), { body }).catch((err?) => {
     global.logger?.warn?.("[PARTNER] invio ringraziamento:", err?.rawError?.message || err?.message || err);
     return null;
   });
+  const id = String(sent?.id || "").trim();
+  return id ? { id, extraIds } : null;
 }
 
 export = {

@@ -481,6 +481,31 @@ async function deleteQuoteBoardRecordByMessage(guildId?, boardChannelId?, boardM
   return Number(out?.deletedCount || 0) > 0;
 }
 
+/** CDN/immagine salvata per una quote (board o messaggio di risposta +quote). */
+async function findQuoteImageUrlByMessage(guildId?, channelId?, messageId?) {
+  const empty = { imageUrl: "", quotedUserId: "" };
+  const gid = String(guildId || "").trim();
+  const ch = String(channelId || "").trim();
+  const mid = String(messageId || "").trim();
+  if (!gid || !ch || !mid) return empty;
+  const doc = await GuildQuoteBoard.findOne({
+    guildId: gid,
+    $or: [
+      { boardChannelId: ch, boardMessageId: mid },
+      { originChannelId: ch, originMessageId: mid },
+    ],
+    imageUrl: { $type: "string", $ne: "" },
+  })
+    .select("imageUrl quotedUserId")
+    .lean()
+    .catch(() => null);
+  if (!doc) return empty;
+  return {
+    imageUrl: String(doc.imageUrl || "").trim(),
+    quotedUserId: String(doc.quotedUserId || "").trim(),
+  };
+}
+
 export = {
   messageJumpUrl,
   registerQuoteBoardPost,
@@ -488,4 +513,5 @@ export = {
   deleteUserQuoteEntry,
   deleteQuoteBoardRecordByMessage,
   buildQuoteBoardComponents,
+  findQuoteImageUrlByMessage,
 };

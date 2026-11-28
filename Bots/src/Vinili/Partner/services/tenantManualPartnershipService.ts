@@ -346,7 +346,13 @@ async function finalizeManualPartnership(message?, managerId?, inviteMeta?, _opt
   }
 
   if (thankYouMessage?.id && s.partnerActions?.[actionIndex]) {
-    s.partnerActions[actionIndex].partnerMessageIds = [message.id, thankYouMessage.id];
+    const ids = [String(message.id)];
+    for (const extraId of thankYouMessage.extraIds || []) {
+      const eid = String(extraId || "").trim();
+      if (eid && !ids.includes(eid)) ids.push(eid);
+    }
+    if (!ids.includes(thankYouMessage.id)) ids.push(thankYouMessage.id);
+    s.partnerActions[actionIndex].partnerMessageIds = ids;
     staffDoc.markModified("staff");
     await staffDoc.save().catch(() => null);
   }

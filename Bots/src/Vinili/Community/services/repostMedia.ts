@@ -174,11 +174,31 @@ function extractStickerMediaFiles(targetMessage?) {
   return files;
 }
 
+/** Discord forward/quote nativo: contenuto in messageSnapshots. */
+function unwrapRepostSourceMessage(targetMessage?) {
+  if (!targetMessage) return targetMessage;
+  const snaps = targetMessage.messageSnapshots;
+  if (!snaps) return targetMessage;
+  const first =
+    typeof snaps.first === "function"
+      ? snaps.first()
+      : Array.isArray(snaps)
+        ? snaps[0]
+        : snaps.values
+          ? [...snaps.values()][0]
+          : null;
+  if (!first) return targetMessage;
+  const inner = first.message || first;
+  if (!inner || inner === targetMessage) return targetMessage;
+  return inner;
+}
+
 function extractRepostPayload(targetMessage?) {
-  const text = normalizeQuoteMessageText(targetMessage).trim();
-  const imageUrl = pickImageUrlFromMessage(targetMessage);
-  const files = extractRepostMediaFiles(targetMessage, imageUrl);
-  for (const stickerFile of extractStickerMediaFiles(targetMessage)) {
+  const src = unwrapRepostSourceMessage(targetMessage) || targetMessage;
+  const text = normalizeQuoteMessageText(src).trim();
+  const imageUrl = pickImageUrlFromMessage(src);
+  const files = extractRepostMediaFiles(src, imageUrl);
+  for (const stickerFile of extractStickerMediaFiles(src)) {
     if (files.length >= 10) break;
     files.push(stickerFile);
   }

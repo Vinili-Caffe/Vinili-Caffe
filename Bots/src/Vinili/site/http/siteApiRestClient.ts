@@ -99,10 +99,17 @@ async function createSiteApiRestClient(config?, token?, options: Record<string, 
             fetchLite: async (id?) => {
         const gid = String(id);
         const hit: any = guildCache.get(gid);
-        if (hit?.members && typeof hit.members.fetch === "function") return hit;
+        if (hit?.members && typeof hit.members.fetch === "function" && hit.members.me) {
+          return hit;
+        }
         const raw = await rest.get(Routes.guild(gid));
         const guild = wrapGuild(raw, client);
         await enrichGuildRoles(rest, guild).catch(() => {});
+        const meMember = await rest.get(Routes.guildMember(gid, me.id)).catch(() => null);
+        if (meMember) {
+          guild.members.me = wrapMember(meMember, guild, wrapUser(me, client));
+          guild.members.cache.set(String(me.id), guild.members.me);
+        }
         guildCache.set(gid, guild);
         return guild;
       },

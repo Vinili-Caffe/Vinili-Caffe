@@ -510,6 +510,9 @@ const activityUserProfileSchema = new Schema(
             /* mgMonthly1: EXP minigames del mese (mese di Roma, "YYYY-MM") */
             monthlyExp: { type: Number, default: 0 },
             monthlyKey: { type: String, default: "" },
+            /* EXP minigames del giorno (giorno di Roma, "YYYY-MM-DD") */
+            dailyExp: { type: Number, default: 0 },
+            dailyKey: { type: String, default: "" },
             currentStreak: { type: Number, default: 0 },
             bestStreak: { type: Number, default: 0 },
           },
@@ -820,6 +823,7 @@ activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.weeklyExp": -1
 activityUserProfileSchema.index({ guildId: 1, "profile.totals.messagesTotal": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.totals.voiceTotalSeconds": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.minigame.totalExp": -1 });
+activityUserProfileSchema.index({ guildId: 1, "profile.totals.exp.minigame.dailyKey": 1, "profile.totals.exp.minigame.dailyExp": -1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.birthday.month": 1, "profile.birthday.day": 1 });
 activityUserProfileSchema.index({ guildId: 1, "profile.inviteTrack.inviterId": 1 });
 activityUserProfileSchema.index({ userId: 1, "profile.globalOneTimeReminder.entries.key": 1 });

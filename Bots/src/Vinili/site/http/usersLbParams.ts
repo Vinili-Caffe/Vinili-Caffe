@@ -36,6 +36,7 @@ function parsePeriod(raw?) {
   const p = String(raw || "alltime").trim().toLowerCase();
   if (p === "weekly" || p === "week" || p === "settimana" || p === "settimanale") return "weekly";
   if (p === "monthly" || p === "month" || p === "mese" || p === "mensile") return "monthly";
+  if (p === "daily" || p === "day" || p === "oggi" || p === "giornaliero" || p === "giornaliera") return "daily";
   return "alltime";
 }
 
@@ -46,11 +47,12 @@ function resolveRankBoardPeriod(board?, period?) {
   if (b === "weekly") return { board: "level", period: "weekly", rowBoard: "weekly" };
   if (b === "level" && p === "weekly") return { board: "level", period: "weekly", rowBoard: "weekly" };
   if (b === "level" && p === "monthly") return { board: "level", period: "monthly", rowBoard: "monthly" };
+  if (b === "level" && p === "daily") return { board: "level", period: "daily", rowBoard: "daily" };
   return { board: b, period: p, rowBoard: b };
 }
 
 function isComputedListBoard(rankBoard?, rankPeriod?) {
-  if (rankBoard === "level" && (rankPeriod === "weekly" || rankPeriod === "monthly")) return true;
+  if (rankBoard === "level" && (rankPeriod === "weekly" || rankPeriod === "monthly" || rankPeriod === "daily")) return true;
   if ((rankBoard === "messages" || rankBoard === "voice") && rankPeriod === "monthly") return true;
   return false;
 }
@@ -79,15 +81,21 @@ function minigameField(period?) {
     ? "profile.totals.exp.minigame.weeklyExp"
     : p === "monthly"
       ? "profile.totals.exp.minigame.monthlyExp"
-      : "profile.totals.exp.minigame.totalExp";
+      : p === "daily"
+        ? "profile.totals.exp.minigame.dailyExp"
+        : "profile.totals.exp.minigame.totalExp";
 }
 
-/** EXP minigames del periodo (mese vecchio = 0) */
+/** EXP minigames del periodo (mese/giorno vecchio = 0) */
 function minigameValue(doc?, period?) {
   const mg = doc?.profile?.totals?.exp?.minigame || {};
   const p = parsePeriod(period);
   if (p === "weekly") return nInt(mg.weeklyExp);
   if (p === "monthly") return mg.monthlyKey === romeMonthKey() ? nInt(mg.monthlyExp) : 0;
+  if (p === "daily") {
+    const { getRomeDayKey } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+    return mg.dailyKey === getRomeDayKey(new Date()) ? nInt(mg.dailyExp) : 0;
+  }
   return nInt(mg.totalExp);
 }
 
@@ -96,6 +104,10 @@ function minigameMatch(period?, min = 0) {
   const p = parsePeriod(period);
   const q: Record<string, any> = { [minigameField(p)]: { $gt: min } };
   if (p === "monthly") q["profile.totals.exp.minigame.monthlyKey"] = romeMonthKey();
+  if (p === "daily") {
+    const { getRomeDayKey } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+    q["profile.totals.exp.minigame.dailyKey"] = getRomeDayKey(new Date());
+  }
   return q;
 }
 
@@ -106,10 +118,26 @@ function boardQuery(board?, guildId?, period?) {
   if (board === "weekly") return { ...g, "profile.totals.exp.weeklyExp": { $gt: 0 } };
   if (board === "messages") {
     if (p === "weekly") return { ...g, "profile.totals.messagesWeekly": { $gt: 0 } };
+    if (p === "daily") {
+      const { getRomeDayKey } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+      return {
+        ...g,
+        "profile.totals.messagesDailyKey": getRomeDayKey(new Date()),
+        "profile.totals.messagesDaily": { $gt: 0 },
+      };
+    }
     return { ...g, "profile.totals.messagesTotal": { $gt: 0 } };
   }
   if (board === "voice") {
     if (p === "weekly") return { ...g, "profile.totals.voiceWeeklySeconds": { $gt: 0 } };
+    if (p === "daily") {
+      const { getRomeDayKey } = require("../../Community/utils/leaderboardHelpers") as typeof import("../../Community/utils/leaderboardHelpers");
+      return {
+        ...g,
+        "profile.totals.voiceDailyKey": getRomeDayKey(new Date()),
+        "profile.totals.voiceDailySeconds": { $gt: 0 },
+      };
+    }
     return { ...g, "profile.totals.voiceTotalSeconds": { $gt: 0 } };
   }
   if (board === "minigames") return { guildId, ...minigameMatch(p) };
@@ -122,10 +150,12 @@ function boardSort(board?, period?) {
   if (board === "weekly") return { "profile.totals.exp.weeklyExp": -1 };
   if (board === "messages") {
     if (p === "weekly") return { "profile.totals.messagesWeekly": -1 };
+    if (p === "daily") return { "profile.totals.messagesDaily": -1 };
     return { "profile.totals.messagesTotal": -1 };
   }
   if (board === "voice") {
     if (p === "weekly") return { "profile.totals.voiceWeeklySeconds": -1 };
+    if (p === "daily") return { "profile.totals.voiceDailySeconds": -1 };
     return { "profile.totals.voiceTotalSeconds": -1 };
   }
   if (board === "minigames") return { [minigameField(p)]: -1 };
@@ -166,10 +196,12 @@ function numericSortExpr(board?, period?) {
   });
   if (board === "messages") {
     if (p === "weekly") return sanitizeToLong("$profile.totals.messagesWeekly");
+    if (p === "daily") return sanitizeToLong("$profile.totals.messagesDaily");
     return sanitizeToLong("$profile.totals.messagesTotal");
   }
   if (board === "voice") {
     if (p === "weekly") return sanitizeToLong("$profile.totals.voiceWeeklySeconds");
+    if (p === "daily") return sanitizeToLong("$profile.totals.voiceDailySeconds");
     return sanitizeToLong("$profile.totals.voiceTotalSeconds");
   }
   return null;

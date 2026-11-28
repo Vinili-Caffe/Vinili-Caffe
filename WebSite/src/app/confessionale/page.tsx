@@ -7,6 +7,7 @@ import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
 import { ConfessionaleSeasonRedirect } from "@/components/confessionale/ConfessionaleSeasonRedirect";
+import { NavActivitySeen } from "@/components/NavActivitySeen";
 
 const ConfessionaleBoard = dynamic(() => import("@/components/confessionale/ConfessionaleBoard").then((m) => m.ConfessionaleBoard), { loading: () => <BoardSkeleton className="mx-auto max-w-5xl px-6" />,
 });
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 export default function ConfessionalePage() {
   return (
     <SiteShell>
+      <NavActivitySeen path="/confessionale" />
       <ConfessionaleSeasonRedirect />
       <DiscordComponentEmbed
         path="/confessionale/"

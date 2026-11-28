@@ -200,6 +200,16 @@ function romeMonthKey(d = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit" }).format(d).slice(0, 7);
 }
 
+/** giorno di Roma "YYYY-MM-DD" (classifica giornaliera minigames) */
+function romeDayKey(d = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 /**
  * mgMonthly1: una tantum — il mensile minigames è nato il 28/11/2026, quindi novembre si riempie con le due
  * settimane già salvate e tutte dentro il mese (W47 = 16–22, W48 = 23–29). L'1–15 novembre non è recuperabile.
@@ -260,6 +270,7 @@ async function incrementMinigameWinCounters(guildId?, userId?, effectiveExp?, ne
   if (!Number.isFinite(eff)) return null;
   const weekKey = getIsoWeekKey(new Date());
   const monthKey = romeMonthKey();
+  const dayKey = romeDayKey();
   const ns = Math.max(0, Math.floor(Number(newStreak)));
   const bs = Math.max(0, Math.floor(Number(bestStreak)));
   try {
@@ -286,6 +297,14 @@ async function incrementMinigameWinCounters(guildId?, userId?, effectiveExp?, ne
               $cond: [
                 { $eq: [{ $ifNull: ["$profile.totals.exp.minigame.monthlyKey", ""] }, monthKey] },
                 { $add: [{ $ifNull: ["$profile.totals.exp.minigame.monthlyExp", 0] }, eff] },
+                eff,
+              ],
+            },
+            "profile.totals.exp.minigame.dailyKey": dayKey,
+            "profile.totals.exp.minigame.dailyExp": {
+              $cond: [
+                { $eq: [{ $ifNull: ["$profile.totals.exp.minigame.dailyKey", ""] }, dayKey] },
+                { $add: [{ $ifNull: ["$profile.totals.exp.minigame.dailyExp", 0] }, eff] },
                 eff,
               ],
             },

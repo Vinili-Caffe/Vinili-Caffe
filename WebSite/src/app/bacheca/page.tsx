@@ -6,6 +6,7 @@ import { pageSocialMeta } from "@/lib/og";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
+import { NavActivitySeen } from "@/components/NavActivitySeen";
 
 const BachecaWall = dynamic(() => import("@/components/bacheca-wall/BachecaWall").then((m) => m.BachecaWall), {
   loading: () => <BoardSkeleton className="mx-auto max-w-7xl px-6" />,
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 export default function BachecaPage() {
   return (
     <SiteShell>
+      <NavActivitySeen path="/bacheca" />
       <DiscordComponentEmbed path="/bacheca/" title="Bacheca" description={DESCRIPTION} />
       <PageHero
         icon={<Pin />}

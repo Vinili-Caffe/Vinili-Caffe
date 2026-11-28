@@ -164,15 +164,17 @@ function tokenizeEmojiText(text?) {
     const next = chars[i + 1];
     const nextCp = next ? next.codePointAt(0) : null;
     const isJoiner = cp === 0x200d;
-    const isVariation = cp === 0xfe0f;
+    /* FE0F = emoji style, FE0E = text style: entrambi chiudono il cluster emoji. */
+    const isVariation = cp === 0xfe0f || cp === 0xfe0e;
     const isEmoji = codePointIsEmoji(cp);
 
     if (isEmoji || (emoji && (isJoiner || isVariation))) {
       flushText();
-      emoji += ch;
+      /* Preferisci sempre VS16 (emoji) al posto di VS15 (testo monocolore, es. ❄). */
+      emoji += cp === 0xfe0e ? "\uFE0F" : ch;
       const nextIsEmoji = codePointIsEmoji(nextCp);
       const nextIsJoiner = nextCp === 0x200d;
-      const nextIsVariation = nextCp === 0xfe0f;
+      const nextIsVariation = nextCp === 0xfe0f || nextCp === 0xfe0e;
       const nextIsSkinTone = isEmojiSkinToneModifier(nextCp);
 
       if (isJoiner || nextIsJoiner || nextIsVariation) {
@@ -231,9 +233,20 @@ function twemojiUrlsFromCodepointList(cps?) {
 }
 
 function emojiDrawSizeForFont(size?) {
-  /* rankNickTight1: stessa densità del nick Discord (niente box Twemoji oversized) */
+  /* Stessa altezza del testo: il PNG Twemoji tiene già padding interno (niente crop tight). */
   const n = Math.max(10, Number(size) || 16);
   return Math.round(n);
+}
+
+/** Larghezza spazio: alcuni font display (titling/SC) misurano ~0 — forza un gap leggibile. */
+function measuredSpaceWidth(ctx?, spaces?, size = 16, weight = "600", fontPrimary = null) {
+  const sp = String(spaces || "");
+  if (!sp) return 0;
+  const raw =
+    textWidth(ctx, `x${sp}x`, size, weight, fontPrimary) - textWidth(ctx, "xx", size, weight, fontPrimary);
+  const minOne = Math.max(4, Math.round(Number(size) * 0.22));
+  if (!(raw > 0.5)) return minOne * Math.max(1, Array.from(sp).length);
+  return raw;
 }
 
 const emojiContentBoxCache = new Map();
@@ -308,7 +321,9 @@ function drawEmojiImageTight(ctx?, img?, destX?, destY?, destSize?) {
 }
 
 function emojiToTwemojiUrls(emoji?) {
-  const cps = emojiStringToCodepoints(emoji);
+  const cps = emojiStringToCodepoints(emoji)
+    /* VS15 testo → ignora; Twemoji vuole emoji-style o solo base. */
+    .filter((cp?) => cp !== "fe0e");
   if (!cps.length) return [];
   const urls = [];
   const pushByCps = (list?) => {
@@ -324,10 +339,11 @@ function emojiToTwemojiUrls(emoji?) {
   pushByCps(withoutVariation);
 
   const hasVariation = cps.includes("fe0f");
-  if (!hasVariation && cps.length === 1) {
-    const cpNum = Number.parseInt(cps[0], 16);
+  if (!hasVariation && withoutVariation.length === 1) {
+    const cpNum = Number.parseInt(withoutVariation[0], 16);
     if (Number.isFinite(cpNum) && cpNum >= 0x2600 && cpNum <= 0x27bf) {
-      pushByCps([cps[0], "fe0f"]);
+      /* ❄ / ✨ / ☕…: file Twemoji spesso è 2744-fe0f.png */
+      pushByCps([withoutVariation[0], "fe0f"]);
     }
   }
 
@@ -381,10 +397,19 @@ async function getEmojiImage(token?) {
 
 function tokenWidth(ctx?, token?, size?, weight?, fontPrimary = null) {
   if (token.type === "emoji" || token.type === "custom_emoji") {
-    /* content-box emoji ≈ quasi full drawSize */
-    return Math.max(1, Math.round(emojiDrawSizeForFont(size) * 0.94));
+    return Math.max(1, emojiDrawSizeForFont(size));
   }
-  return textWidth(ctx, token.value, size, weight, fontPrimary);
+  const value = String(token.value || "");
+  if (!value) return 0;
+  if (!value.trim()) return measuredSpaceWidth(ctx, value, size, weight, fontPrimary);
+  const lead = (value.match(/^\s+/) || [""])[0];
+  const trail = value.trim() ? (value.match(/\s+$/) || [""])[0] : "";
+  const core = value.trim();
+  return (
+    measuredSpaceWidth(ctx, lead, size, weight, fontPrimary) +
+    (core ? textWidth(ctx, core, size, weight, fontPrimary) : 0) +
+    measuredSpaceWidth(ctx, trail, size, weight, fontPrimary)
+  );
 }
 
 function measureRichTextWidth(ctx?, text?, size = 16, weight = "600", fontPrimary = null) {
@@ -460,25 +485,20 @@ async function drawLabelWithEmoji(
   for (const token of tokens) {
     if (token.type === "text") {
       if (token.value) {
-        const spaceW = (sp?) =>
-          sp ? textWidth(ctx, `x${sp}x`, size, weight, fontPrimary) - textWidth(ctx, "xx", size, weight, fontPrimary) : 0;
         /* Solo spazi tra emoji: avanza il cursore. drawLabel→prepareVisibleText("") diventa "-" (bug Memoria). */
         if (!token.value.trim()) {
-          cursorX += spaceW(token.value);
+          cursorX += measuredSpaceWidth(ctx, token.value, size, weight, fontPrimary);
           prevKind = "space";
           continue;
         }
-        /* rankNickTight1d: testo dopo emoji — pull lieve (no overlap) */
-        const textPull =
-          prevKind === "emoji" && !/^\s/.test(token.value) ? Math.max(0, Math.round(size * 0.04)) : 0;
-        /* richLeadSpace1: drawLabel toglie gli spazi in testa (normalizeTextForCanvas fa trim) ma la larghezza
-           li conta: senza questo lo spazio dopo un'emoji "scivola" in fondo alla parola. */
+        /* richLeadSpace1: drawLabel fa trim — gli spazi in testa dopo un'emoji vanno avanzati a parte. */
         const lead = (token.value.match(/^\s+/) || [""])[0];
         const trail = token.value.trim() ? (token.value.match(/\s+$/) || [""])[0] : "";
         const core = token.value.trim();
-        const leadW = spaceW(lead);
-        drawLabel(ctx, core, cursorX - textPull + leadW, y, { ...labelOpts, align: "left" });
-        cursorX += leadW + (core ? textWidth(ctx, core, size, weight, fontPrimary) : 0) + spaceW(trail) - textPull;
+        const leadW = measuredSpaceWidth(ctx, lead, size, weight, fontPrimary);
+        const trailW = measuredSpaceWidth(ctx, trail, size, weight, fontPrimary);
+        drawLabel(ctx, core, cursorX + leadW, y, { ...labelOpts, align: "left" });
+        cursorX += leadW + (core ? textWidth(ctx, core, size, weight, fontPrimary) : 0) + trailW;
         prevKind = /\s$/.test(token.value) ? "space" : "text";
       }
       continue;
@@ -490,11 +510,6 @@ async function drawLabelWithEmoji(
         : await getEmojiImage(token.value);
     if (img) {
       const drawSize = emojiDrawSizeForFont(size);
-      /* dopo testo: chiudi gap; dopo emoji: advance più corto */
-      const pull =
-        prevKind === "text" ? Math.max(0, Math.round(drawSize * 0.08)) : 0;
-      const adv =
-        prevKind === "emoji" ? 0.92 : 0.96;
       let drawY = y;
       if (baseline === "middle") drawY = y - drawSize / 2;
       else if (baseline === "top" || baseline === "alphabetic" || baseline === "hanging")
@@ -502,8 +517,9 @@ async function drawLabelWithEmoji(
       else if (baseline === "bottom") drawY = y - drawSize;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      drawEmojiImageTight(ctx, img, cursorX - pull, drawY, drawSize);
-      cursorX += Math.max(1, Math.round(drawSize * adv) - pull);
+      /* PNG Twemoji intero (padding incluso): niente crop tight che attaccava emoji e testo. */
+      ctx.drawImage(img, cursorX, drawY, drawSize, drawSize);
+      cursorX += drawSize;
       prevKind = "emoji";
     } else if (token.type === "custom_emoji" && token.raw) {
       drawLabel(ctx, token.raw, cursorX, y, { ...labelOpts, align: "left" });
@@ -511,10 +527,7 @@ async function drawLabelWithEmoji(
       prevKind = "text";
     } else if (token.type === "emoji" && token.value) {
       const drawSize = emojiDrawSizeForFont(size);
-      const pull =
-        prevKind === "text" ? Math.max(0, Math.round(drawSize * 0.08)) : 0;
-      const adv = prevKind === "emoji" ? 0.92 : 0.96;
-      drawTextWithSpecialFallback(ctx, token.value, cursorX - pull + drawSize / 2, y, {
+      drawTextWithSpecialFallback(ctx, token.value, cursorX + drawSize / 2, y, {
         size,
         weight,
         color,
@@ -524,11 +537,11 @@ async function drawLabelWithEmoji(
         forcePrimaryFont: false,
         fontCss: fontPrimary ? resolveRichFontCss(size, weight, fontPrimary) : undefined,
       });
-      cursorX += Math.max(1, Math.round(drawSize * adv) - pull);
+      cursorX += drawSize;
       prevKind = "emoji";
     } else {
       const drawSize = emojiDrawSizeForFont(size);
-      cursorX += Math.max(1, Math.round(drawSize * 0.8));
+      cursorX += drawSize;
       prevKind = "emoji";
     }
   }

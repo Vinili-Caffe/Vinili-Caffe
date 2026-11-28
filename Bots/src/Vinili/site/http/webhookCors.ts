@@ -82,6 +82,7 @@ function createSiteCandidatureCorsMiddleware(candidatureCorsAllowlist?) {
     const isSiteRankCard = pathStr.startsWith("/webhooks/site-rank-card");
     const isSiteWikiHelp = pathStr.startsWith("/webhooks/site-wiki-help");
     const isSiteReviews = pathStr.startsWith("/webhooks/site-reviews");
+    const isSiteNavActivity = pathStr.startsWith("/webhooks/site-nav-activity");
     const isSiteBoards = pathStr.startsWith("/webhooks/site-boards");
     const isSiteSuggestions = pathStr.startsWith("/webhooks/site-suggestions");
     const isSiteBotFeedback = pathStr.startsWith("/webhooks/site-bot-feedback");
@@ -130,6 +131,7 @@ function createSiteCandidatureCorsMiddleware(candidatureCorsAllowlist?) {
       !isSiteRankCard &&
       !isSiteWikiHelp &&
       !isSiteReviews &&
+      !isSiteNavActivity &&
       !isSiteBoards &&
       !isSiteSuggestions &&
       !isSiteBotFeedback &&
@@ -164,7 +166,7 @@ function createSiteCandidatureCorsMiddleware(candidatureCorsAllowlist?) {
     if (allowOrigin) {
       res.setHeader("Access-Control-Allow-Origin", allowOrigin);
       res.append("Vary", "Origin");
-    } else if (isStatus || isSiteRules || isSiteUsers || isSiteUserBoards || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
+    } else if (isStatus || isSiteRules || isSiteUsers || isSiteUserBoards || isSiteVote || isSiteLiveEvent || isSiteRoles || isSiteRankCard || isSiteWikiHelp || isSiteReviews || isSiteNavActivity || isSiteBoards || isSiteSuggestions || isSiteBotFeedback || isSiteNotifications || isSiteSeratafilmAccess || isSiteStaffAccess || isSiteHogwartsSorting) {
       res.setHeader("Access-Control-Allow-Origin", "*");
     }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");

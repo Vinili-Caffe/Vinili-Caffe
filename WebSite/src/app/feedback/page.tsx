@@ -5,6 +5,7 @@ import { pageSocialMeta } from "@/lib/og";
 import { Lightbulb } from "lucide-react";
 import { PageHero } from "@/components/PageHero";
 import { SiteShell } from "@/components/SiteShell";
+import { NavActivitySeen } from "@/components/NavActivitySeen";
 
 const SiteFeedback = dynamic(
   () => import("@/components/feedback/SiteFeedback").then((m) => m.SiteFeedback),
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 export default function FeedbackPage() {
   return (
     <SiteShell>
+      <NavActivitySeen path="/feedback" />
       <DiscordComponentEmbed
         path="/feedback/"
         title="Feedback"

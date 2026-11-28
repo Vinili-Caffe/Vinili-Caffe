@@ -17,8 +17,8 @@ REPO_ROOT="$(cd "$DEPLOY_DIR/.." && pwd)"
 BOTS_DIR="$REPO_ROOT/Bots"
 cd "$BOTS_DIR"
 
-# Post-migrate: default = CA. Override: VC_SSH_HOST=vinili bash Deploy/pubblica.sh …
-SSH_HOST="${VC_SSH_HOST:-vinili-ca}"
+# Primary: vinili-standby (159.173…). Override: VC_SSH_HOST=vinili bash Deploy/pubblica.sh …
+SSH_HOST="${VC_SSH_HOST:-vinili-standby}"
 BOTS_TS_REMOTE="/opt/bot/bots-ts"
 tmp_name() { echo "$1" | tr '/' '_'; }
 

@@ -8,6 +8,7 @@ import { DiscordComponentEmbed } from "@/components/DiscordComponentEmbed";
 import { pageSocialMeta } from "@/lib/og";
 import { SITE_ORIGIN } from "@/lib/site";
 import { BoardSkeleton } from "@/components/ui/EmptyState";
+import { NavActivitySeen } from "@/components/NavActivitySeen";
 
 const ReviewsBrowser = dynamic(
   () => import("@/components/reviews/ReviewsBrowser").then((m) => m.ReviewsBrowser),
@@ -22,6 +23,7 @@ export default async function RecensioniPage() {
   const initial = await loadReviews("server", null, SITE_ORIGIN);
   return (
     <SiteShell>
+      <NavActivitySeen path="/recensioni" />
       <DiscordComponentEmbed
         path="/recensioni/"
         title="Recensioni"

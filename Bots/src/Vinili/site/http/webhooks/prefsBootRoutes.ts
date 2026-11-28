@@ -17,6 +17,11 @@ function mountPrefsBootWebhookRoutes(app?, client?) {
   app.get("/webhooks/site-seratafilm-film", (req?, res?) => handleSiteSeratafilmFilmGet(client, req, res));
   app.get("/webhooks/site-chrome-prefs", (req?, res?) => handleSiteChromePrefsGet(client, req, res));
   app.post("/webhooks/site-chrome-prefs", (req?, res?) => handleSiteChromePrefsPost(client, req, res));
+  /* navActivityDots1: latest confessionale/feedback/recensioni + canVote + ticket unclaimed */
+  app.get("/webhooks/site-nav-activity", (req?, res?) => {
+    const { handleSiteNavActivityGet } = require("../siteNavActivityApi") as typeof import("../siteNavActivityApi");
+    return handleSiteNavActivityGet(client, req, res);
+  });
   /* siteClientErrors1: errori JavaScript dei visitatori → logs/site-client-errors.log */
   app.post("/webhooks/site-client-error", (req?, res?) => {
     const { handleSiteClientErrorPost } = require("../siteClientErrorsApi") as typeof import("../siteClientErrorsApi");

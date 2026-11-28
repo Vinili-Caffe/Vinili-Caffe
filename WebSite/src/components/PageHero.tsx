@@ -66,7 +66,6 @@ export function PageHero({
                 "linear-gradient(to bottom, rgba(5,7,15,0.45), rgba(10,16,32,0.78) 50%, rgba(5,7,15,0.94) 82%, #05070f)",
               ].join(", ")
             : [
-                "radial-gradient(ellipse 90% 45% at 50% 0%, rgba(217,154,91,0.16), transparent 55%)",
                 "linear-gradient(to bottom, rgba(14,9,6,0.5) 0%, rgba(14,9,6,0.78) 42%, rgba(14,9,6,0.94) 78%, var(--color-espresso) 100%)",
               ].join(", "),
         }}
@@ -80,7 +79,7 @@ export function PageHero({
           className={
             isEvento
               ? "inline-flex items-center gap-2 rounded-full bg-black/50 px-4 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.26em] text-[#e4c76b] ring-1 ring-[#c9a227]/35"
-              : "inline-flex items-center gap-2 rounded-full bg-crema/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.25em] text-sand shadow-[inset_0_1px_0_rgba(244,233,216,0.08)] ring-1 ring-sand/30 backdrop-blur-md"
+              : "inline-flex items-center gap-2 text-sm font-medium text-sand"
           }
         >
           <span className={isEvento ? "text-[#f0d78c] [&>svg]:size-3.5" : "text-ember [&>svg]:size-3.5"}>

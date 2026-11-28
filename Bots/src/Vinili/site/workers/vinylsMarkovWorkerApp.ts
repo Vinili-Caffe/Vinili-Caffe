@@ -5,11 +5,9 @@
  * Sul gateway `bots-vinyls` imposta MARKOV_EXTERNAL=1 così ready non avvia keeper/backfill/auto-send;
  * messageCreate resta sul bot per ingest live (+ counter auto-send / reply).
  */
-const mongoose = require("mongoose") as typeof import("mongoose");
 const {
   loadDotEnv,
   loadVinylsConfig,
-  resolveMongoUrl,
   resolveDiscordToken,
   installConsoleLogger,
 } = require("./workerAppBootstrap") as typeof import("./workerAppBootstrap");
@@ -17,6 +15,8 @@ const { createSiteApiRestClient } = require("../http/siteApiRestClient") as type
 const { startMarkovKeeperHttpServer } = require("../../Community/services/markovKeeperHttpService") as typeof import("../../Community/services/markovKeeperHttpService");
 const { startMarkovBackfill } = require("../../Community/services/markovMessageCollectorService") as typeof import("../../Community/services/markovMessageCollectorService");
 const { startMarkovAutoSendWorkerLoop } = require("../../Community/services/markovAutoSendService") as typeof import("../../Community/services/markovAutoSendService");
+const { startExternalWorkerHeartbeat } = require("../../../shared/runtime/externalWorkerGate") as typeof import("../../../shared/runtime/externalWorkerGate");
+const { connectMongo, isMongoReady } = require("../../../shared/db/mongoConnect") as typeof import("../../../shared/db/mongoConnect");
 
 loadDotEnv();
 process.env.MARKOV_WORKER = "1";
@@ -30,12 +30,9 @@ async function main() {
     process.exit(1);
   }
 
-  const mongo = resolveMongoUrl();
-  if (mongo && mongoose.connection.readyState === 0) {
-    await mongoose.connect(mongo, {
-      maxPoolSize: 4,
-      serverSelectionTimeoutMS: 12_000,
-    });
+  await connectMongo();
+  if (!isMongoReady()) {
+    console.error("[MARKOV-WORKER] Mongo non pronto — auto-send BotState non funzionerà");
   }
 
   const client = await createSiteApiRestClient(config, token, {
@@ -47,6 +44,7 @@ async function main() {
   startMarkovKeeperHttpServer(client);
   startMarkovBackfill(client);
   startMarkovAutoSendWorkerLoop(client);
+  startExternalWorkerHeartbeat("MARKOV");
 
   console.log(
     `[MARKOV-WORKER] ready as ${client.user?.tag || client.user?.username || "bot"}`,
