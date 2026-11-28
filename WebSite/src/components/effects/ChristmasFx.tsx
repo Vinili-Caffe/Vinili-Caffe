@@ -41,19 +41,15 @@ type FireworkSpark = {
 
 const FIREWORK_COLORS = ["#f5d76e", "#ff6b8a", "#7ec8ff", "#6fd9a0", "#ffb347", "#e0b0ff", "#fff4d6"];
 
+/* xmasSoft1: solo neve morbida (e qualche scintilla calda): niente palline e stelline disegnate */
 function pickKind(): XmasKind {
-  const r = Math.random();
-  if (r < 0.52) return "flake";
-  if (r < 0.72) return "snow";
-  if (r < 0.84) return "ornament";
-  if (r < 0.93) return "star";
-  return "spark";
+  return Math.random() < 0.9 ? "snow" : "spark";
 }
 
 function spawn(w: number, h: number, fromTop = true): Particle {
   const kind = pickKind();
   const size =
-    kind === "spark" ? 2 + Math.random() * 5 : kind === "ornament" || kind === "star" ? 11 + Math.random() * 14 : 9 + Math.random() * 16;
+    kind === "spark" ? 2 + Math.random() * 5 : kind === "snow" ? 2 + Math.random() * 6 : 9 + Math.random() * 16;
   return {
     kind,
     x: Math.random() * w,
@@ -389,7 +385,6 @@ export function ChristmasFx() {
         {/* Capodanno e Befana fermi ma ben visibili: niente fuochi animati, quindi cielo pieno e saluto sempre su */}
         {newYear ? <NewYearSky /> : null}
         {befana ? <BefanaSky /> : null}
-        <SeasonGreetingWatermark text={befana ? "Buona Befana" : greeting} always={newYear || befana} />
       </div>
     );
   }
@@ -400,11 +395,11 @@ export function ChristmasFx() {
 
       <ChristmasDecor live={caps.continuous} newYear={newYear} befana={befana} />
       {befana ? <BefanaSky /> : null}
+      {/* senza fuochi animati (dispositivo leggero) restano gli scoppi fermi */}
+      {newYear && !(budget.canvas && budget.particles > 0) ? <NewYearSky /> : null}
 
       {budget.canvas && budget.particles > 0 ? <canvas ref={canvasRef} className="absolute inset-0 size-full" /> : null}
 
-      {/* watermark dopo l’hero; cheer = versione grande al centro */}
-      <SeasonGreetingWatermark text={greeting} hidden={cheer} />
       {budget.boo ? (
         <div
           className={cn(

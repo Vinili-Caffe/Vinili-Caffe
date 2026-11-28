@@ -4,363 +4,120 @@ import type { CSSProperties } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
 
-function Wreath({ className, gid }: { className?: string; gid: string }) {
-  return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      <defs>
-        <radialGradient id={gid} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="#2f6b3a" />
-          <stop offset="1" stopColor="#143d1f" />
-        </radialGradient>
-      </defs>
-      <circle cx="50" cy="50" r="38" fill="none" stroke={`url(#${gid})`} strokeWidth="14" />
-      <circle cx="50" cy="50" r="38" fill="none" stroke="#1f4f2a" strokeWidth="3" opacity="0.5" />
-      {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
-        const a = (deg * Math.PI) / 180;
-        const x = 50 + Math.cos(a) * 38;
-        const y = 50 + Math.sin(a) * 38;
-        return <circle key={deg} cx={x} cy={y} r="3.2" fill={deg % 90 === 0 ? "#c41e3a" : "#d4af37"} />;
-      })}
-      <path d="M42 18 C46 8 54 8 58 18 L50 28 Z" fill="#c41e3a" />
-      <path d="M44 16 C48 10 52 10 56 16" fill="none" stroke="#d4af37" strokeWidth="2" />
-    </svg>
-  );
+
+
+
+
+
+/* ───────── xmasSoft1: lucine vere e neve morbida al posto dei disegni piatti ───────── */
+
+/** colori delle lampadine: soprattutto bianco caldo e ambra, qualche rossa e verde */
+const BULB_COLORS = ["#ffe2a3", "#ff9f43", "#ffe2a3", "#e8454f", "#ffe2a3", "#3fbf7f", "#ffcf70"];
+/* Capodanno: champagne, oro e argento; Befana: ambra calda e viola */
+const BULB_COLORS_NEW_YEAR = ["#fff1c9", "#f5d76e", "#ffffff", "#e6c068", "#fff6e0", "#cfd8e6"];
+const BULB_COLORS_BEFANA = ["#ffcf70", "#b48cff", "#ffe2a3", "#e8a54f", "#ffcf70", "#8f6bd8"];
+const SWAGS = 4; /* festoni del filo */
+const PER_SWAG = 9; /* lampadine per festone */
+const SAG = 11; /* quanto cala il filo a metà festone (px): poco, così le lampadine non coprono la barra */
+
+/** altezza del filo (px) in un punto 0..1 della larghezza: archi che calano fra un aggancio e l'altro */
+function wireY(u: number) {
+  const k = (u * SWAGS) % 1;
+  return 1 + SAG * (1 - (2 * k - 1) ** 2);
 }
 
-function Tree({ className }: { className?: string }) {
+/**
+ * Fila di lucine vere in cima: un filo scuro che cala in festoni, lampadine di vetro con il portalampada,
+ * il riflesso e un alone di luce morbido. Brillano piano, a turno.
+ */
+function StringLights({ live, palette = BULB_COLORS }: { live: boolean; palette?: string[] }) {
+  const n = SWAGS * PER_SWAG;
+  const bulbs = Array.from({ length: n }, (_, i) => {
+    const u = (i + 0.5) / n;
+    const y = wireY(u);
+    /* inclinazione della lampadina = pendenza del filo in quel punto */
+    const dy = wireY(Math.min(1, u + 0.004)) - wireY(Math.max(0, u - 0.004));
+    const tilt = Math.max(-28, Math.min(28, (Math.atan2(dy, 0.008 * 1400) * 180) / Math.PI));
+    return { u, y, tilt, color: palette[i % palette.length]!, i };
+  });
+  /* il filo: tanti punti della stessa curva */
+  const pts = Array.from({ length: 241 }, (_, k) => {
+    const u = k / 240;
+    return `${(u * 1000).toFixed(1)},${wireY(u).toFixed(1)}`;
+  });
   return (
-    <svg viewBox="0 0 80 100" className={className} aria-hidden>
-      <path d="M40 6 L58 28 L50 28 L66 48 L56 48 L72 72 L8 72 L24 48 L14 48 L30 28 L22 28 Z" fill="#1f6b3a" />
-      <path d="M40 6 L52 28 L40 24 L54 48 L40 42 L62 72 L18 72 L40 42 L26 48 L40 24 L28 28 Z" fill="#2f8a4a" opacity="0.55" />
-      <rect x="34" y="72" width="12" height="16" rx="2" fill="#6b3f1f" />
-      <circle cx="40" cy="8" r="4" fill="#f5d76e" />
-      <circle cx="32" cy="36" r="2.2" fill="#c41e3a" />
-      <circle cx="48" cy="42" r="2.2" fill="#d4af37" />
-      <circle cx="28" cy="58" r="2.4" fill="#f0f4ff" />
-      <circle cx="52" cy="60" r="2.4" fill="#c41e3a" />
-      <circle cx="40" cy="50" r="2" fill="#3ecf6e" />
-    </svg>
-  );
-}
-
-function Gift({ className, color = "#c41e3a" }: { className?: string; color?: string }) {
-  return (
-    <svg viewBox="0 0 70 60" className={className} aria-hidden>
-      <rect x="8" y="22" width="54" height="34" rx="4" fill={color} />
-      <rect x="8" y="14" width="54" height="12" rx="3" fill={color} opacity="0.85" />
-      <rect x="30" y="14" width="10" height="42" fill="#d4af37" />
-      <rect x="8" y="28" width="54" height="8" fill="#d4af37" />
-      <path d="M35 14 C28 4 18 8 22 16 M35 14 C42 4 52 8 48 16" fill="none" stroke="#d4af37" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CandyCane({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 40 90" className={className} aria-hidden>
-      <path d="M28 78 C28 40 28 28 20 18 C14 10 8 12 8 20" fill="none" stroke="#f8f4f0" strokeWidth="10" strokeLinecap="round" />
-      <path
-        d="M28 78 C28 40 28 28 20 18 C14 10 8 12 8 20"
-        fill="none"
-        stroke="#c41e3a"
-        strokeWidth="10"
-        strokeLinecap="round"
-        strokeDasharray="9 11"
-      />
-    </svg>
-  );
-}
-
-function Stocking({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 70" className={className} aria-hidden>
-      <path
-        d="M14 8 H34 V22 C34 22 38 28 38 36 C38 48 34 54 28 58 C22 62 18 66 12 66 C6 66 4 60 6 54 C8 48 10 42 10 34 V8 Z"
-        fill="#c41e3a"
-      />
-      <rect x="12" y="4" width="24" height="10" rx="2" fill="#f0f4ff" />
-      <circle cx="24" cy="28" r="2.2" fill="#d4af37" />
-      <circle cx="20" cy="40" r="1.8" fill="#d4af37" />
-      <circle cx="28" cy="44" r="1.8" fill="#f5d76e" />
-    </svg>
-  );
-}
-
-function Holly({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 60 50" className={className} aria-hidden>
-      <path d="M8 28 C18 8 28 10 30 22 C32 10 42 8 52 28 C40 24 34 32 30 40 C26 32 20 24 8 28 Z" fill="#1f6b3a" />
-      <path d="M12 30 C20 16 26 18 28 26 C24 24 18 28 12 30 Z" fill="#2f8a4a" opacity="0.7" />
-      <circle cx="28" cy="34" r="3.2" fill="#c41e3a" />
-      <circle cx="34" cy="32" r="2.8" fill="#a01830" />
-      <circle cx="31" cy="38" r="2.6" fill="#c41e3a" />
-    </svg>
-  );
-}
-
-function Bell({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 40 48" className={className} aria-hidden>
-      <path d="M20 4 C12 4 8 12 8 20 L8 28 C4 30 2 34 2 38 H38 C38 34 36 30 32 28 L32 20 C32 12 28 4 20 4 Z" fill="#d4af37" />
-      <ellipse cx="20" cy="38" rx="18" ry="5" fill="#b8922a" />
-      <circle cx="20" cy="40" r="3.5" fill="#c41e3a" />
-      <circle cx="20" cy="6" r="2.5" fill="#f5d76e" />
-    </svg>
-  );
-}
-
-function StarOrnament({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 40 40" className={className} aria-hidden>
-      <path
-        d="M20 2 L24 14 L36 14 L26 22 L30 34 L20 26 L10 34 L14 22 L4 14 L16 14 Z"
-        fill="#f5d76e"
-        stroke="rgba(180,120,20,0.45)"
-        strokeWidth="1"
-      />
-    </svg>
-  );
-}
-
-function SnowflakeMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 40 40" className={className} aria-hidden>
-      <g stroke="rgba(230,245,255,0.85)" strokeWidth="2.2" strokeLinecap="round" fill="none">
-        {[0, 60, 120].map((deg) => (
-          <path key={deg} d="M20 4 V36 M20 12 L14 8 M20 12 L26 8 M20 28 L14 32 M20 28 L26 32" transform={`rotate(${deg} 20 20)`} />
-        ))}
-      </g>
-    </svg>
-  );
-}
-
-function FireworkBurst({ className, color = "#f5d76e" }: { className?: string; color?: string }) {
-  return (
-    <svg viewBox="0 0 80 80" className={className} aria-hidden>
-      <circle cx="40" cy="40" r="3.5" fill={color} opacity="0.95" />
-      {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => {
-        const a = (deg * Math.PI) / 180;
-        const x2 = 40 + Math.cos(a) * 28;
-        const y2 = 40 + Math.sin(a) * 28;
-        return (
-          <line
-            key={deg}
-            x1={40 + Math.cos(a) * 6}
-            y1={40 + Math.sin(a) * 6}
-            x2={x2}
-            y2={y2}
-            stroke={color}
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            opacity={0.75 + (deg % 60 === 0 ? 0.2 : 0)}
-          />
-        );
-      })}
-      {[15, 75, 135, 195, 255, 315].map((deg) => {
-        const a = (deg * Math.PI) / 180;
-        return <circle key={`d-${deg}`} cx={40 + Math.cos(a) * 18} cy={40 + Math.sin(a) * 18} r="2" fill={color} opacity="0.85" />;
-      })}
-    </svg>
-  );
-}
-
-function WitchHat({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 70 70" className={className} aria-hidden>
-      <ellipse cx="35" cy="54" rx="28" ry="7" fill="#2a1a12" opacity="0.9" />
-      <path d="M35 8 L52 48 L18 48 Z" fill="#1a1210" />
-      <path d="M35 8 L44 40 L26 40 Z" fill="#3a2820" opacity="0.55" />
-      <rect x="18" y="44" width="34" height="7" rx="2" fill="#6b1f2a" />
-      <circle cx="35" cy="47.5" r="2.4" fill="#d4af37" />
-      <path d="M35 8 C30 14 28 20 30 26" fill="none" stroke="#d4af37" strokeWidth="1.6" opacity="0.7" />
-    </svg>
-  );
-}
-
-function Broom({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 40 110" className={className} aria-hidden>
-      <rect x="17" y="4" width="6" height="62" rx="2" fill="#8b5a2b" />
-      <path d="M8 64 L20 60 L32 64 L36 100 L20 106 L4 100 Z" fill="#c4a574" />
-      <path d="M10 68 L20 64 L30 68 M9 78 L20 74 L31 78 M8 88 L20 84 L32 88" fill="none" stroke="#8b5a2b" strokeWidth="1.4" opacity="0.55" />
-      <ellipse cx="20" cy="64" rx="12" ry="4" fill="#6b4226" />
-    </svg>
-  );
-}
-
-function CoalSack({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 70" className={className} aria-hidden>
-      <path d="M18 22 C14 28 12 40 14 54 C16 64 24 68 32 68 C40 68 48 64 50 54 C52 40 50 28 46 22 Z" fill="#2c2a28" />
-      <path d="M20 24 C18 34 18 48 22 58 C28 54 36 54 42 58 C44 48 44 34 42 24 Z" fill="#3d3a36" opacity="0.55" />
-      <path d="M22 18 C24 10 40 10 42 18 L46 24 H18 Z" fill="#5a4030" />
-      <path d="M28 10 C30 4 34 4 36 10" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="24" cy="48" r="3.2" fill="#1a1816" />
-      <circle cx="34" cy="52" r="2.8" fill="#111" />
-      <circle cx="40" cy="44" r="2.4" fill="#222" />
-    </svg>
-  );
-}
-
-function BefanaSock({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 72" className={className} aria-hidden>
-      <path
-        d="M14 10 H34 V24 C34 24 40 30 40 38 C40 50 34 56 28 60 C22 64 16 68 10 68 C4 68 2 62 4 56 C6 50 8 44 8 36 V10 Z"
-        fill="#4a2a6a"
-      />
-      <rect x="12" y="6" width="24" height="10" rx="2" fill="#f0e6d8" />
-      <circle cx="22" cy="34" r="2" fill="#d4af37" />
-      <circle cx="28" cy="42" r="1.8" fill="#c41e3a" />
-      <circle cx="18" cy="48" r="2.2" fill="#1a1816" />
-      <circle cx="26" cy="54" r="1.8" fill="#222" />
-    </svg>
-  );
-}
-
-function GarlandLights({ live }: { live: boolean }) {
-  /* tante lampadine edge-to-edge: preserveAspectRatio=none → tutta la larghezza viewport */
-  const bulbs = Array.from({ length: 36 }, (_, i) => i);
-  const W = 1200;
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 h-11 overflow-hidden sm:h-14">
-      <svg
-        viewBox={`0 0 ${W} 44`}
-        preserveAspectRatio="none"
-        className="block size-full opacity-95"
-        aria-hidden
-      >
-        <path
-          d={`M0 10 Q${W * 0.12} 26 ${W * 0.25} 12 T${W * 0.5} 14 T${W * 0.75} 12 T${W} 16`}
-          fill="none"
-          stroke="rgba(80,50,30,0.55)"
-          strokeWidth="1.8"
-          vectorEffect="non-scaling-stroke"
-        />
-        {bulbs.map((i) => {
-          const x = 10 + (i / (bulbs.length - 1)) * (W - 20);
-          const y = 10 + Math.sin(i * 0.85) * 7;
-          const color = i % 3 === 0 ? "#c41e3a" : i % 3 === 1 ? "#d4af37" : "#3ecf6e";
-          return (
-            <motion.circle
-              key={i}
-              cx={x}
-              cy={y + 12}
-              r="4.5"
-              fill={color}
-              initial={false}
-              animate={live ? { opacity: [0.4, 1, 0.5, 1] } : { opacity: 0.95 }}
-              transition={live ? { duration: 1.6 + (i % 5) * 0.22, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 } : undefined}
-              style={{ filter: `drop-shadow(0 0 8px ${color})` }}
-            />
-          );
-        })}
+    <div className="pointer-events-none absolute inset-x-0 top-0 h-10" aria-hidden>
+      <svg viewBox="0 0 1000 24" preserveAspectRatio="none" className="absolute inset-x-0 top-0 h-6 w-full">
+        <polyline points={pts.join(" ")} fill="none" stroke="rgba(20,14,10,0.85)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+        <polyline points={pts.join(" ")} fill="none" stroke="rgba(255,220,170,0.12)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" transform="translate(0,-0.6)" />
       </svg>
-    </div>
-  );
-}
-
-function GarlandLightsLow({ live }: { live: boolean }) {
-  const bulbs = Array.from({ length: 28 }, (_, i) => i);
-  const W = 1200;
-  return (
-    <div className="pointer-events-none absolute inset-x-0 top-9 hidden h-8 overflow-hidden opacity-70 sm:block sm:top-11">
-      <svg
-        viewBox={`0 0 ${W} 32`}
-        preserveAspectRatio="none"
-        className="block size-full"
-        aria-hidden
-      >
-        <path
-          d={`M0 6 Q${W * 0.12} 20 ${W * 0.25} 8 T${W * 0.5} 10 T${W * 0.75} 8 T${W} 12`}
-          fill="none"
-          stroke="rgba(80,50,30,0.35)"
-          strokeWidth="1.2"
-          vectorEffect="non-scaling-stroke"
-        />
-        {bulbs.map((i) => {
-          const x = 14 + (i / (bulbs.length - 1)) * (W - 28);
-          const y = 6 + Math.sin(i * 1.1) * 5;
-          const color = i % 3 === 0 ? "#3ecf6e" : i % 3 === 1 ? "#c41e3a" : "#d4af37";
-          return (
-            <motion.circle
-              key={i}
-              cx={x}
-              cy={y + 10}
-              r="3.2"
-              fill={color}
-              initial={false}
-              animate={live ? { opacity: [0.35, 0.95, 0.45, 0.95] } : { opacity: 0.8 }}
-              transition={live ? { duration: 2 + (i % 4) * 0.3, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 } : undefined}
-              style={{ filter: `drop-shadow(0 0 5px ${color})` }}
-            />
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-/** Neve ferma sparsa: chi ha riduci-movimento la vede comunque. */
-function StaticSnow() {
-  const flakes: { t: string; l: string; s: string }[] = [
-    { t: "6%", l: "4%", s: "w-3 opacity-70" },
-    { t: "12%", l: "18%", s: "w-2.5 opacity-55" },
-    { t: "8%", l: "32%", s: "w-4 opacity-65" },
-    { t: "15%", l: "48%", s: "w-2 opacity-50" },
-    { t: "5%", l: "62%", s: "w-3.5 opacity-70" },
-    { t: "11%", l: "78%", s: "w-2.5 opacity-55" },
-    { t: "7%", l: "90%", s: "w-3 opacity-60" },
-    { t: "28%", l: "8%", s: "w-2 opacity-45" },
-    { t: "34%", l: "22%", s: "w-3 opacity-50" },
-    { t: "40%", l: "40%", s: "w-2.5 opacity-40" },
-    { t: "30%", l: "58%", s: "w-3.5 opacity-55" },
-    { t: "38%", l: "74%", s: "w-2 opacity-45" },
-    { t: "26%", l: "88%", s: "w-3 opacity-50" },
-    { t: "52%", l: "12%", s: "w-2.5 opacity-40" },
-    { t: "58%", l: "30%", s: "w-2 opacity-35" },
-    { t: "48%", l: "52%", s: "w-3 opacity-45" },
-    { t: "55%", l: "70%", s: "w-2.5 opacity-40" },
-    { t: "62%", l: "86%", s: "w-2 opacity-35" },
-    { t: "72%", l: "6%", s: "w-3 opacity-45" },
-    { t: "78%", l: "24%", s: "w-2.5 opacity-40" },
-    { t: "70%", l: "44%", s: "w-2 opacity-35" },
-    { t: "76%", l: "66%", s: "w-3.5 opacity-50" },
-    { t: "82%", l: "82%", s: "w-2.5 opacity-40" },
-    { t: "88%", l: "14%", s: "w-2 opacity-35" },
-    { t: "92%", l: "38%", s: "w-3 opacity-40" },
-    { t: "90%", l: "56%", s: "w-2.5 opacity-35" },
-    { t: "94%", l: "78%", s: "w-2 opacity-30" },
-    { t: "18%", l: "10%", s: "w-1.5 opacity-40 hidden sm:block" },
-    { t: "44%", l: "16%", s: "w-1.5 opacity-35 hidden sm:block" },
-    { t: "66%", l: "50%", s: "w-2 opacity-30 hidden md:block" },
-    { t: "22%", l: "96%", s: "w-2.5 opacity-45 hidden sm:block" },
-    { t: "84%", l: "94%", s: "w-2 opacity-35 hidden sm:block" },
-  ];
-  return (
-    <div className="vc-xmas-static-snow absolute inset-0">
-      {flakes.map((f, i) => (
+      {bulbs.map((b) => (
         <span
-          key={i}
-          className={cn("vc-xmas-flake absolute", f.s)}
-          style={
-            {
-              top: f.t,
-              left: f.l,
-              "--vc-xmas-flake-delay": `${(i % 8) * 0.45}s`,
-              "--vc-xmas-flake-dur": `${5.5 + (i % 5) * 0.7}s`,
-            } as CSSProperties
-          }
+          key={b.i}
+          className={cn("absolute", b.i % 2 === 1 && "hidden sm:block")}
+          style={{ left: `${b.u * 100}%`, top: `${b.y}px`, transform: `translateX(-50%) rotate(${b.tilt}deg)`, transformOrigin: "50% 0" }}
         >
-          <SnowflakeMark className="size-full drop-shadow-[0_0_4px_rgba(200,230,255,0.35)] light:opacity-90" />
+          {/* portalampada */}
+          <span className="mx-auto block h-[6px] w-[5px] rounded-t-[1px] bg-gradient-to-b from-[#3a3a36] to-[#141412] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]" />
+          {/* alone di luce */}
+          <motion.span
+            className="absolute left-1/2 top-[9px] block size-9 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: `radial-gradient(circle, ${b.color}55 0%, ${b.color}22 35%, transparent 70%)` }}
+            initial={false}
+            animate={live ? { opacity: [0.55, 1, 0.7, 1, 0.55], scale: [0.9, 1.06, 0.95, 1.04, 0.9] } : { opacity: 0.85, scale: 1 }}
+            transition={live ? { duration: 3.2 + (b.i % 5) * 0.55, repeat: Infinity, ease: "easeInOut", delay: (b.i * 0.37) % 3 } : undefined}
+          />
+          {/* il vetro: goccia con il riflesso */}
+          <span
+            className="relative mx-auto -mt-px block h-[13px] w-[9px] rounded-[50%_50%_46%_46%/38%_38%_62%_62%]"
+            style={{
+              background: `radial-gradient(circle at 36% 28%, rgba(255,255,255,0.95) 0 12%, ${b.color} 38%, color-mix(in srgb, ${b.color} 60%, #000) 100%)`,
+              boxShadow: `0 0 6px 1px ${b.color}aa, 0 0 14px 3px ${b.color}44`,
+            }}
+          />
         </span>
       ))}
     </div>
   );
 }
 
+/** neve ferma e morbida (chi ha riduci-movimento la vede comunque): puntini sfocati, più piccoli e più tenui lontano */
+function StaticSnow() {
+  const flakes = Array.from({ length: 34 }, (_, i) => {
+    const r = (n: number) => {
+      const x = Math.sin(i * 12.9898 + n * 78.233) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    const size = 2 + r(1) * 4.5;
+    return { t: `${r(2) * 96}%`, l: `${r(3) * 98}%`, size, o: 0.18 + (size / 6.5) * 0.45, hideSm: i % 3 === 0 };
+  });
+  return (
+    <div className="vc-xmas-static-snow absolute inset-0">
+      {flakes.map((f, i) => (
+        <span
+          key={i}
+          className={cn("vc-xmas-flake absolute rounded-full", f.hideSm && "hidden sm:block")}
+          style={
+            {
+              top: f.t,
+              left: f.l,
+              width: f.size,
+              height: f.size,
+              opacity: f.o,
+              background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(235,245,255,0.6) 45%, transparent 75%)",
+              filter: f.size < 3.5 ? "blur(0.6px)" : "blur(0.3px)",
+              "--vc-xmas-flake-delay": `${(i % 8) * 0.45}s`,
+              "--vc-xmas-flake-dur": `${5.5 + (i % 5) * 0.7}s`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
- * Decor natalizi ai bordi + neve ferma: sempre, anche con riduci-movimento.
+ * Natale: lucine vere in cima e neve morbida (niente più disegni ai bordi che coprivano i contenuti).
  * Capodanno: fuochi statici. Befana (6 gen): scopa, cappello, calza, carbone.
  * Con motion: luci che pulsano e leggero sway.
  */
@@ -373,190 +130,121 @@ export function ChristmasDecor({
   newYear?: boolean;
   befana?: boolean;
 }) {
-  const sway = (amp: number, dur: number, delay = 0) =>
-    live
-      ? { animate: { rotate: [-amp, amp, -amp] }, transition: { duration: dur, repeat: Infinity, ease: "easeInOut" as const, delay } }
-      : {};
-
   return (
     <>
       <StaticSnow />
-      <GarlandLights live={live} />
-      <GarlandLightsLow live={live} />
+      <StringLights live={live} palette={newYear ? BULB_COLORS_NEW_YEAR : befana ? BULB_COLORS_BEFANA : BULB_COLORS} />
 
-      <Holly className="absolute left-1 top-12 size-10 opacity-90 sm:left-2 sm:top-14 sm:size-14 light:opacity-80" />
-      <Holly className="absolute right-1 top-12 size-10 -scale-x-100 opacity-90 sm:right-2 sm:top-14 sm:size-14 light:opacity-80" />
-      <Holly className="absolute bottom-16 left-1 size-9 opacity-75 sm:bottom-20 sm:left-2 sm:size-12" />
-      <Holly className="absolute bottom-16 right-1 size-9 -scale-x-100 opacity-75 sm:bottom-20 sm:right-2 sm:size-12" />
-
-      <motion.div className="absolute left-3 top-20 sm:left-5 sm:top-24" {...sway(3, 6.5)}>
-        <Wreath gid="xmas-wreath-l" className="size-16 drop-shadow-[0_0_16px_rgba(60,140,80,0.45)] sm:size-24 light:opacity-95" />
-      </motion.div>
-      <motion.div className="absolute right-3 top-20 sm:right-5 sm:top-24" {...sway(3, 7.2, 0.4)}>
-        <Wreath gid="xmas-wreath-r" className="size-16 drop-shadow-[0_0_16px_rgba(60,140,80,0.45)] sm:size-24 light:opacity-95" />
-      </motion.div>
-
-      <div className="absolute left-[4.5rem] top-14 flex gap-1 sm:left-[7.5rem] sm:top-16 sm:gap-2">
-        <motion.div {...sway(5, 4.2)}>
-          {befana ? (
-            <BefanaSock className="h-12 w-8 drop-shadow-[0_0_8px_rgba(90,50,130,0.4)] sm:h-16 sm:w-11" />
-          ) : (
-            <Stocking className="h-12 w-8 drop-shadow-[0_0_8px_rgba(196,30,58,0.35)] sm:h-16 sm:w-11" />
-          )}
-        </motion.div>
-        <motion.div className="mt-2 hidden sm:block" {...sway(5, 4.8, 0.3)}>
-          <Stocking className="h-14 w-9 drop-shadow-[0_0_8px_rgba(196,30,58,0.35)]" />
-        </motion.div>
-      </div>
-      <div className="absolute right-[4.5rem] top-14 flex gap-1 sm:right-[7.5rem] sm:top-16 sm:gap-2">
-        <motion.div className="mt-2 hidden sm:block" {...sway(5, 4.5, 0.2)}>
-          {befana ? (
-            <BefanaSock className="h-14 w-9 drop-shadow-[0_0_8px_rgba(90,50,130,0.4)]" />
-          ) : (
-            <Stocking className="h-14 w-9 drop-shadow-[0_0_8px_rgba(196,30,58,0.35)]" />
-          )}
-        </motion.div>
-        <motion.div {...sway(5, 4.1, 0.15)}>
-          <Stocking className="h-12 w-8 drop-shadow-[0_0_8px_rgba(196,30,58,0.35)] sm:h-16 sm:w-11" />
-        </motion.div>
-      </div>
-
-      <motion.div className="absolute left-2 top-[42%] sm:left-4" {...sway(4, 5.5)}>
-        <StarOrnament className="size-7 drop-shadow-[0_0_10px_rgba(245,215,110,0.55)] sm:size-10" />
-      </motion.div>
-      <motion.div className="absolute right-2 top-[38%] sm:right-4" {...sway(4, 6.1, 0.25)}>
-        <Bell className="h-10 w-8 drop-shadow-[0_0_10px_rgba(212,175,55,0.45)] sm:h-14 sm:w-11" />
-      </motion.div>
-      <motion.div className="absolute left-3 top-[58%] hidden sm:block" {...sway(3, 5.8, 0.5)}>
-        <Bell className="h-11 w-9 drop-shadow-[0_0_10px_rgba(212,175,55,0.4)]" />
-      </motion.div>
-      <motion.div className="absolute right-3 top-[55%] hidden sm:block" {...sway(3, 6.4, 0.35)}>
-        <StarOrnament className="size-9 drop-shadow-[0_0_10px_rgba(245,215,110,0.5)]" />
-      </motion.div>
-
-      {newYear ? (
-        <>
-          <FireworkBurst
-            className="absolute left-[10%] top-[22%] size-14 opacity-80 drop-shadow-[0_0_14px_rgba(245,215,110,0.55)] sm:left-[14%] sm:top-[18%] sm:size-20"
-            color="#f5d76e"
-          />
-          <FireworkBurst
-            className="absolute right-[12%] top-[28%] size-12 opacity-75 drop-shadow-[0_0_12px_rgba(255,90,120,0.5)] sm:right-[16%] sm:top-[20%] sm:size-16"
-            color="#ff6b8a"
-          />
-          <FireworkBurst
-            className="absolute left-[42%] top-[10%] hidden size-10 opacity-70 sm:block sm:size-14"
-            color="#7ec8ff"
-          />
-          <FireworkBurst
-            className="absolute right-[28%] top-[42%] size-11 opacity-65 drop-shadow-[0_0_10px_rgba(120,220,160,0.45)] sm:size-14"
-            color="#6fd9a0"
-          />
-        </>
-      ) : null}
-
-      {befana ? (
-        <>
-          <motion.div className="absolute right-2 top-[48%] sm:right-5 sm:top-[46%]" {...sway(3.5, 6.2, 0.2)}>
-            <WitchHat className="size-14 drop-shadow-[0_0_12px_rgba(40,20,10,0.45)] sm:size-20" />
-          </motion.div>
-          <motion.div className="absolute left-1 top-[46%] -rotate-12 sm:left-3 sm:top-[44%]" {...sway(2.5, 7, 0.4)}>
-            <Broom className="h-28 w-10 drop-shadow-[0_0_10px_rgba(100,70,30,0.35)] sm:h-36 sm:w-12" />
-          </motion.div>
-          <div className="absolute bottom-28 right-2 sm:bottom-32 sm:right-4">
-            <CoalSack className="h-14 w-12 opacity-95 drop-shadow-[0_0_10px_rgba(0,0,0,0.35)] sm:h-16 sm:w-14" />
-          </div>
-        </>
-      ) : null}
-
-      <div className="vc-xmas-tree absolute bottom-2 left-2 flex items-end gap-0.5 drop-shadow-[0_0_18px_rgba(40,120,60,0.4)] sm:bottom-3 sm:left-4 sm:gap-1">
-        <motion.div {...sway(2.5, 5.8)}>
-          <Tree className="h-24 w-[4.75rem] sm:h-32 sm:w-[6.5rem]" />
-        </motion.div>
-        <div className="mb-0.5 flex flex-col gap-0.5">
-          <Gift className="h-8 w-10 opacity-95 sm:h-10 sm:w-12" color="#1f6b3a" />
-          <Gift className="h-9 w-11 opacity-95 sm:h-11 sm:w-14" />
-        </div>
-        <CandyCane className="mb-1 hidden h-14 w-6 opacity-90 sm:block sm:h-16 sm:w-7" />
-      </div>
-
-      <div className="absolute bottom-3 right-3 flex items-end gap-1.5 sm:bottom-4 sm:right-5 sm:gap-2">
-        {befana ? <CoalSack className="mb-1 h-11 w-10 opacity-90 sm:h-12 sm:w-11" /> : null}
-        <Gift className="h-8 w-10 opacity-90 sm:h-10 sm:w-12" color="#1f6b3a" />
-        <Gift className="h-10 w-12 opacity-95 sm:h-12 sm:w-14" />
-        <motion.div {...sway(4, 4.8, 0.2)}>
-          <CandyCane className="h-[4.5rem] w-8 drop-shadow-[0_0_12px_rgba(196,30,58,0.4)] sm:h-24 sm:w-10" />
-        </motion.div>
-        <motion.div className="hidden sm:block" {...sway(3.5, 5.2, 0.4)}>
-          <CandyCane className="h-16 w-7 opacity-85" />
-        </motion.div>
-      </div>
     </>
   );
 }
 
 /* ───────── Capodanno e Befana fermi (riduci-movimento): ben visibili ma senza animazioni ───────── */
 
-const NEW_YEAR_BURSTS: { pos: string; size: string; color: string; glow: string; hideSm?: boolean }[] = [
-  { pos: "left-[6%] top-[14%]", size: "size-20 sm:size-28", color: "#f5d76e", glow: "rgba(245,215,110,0.6)" },
-  { pos: "left-[24%] top-[6%]", size: "size-14 sm:size-20", color: "#ff6b8a", glow: "rgba(255,107,138,0.55)" },
-  { pos: "left-[44%] top-[16%]", size: "size-16 sm:size-24", color: "#7ec8ff", glow: "rgba(126,200,255,0.55)", hideSm: true },
-  { pos: "right-[24%] top-[7%]", size: "size-14 sm:size-20", color: "#6fd9a0", glow: "rgba(111,217,160,0.55)" },
-  { pos: "right-[6%] top-[15%]", size: "size-20 sm:size-28", color: "#e0b0ff", glow: "rgba(224,176,255,0.55)" },
-  { pos: "left-[16%] top-[34%]", size: "size-12 sm:size-16", color: "#ffb347", glow: "rgba(255,179,71,0.5)", hideSm: true },
-  { pos: "right-[17%] top-[33%]", size: "size-12 sm:size-16", color: "#fff4d6", glow: "rgba(255,244,214,0.5)", hideSm: true },
+const NEW_YEAR_BURSTS: { left: string; top: string; size: number; color: string; hideSm?: boolean }[] = [
+  { left: "9%", top: "16%", size: 170, color: "#f5d76e" },
+  { left: "30%", top: "8%", size: 110, color: "#ff8fa8", hideSm: true },
+  { left: "70%", top: "9%", size: 120, color: "#9fd3ff", hideSm: true },
+  { left: "91%", top: "17%", size: 160, color: "#e6c068" },
 ];
 
-/** Cielo di Capodanno fermo: fuochi grandi coi loro aloni (al posto dei fuochi animati). */
+/** uno scoppio fermo: due anelli di puntini che sfumano verso l'esterno, alone morbido al centro */
+function BokehBurst({ size, color }: { size: number; color: string }) {
+  const dots = Array.from({ length: 46 }, (_, i) => {
+    const r = (n: number) => {
+      const x = Math.sin(i * 91.7 + n * 37.1 + size) * 9301.17;
+      return x - Math.floor(x);
+    };
+    const ring = i < 28 ? 1 : 0.62;
+    const ang = (i / (i < 28 ? 28 : 18)) * Math.PI * 2 + r(1) * 0.2;
+    const dist = (size / 2) * ring * (0.82 + r(2) * 0.2);
+    return { x: Math.cos(ang) * dist, y: Math.sin(ang) * dist + dist * 0.08, s: 2 + r(3) * 3.2 * ring, o: 0.35 + r(4) * 0.55 };
+  });
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <div className="absolute inset-[18%] rounded-full" style={{ background: `radial-gradient(circle, ${color}55 0%, ${color}14 45%, transparent 70%)` }} />
+      {dots.map((p, i) => (
+        <span
+          key={i}
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{
+            width: p.s,
+            height: p.s,
+            opacity: p.o,
+            transform: `translate(calc(-50% + ${p.x}px), calc(-50% + ${p.y}px))`,
+            background: `radial-gradient(circle, #fff 0%, ${color} 45%, transparent 75%)`,
+            boxShadow: `0 0 6px ${color}`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Cielo di Capodanno fermo (riduci-movimento): pochi scoppi luminosi ai lati, il centro resta libero. */
 export function NewYearSky() {
   return (
     <>
       {NEW_YEAR_BURSTS.map((b, i) => (
-        <div key={i} className={`absolute ${b.pos} ${b.hideSm ? "hidden sm:block" : ""}`}>
-          <div className="absolute inset-[-35%] rounded-full blur-2xl" style={{ background: `radial-gradient(circle, ${b.glow} 0%, transparent 65%)`, opacity: 0.55 }} />
-          <FireworkBurst className={`relative ${b.size} opacity-90`} color={b.color} />
+        <div
+          key={i}
+          className={cn("absolute -translate-x-1/2 opacity-80", b.hideSm && "hidden md:block")}
+          style={{ left: b.left, top: b.top }}
+        >
+          <BokehBurst size={b.size} color={b.color} />
         </div>
       ))}
-      {/* scie dei razzi, ferme */}
-      <div className="absolute bottom-[30%] left-[10%] hidden h-40 w-px rotate-[8deg] bg-gradient-to-t from-transparent via-[#f5d76e]/50 to-[#f5d76e] sm:block" />
-      <div className="absolute bottom-[34%] right-[11%] hidden h-36 w-px -rotate-[10deg] bg-gradient-to-t from-transparent via-[#e0b0ff]/50 to-[#e0b0ff] sm:block" />
     </>
   );
 }
 
-/** La Befana sulla scopa davanti alla luna (ferma). */
-function BefanaFlying({ className }: { className?: string }) {
+/** La Befana sulla scopa: solo la sagoma nera, controluce davanti alla luna. */
+function BefanaSilhouette({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 220 120" className={className} aria-hidden>
-      <circle cx="150" cy="54" r="44" fill="#f7ecc8" opacity="0.92" />
-      <circle cx="136" cy="44" r="7" fill="#e8dcae" opacity="0.7" />
-      <circle cx="162" cy="70" r="5" fill="#e8dcae" opacity="0.6" />
-      {/* scopa */}
-      <path d="M28 86 L176 58" stroke="#5b3a1e" strokeWidth="4" strokeLinecap="round" />
-      <path d="M22 80 L4 74 M24 84 L2 86 M26 88 L6 98 M24 82 L6 80" stroke="#8a6232" strokeWidth="3" strokeLinecap="round" />
-      {/* mantello */}
-      <path d="M86 76 C92 50 118 40 128 46 C136 52 134 66 126 72 L104 80 Z" fill="#1a1210" />
-      <path d="M86 76 C76 80 66 92 60 100 C76 96 92 90 104 80 Z" fill="#2a1a12" />
-      {/* testa e cappello */}
-      <circle cx="124" cy="40" r="7" fill="#d9b48f" />
-      <path d="M112 36 L140 32 L124 4 Z" fill="#1a1210" />
-      <rect x="110" y="33" width="32" height="5" rx="2" transform="rotate(-8 126 35)" fill="#6b1f2a" />
-      {/* sacco */}
-      <path d="M96 64 C90 54 98 46 106 50 C112 54 110 64 104 68 Z" fill="#7a5a3a" />
-      {/* stelline */}
-      <circle cx="40" cy="24" r="1.8" fill="#fff4d6" />
-      <circle cx="70" cy="12" r="1.4" fill="#fff4d6" />
-      <circle cx="200" cy="18" r="1.6" fill="#fff4d6" />
+    <svg viewBox="0 0 160 80" className={className} aria-hidden>
+      <g fill="#0b0706">
+        {/* scopa con la saggina */}
+        <path d="M14 58 L130 34 L131 37 L15 61 Z" />
+        <path d="M16 56 C6 52 0 54 -2 56 C2 58 4 62 0 66 C6 66 12 64 18 62 Z" />
+        {/* mantello e corpo */}
+        <path d="M60 52 C62 34 80 22 92 26 C100 29 102 40 96 48 C90 54 78 56 70 56 Z" />
+        <path d="M60 52 C52 56 44 64 38 72 C52 68 64 62 72 56 Z" />
+        {/* testa, cappello, naso */}
+        <circle cx="94" cy="22" r="6" />
+        <path d="M84 20 L106 16 L92 -2 Z" />
+        <path d="M99 23 L106 25 L99 26 Z" />
+        {/* sacco sulle spalle */}
+        <path d="M70 40 C64 30 72 22 80 26 C86 30 84 40 78 44 Z" />
+      </g>
     </svg>
   );
 }
 
-/** Cielo della Befana: lei sulla scopa in alto (sempre, anche con motion). */
+/** Cielo della Befana: luna piena in alto a destra (luce morbida e macchie), lei controluce che la attraversa. */
 export function BefanaSky() {
   return (
-    <div className="absolute left-1/2 top-[11%] -translate-x-1/2 sm:top-[9%]">
-      <div className="absolute inset-[-20%] rounded-full bg-[radial-gradient(circle,rgba(247,236,200,0.35)_0%,transparent_65%)] blur-xl" />
-      <BefanaFlying className="relative h-24 w-44 drop-shadow-[0_0_18px_rgba(247,236,200,0.45)] sm:h-32 sm:w-60" />
+    <div className="absolute right-[6%] top-[12%] sm:right-[8%] sm:top-[13%]" aria-hidden>
+      <div className="relative size-24 sm:size-32">
+        {/* alone della luna */}
+        <div className="absolute inset-[-55%] rounded-full bg-[radial-gradient(circle,rgba(255,240,205,0.28)_0%,rgba(255,240,205,0.08)_40%,transparent_68%)]" />
+        {/* la luna: luce da sinistra, macchie morbide */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: [
+              "radial-gradient(circle at 34% 30%, #fffaf0 0%, #f6ecd2 38%, #e2d3ad 72%, #c9b98f 100%)",
+            ].join(","),
+            boxShadow: "0 0 40px 6px rgba(255,236,190,0.35), inset -10px -8px 22px rgba(120,100,60,0.35)",
+          }}
+        >
+          <span className="absolute left-[22%] top-[28%] size-[22%] rounded-full bg-[#cdbf98]/45 blur-[2px]" />
+          <span className="absolute left-[55%] top-[48%] size-[16%] rounded-full bg-[#c8b88e]/40 blur-[2px]" />
+          <span className="absolute left-[40%] top-[66%] size-[12%] rounded-full bg-[#cdbf98]/35 blur-[1.5px]" />
+          <span className="absolute left-[62%] top-[22%] size-[9%] rounded-full bg-[#cdbf98]/30 blur-[1px]" />
+        </div>
+        {/* lei, controluce */}
+        <BefanaSilhouette className="absolute left-[-38%] top-[30%] w-[120%] drop-shadow-[0_0_6px_rgba(255,236,190,0.25)]" />
+      </div>
     </div>
   );
 }

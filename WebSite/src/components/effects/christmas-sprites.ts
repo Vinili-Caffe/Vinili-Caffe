@@ -7,7 +7,19 @@ export type XmasKind = "snow" | "flake" | "ornament" | "star" | "spark";
 const cache = new Map<string, HTMLCanvasElement>();
 
 function paint(ctx: CanvasRenderingContext2D, kind: XmasKind) {
-  if (kind === "snow" || kind === "flake") {
+  /* neve vera: un puntino sfocato (come fuori fuoco), niente fiocco disegnato */
+  if (kind === "snow") {
+    const g = ctx.createRadialGradient(50, 50, 0, 50, 50, 50);
+    g.addColorStop(0, "rgba(255,255,255,0.95)");
+    g.addColorStop(0.35, "rgba(240,248,255,0.7)");
+    g.addColorStop(1, "rgba(220,235,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(50, 50, 50, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  if (kind === "flake") {
     ctx.strokeStyle = "rgba(255,255,255,0.92)";
     ctx.fillStyle = "rgba(230,245,255,0.55)";
     ctx.lineWidth = 3.2;
