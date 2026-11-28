@@ -34,11 +34,11 @@ export function AvatarCircles({
             src={p.avatarUrl}
             name={p.name}
             noPresence
-            className="size-7 shrink-0 bg-mocha ring-2 ring-roast transition-transform hover:z-10  sm:size-8"
+            className="size-7 shrink-0 bg-mocha ring-2 ring-roast transition-transform hover:z-10 hover:-translate-y-0.5 sm:size-8"
           />
         ))}
         {rest > 0 && (
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-caramel text-[0.6rem] font-semibold text-ink ring-2 ring-roast lining-nums sm:size-8 sm:text-[0.62rem]">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-caramel text-[0.6rem] font-bold text-ink ring-2 ring-roast lining-nums sm:size-8 sm:text-[0.62rem]">
             +{rest > 99 ? "99" : rest}
           </span>
         )}

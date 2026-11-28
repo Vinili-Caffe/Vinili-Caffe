@@ -150,7 +150,7 @@ export function CookieConsent() {
                 <Cookie className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-caramel">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
                   {t("cookie.kicker")}
                 </p>
                 <p id="vc-cookie-consent-text" className="mt-1 text-sm leading-relaxed text-crema/90">
@@ -170,14 +170,14 @@ export function CookieConsent() {
               <button
                 type="button"
                 onClick={() => choose("rejected")}
-                className="rounded-full bg-crema/8 px-3.5 py-2 text-sm font-semibold text-crema/90 ring-1 ring-sand/25 transition-[transform,background-color,box-shadow] duration-200 ease-out  hover:bg-crema/12 hover:ring-sand/40 active:scale-[0.97]"
+                className="rounded-full bg-crema/8 px-3.5 py-2 text-sm font-semibold text-crema/90 ring-1 ring-sand/25 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:bg-crema/12 hover:ring-sand/40 active:scale-[0.97]"
               >
                 {t("cookie.reject")}
               </button>
               <button
                 type="button"
                 onClick={() => choose("accepted")}
-                className="rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(0,0,0,0.55)] transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
+                className="rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(212,145,80,0.55)] transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 {t("cookie.accept")}
               </button>

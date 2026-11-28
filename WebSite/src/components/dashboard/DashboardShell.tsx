@@ -136,7 +136,7 @@ function NavBadgePills({ badge }: { badge?: NavBadge | NavBadge[] }) {
           key={`${b.tone}-${i}`}
           title={b.title}
           className={cn(
-            "rounded-md px-1.5 py-px text-[0.65rem] font-semibold tabular-nums",
+            "rounded-md px-1.5 py-px text-[0.65rem] font-bold tabular-nums",
             b.tone === "danger" && "bg-[#a83a2c] text-[#ffe8e2]",
             b.tone === "warn" && "bg-caramel text-ink",
             b.tone === "default" && "bg-caramel text-ink",
@@ -205,12 +205,12 @@ function NavItem({
       {lit && animated ? (
         <motion.span
           layoutId="dash-nav-pill"
-          className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-caramel"
+          className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel"
           transition={{ type: "spring", stiffness: 500, damping: 40 }}
           aria-hidden
         />
       ) : lit ? (
-        <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-caramel" aria-hidden />
+        <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
       ) : null}
       <Icon
         className={cn(
@@ -220,11 +220,11 @@ function NavItem({
       />
       <span className={cn("min-w-0 flex-1 truncate text-left", (off || lockedReason) && "text-crema/45")}>{label}</span>
       {lockedReason ? (
-        <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/45">
+        <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">
           <Lock className="size-2.5" aria-hidden /> bloccato
         </span>
       ) : off ? (
-        <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/45">disattivo</span>
+        <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span>
       ) : null}
       <NavBadgePills badge={badge} />
     </>
@@ -253,7 +253,7 @@ function NavItem({
 function NavGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 px-2.5 text-xs font-semibold text-crema/50">{title}</p>
+      <p className="mb-1 px-2.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-crema/50">{title}</p>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -344,12 +344,12 @@ function ModuleNavItem({
         {lit && animated ? (
           <motion.span
             layoutId="dash-nav-pill"
-            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-caramel"
+            className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel"
             transition={{ type: "spring", stiffness: 500, damping: 40 }}
             aria-hidden
           />
         ) : lit ? (
-          <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-caramel" aria-hidden />
+          <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-gradient-to-b from-ember to-caramel" aria-hidden />
         ) : null}
         <Icon
           className={cn(
@@ -359,11 +359,11 @@ function ModuleNavItem({
         />
         <span className={cn("min-w-0 flex-1 truncate text-left", (off || lockedReason) && "text-crema/45")}>{item.label}</span>
         {lockedReason ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/45">
+          <span className="inline-flex items-center gap-1 rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">
             <Lock className="size-2.5" aria-hidden /> bloccato
           </span>
         ) : off ? (
-          <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/45">disattivo</span>
+          <span className="rounded-full bg-crema/[0.06] px-1.5 py-px text-[0.6rem] font-semibold uppercase tracking-wider text-crema/45">disattivo</span>
         ) : null}
         <NavBadgePills badge={badge} />
         <ChevronDown
@@ -467,7 +467,7 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
           </span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="block text-xs font-semibold text-crema/50">Server</span>
+          <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-crema/50">Server</span>
           <span className="block truncate text-sm font-semibold text-crema">{shown ? shown.name : "Scegli un server"}</span>
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-crema/50" aria-hidden />
@@ -522,7 +522,7 @@ function ServerSwitcher({ current }: { current: ShellGuild | null }) {
                       <GuildIcon guild={g} className="size-7 rounded-lg" />
                       <span className="min-w-0 flex-1 truncate">{g.name}</span>
                       {g.premiumActive ? <Diamond className="size-3.5 shrink-0 text-ember" aria-label="Premium" /> : null}
-                      {!g.botPresent ? <span className="shrink-0 text-xs font-semibold text-crema/50">invita</span> : null}
+                      {!g.botPresent ? <span className="shrink-0 text-[0.6rem] font-semibold uppercase text-crema/50">invita</span> : null}
                     </button>
                   );
                 })
@@ -675,7 +675,7 @@ function AccountMenu({ inline = false }: { guild: ShellGuild | null; guildNav?: 
               </span>
             </div>
             <div className={cn("pt-1.5", !inline && "border-t border-sand/10")}>
-              <p className="px-2.5 pb-1 text-xs font-semibold text-crema/45">Account</p>
+              <p className="px-2.5 pb-1 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Account</p>
               {items.map((n) => {
                 const Icon = n.icon;
                 return (
@@ -687,14 +687,14 @@ function AccountMenu({ inline = false }: { guild: ShellGuild | null; guildNav?: 
               })}
             </div>
             <div className="mt-1.5 border-t border-sand/10 px-1 pb-1 pt-2">
-              <p className="px-1.5 pb-1.5 text-xs font-semibold text-crema/45">Tema</p>
+              <p className="px-1.5 pb-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-crema/45">Tema</p>
               <ThemePrefRow />
             </div>
             <div className="mt-1.5 border-t border-sand/10 pt-1.5">
               <SmartLink
                 href="/"
                 role="menuitem"
-                className="flex items-center justify-center gap-2 rounded-lg bg-caramel px-2.5 py-2 text-sm font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(0,0,0,0.55)] transition hover:brightness-110"
+                className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-caramel to-ember px-2.5 py-2 text-sm font-semibold text-ink shadow-[0_8px_20px_-12px_rgba(217,154,91,0.9)] transition hover:brightness-110"
               >
                 <House className="size-4 shrink-0" aria-hidden />
                 Torna al sito
@@ -733,7 +733,7 @@ function Sidebar({
         <BotLogo />
         <span className="min-w-0">
           <span className="block font-display text-lg font-semibold leading-none text-crema">Vinili</span>
-          <span className="mt-1 block text-xs font-semibold text-caramel">Dashboard bot</span>
+          <span className="mt-1 block text-[0.6rem] font-semibold uppercase tracking-[0.24em] text-caramel">Dashboard bot</span>
         </span>
       </SmartLink>
       {onTogglePin ? (

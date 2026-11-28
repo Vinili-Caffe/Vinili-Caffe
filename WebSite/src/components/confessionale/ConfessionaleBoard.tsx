@@ -224,7 +224,7 @@ export function ConfessionaleBoard() {
         <div className="flex items-end justify-center gap-6">
           <Candle className="hidden sm:block" />
           <div className="relative w-full rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_30px_60px_-30px_rgba(0,0,0,1)] sm:p-8">
-            <p className="flex items-center gap-2 font-display text-2xl font-semibold">
+            <p className="flex items-center gap-2 font-display text-2xl font-bold">
               <Feather className="size-5" /> Scrivi una lettera
             </p>
             <p className="mt-1 text-sm text-ink/60">Il messaggio non conserva chi l’ha scritto: niente nome e niente account Discord.</p>
@@ -255,7 +255,7 @@ export function ConfessionaleBoard() {
                 type="button"
                 onClick={send}
                 disabled={sending}
-                className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
               >
                 {sending ? <Loader2 className="size-4 animate-spin" /> : token ? <Feather className="size-4" /> : <LogIn className="size-4" />} {token ? "Pubblica nel confessionale" : t("confessionale.loginToWrite")}
               </button>

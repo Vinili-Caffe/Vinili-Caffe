@@ -7,7 +7,7 @@ export function NewTag({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "relative inline-flex shrink-0 items-center gap-1 self-start overflow-hidden rounded-full bg-ember/15 px-2 py-0.5 text-xs font-semibold text-ember ring-1 ring-ember/30",
+        "relative inline-flex shrink-0 items-center gap-1 self-start overflow-hidden rounded-full bg-ember/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-ember ring-1 ring-ember/30",
         className,
       )}
     >

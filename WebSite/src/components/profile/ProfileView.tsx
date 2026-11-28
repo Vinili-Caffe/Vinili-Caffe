@@ -31,7 +31,7 @@ function Message({ icon, title, text, children }: { icon: React.ReactNode; title
 
 const ghost = "inline-flex items-center gap-2 rounded-full bg-crema/8 px-5 py-2.5 text-sm font-semibold ring-1 ring-sand/25 transition-colors hover:bg-crema/12";
 const primary =
-  "inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]";
+  "inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]";
 
 function Skeleton() {
   return (

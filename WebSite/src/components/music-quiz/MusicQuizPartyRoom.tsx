@@ -214,7 +214,7 @@ export function MusicQuizPartyRoom({ roomId }: { roomId: string }) {
         >
           <Hourglass className="size-8 text-caramel" aria-hidden />
         </motion.span>
-        <p className="mt-5 text-xs font-semibold text-caramel">Partita in corso</p>
+        <p className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-caramel">Partita in corso</p>
         <p className="mt-2 font-display text-3xl font-semibold text-crema">{room.packTitle}</p>
         <p className="mt-2 text-sm text-crema/65">
           {total ? `Domanda ${Math.min(total, (room.roundIndex || 0) + 1)} di ${total} · ` : ""}
@@ -351,7 +351,7 @@ function PartyRound({
       cover={room.packCover}
       top={
         <>
-          <span className="text-xs font-semibold text-caramel">
+          <span className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
             Domanda {room.roundIndex + 1} di {room.totalRounds}
           </span>
           <span className="text-sm text-crema/65">
@@ -431,7 +431,7 @@ function PartyRound({
               type="button"
               disabled={busy}
               onClick={onNext}
-              className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink"
+              className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink"
             >
               {room.roundIndex + 1 >= room.totalRounds ? "Classifica" : "Avanti"} <ArrowRight className="size-4" aria-hidden />
             </button>
@@ -455,7 +455,7 @@ function Scoreboard({ room, me }: { room: Room; me: string }) {
   const hidden = !!room.scoresHidden;
   return (
     <aside className="h-fit rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/10 lg:sticky lg:top-24">
-      <h2 className="mb-3 text-xs font-semibold text-crema/55">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-crema/55">
         Giocatori · {list.length}
       </h2>
       {hidden ? <p className="-mt-1 mb-3 text-xs text-crema/45">La classifica è nascosta: vedi solo i tuoi punti.</p> : null}
@@ -470,7 +470,7 @@ function Scoreboard({ room, me }: { room: Room; me: string }) {
                 p.userId === me ? "bg-caramel/10 ring-1 ring-caramel/30" : "bg-crema/[0.03]",
               )}
             >
-              <span className="w-4 text-center text-xs font-semibold tabular-nums text-crema/50">{hidden ? "·" : i + 1}</span>
+              <span className="w-4 text-center text-xs font-bold tabular-nums text-crema/50">{hidden ? "·" : i + 1}</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.avatarUrl || "/images/logo-disco.png"} alt="" className="size-8 shrink-0 rounded-full object-cover" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-crema">{p.displayName}</span>
@@ -526,7 +526,7 @@ function Podium({
     const mine = room.players.find((p) => p.userId === me);
     return (
       <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 text-center ring-1 ring-sand/15 sm:p-10">
-        <p className="text-xs font-semibold text-caramel">{room.packTitle}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{room.packTitle}</p>
         <h1 className="mt-1 font-display text-4xl font-semibold text-crema">Partita finita</h1>
         <p className="mt-6 text-sm text-crema/55">La classifica è nascosta. I tuoi punti:</p>
         <p className="font-display text-6xl font-semibold tabular-nums text-caramel">{mine?.score ?? 0}</p>
@@ -536,7 +536,7 @@ function Podium({
               type="button"
               disabled={busy}
               onClick={onRestart}
-              className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink disabled:opacity-60"
             >
               <RotateCcw className="size-4" aria-hidden /> Torna alla lobby
             </button>
@@ -547,7 +547,7 @@ function Podium({
   }
   return (
     <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 text-center ring-1 ring-sand/15 sm:p-10">
-      <p className="text-xs font-semibold text-caramel">{room.packTitle}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{room.packTitle}</p>
       <h1 className="mt-1 font-display text-4xl font-semibold text-crema">Classifica finale</h1>
       <div className="mt-10 flex items-end justify-center gap-3">
         {order.map((p) => {
@@ -572,7 +572,7 @@ function Podium({
                 className={cn(
                   "mt-2 grid w-full place-items-center rounded-t-2xl font-display text-3xl font-semibold text-ink",
                   place === 1
-                    ? "h-28 bg-caramel"
+                    ? "h-28 bg-gradient-to-b from-caramel to-ember"
                     : place === 2
                       ? "h-20 bg-crema/70"
                       : "h-14 bg-ember/60",
@@ -590,7 +590,7 @@ function Podium({
             type="button"
             disabled={busy}
             onClick={onRestart}
-            className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink disabled:opacity-60"
           >
             <RotateCcw className="size-4" aria-hidden /> Altra partita
           </button>

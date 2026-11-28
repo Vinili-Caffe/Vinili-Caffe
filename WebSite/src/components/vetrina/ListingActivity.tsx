@@ -55,7 +55,7 @@ export function ListingActivity({
             href={inviteUrl}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2.5 text-sm font-semibold text-ink"
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2.5 text-sm font-bold text-ink"
           >
             <Bot className="size-4" /> Invita Vinili &amp; Caffè
             <ExternalLink className="size-3.5 opacity-70" />

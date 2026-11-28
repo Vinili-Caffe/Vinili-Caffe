@@ -42,7 +42,7 @@ export function MyProfileRedirect() {
         <button
           type="button"
           onClick={login}
-          className="mt-7 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink"
+          className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink"
         >
           <LogIn className="size-4" /> Accedi con Discord
         </button>

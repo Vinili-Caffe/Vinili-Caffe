@@ -72,7 +72,7 @@ export function ElasticSlider({
           e.preventDefault();
         }}
       >
-        <span className="absolute inset-y-0 left-0 rounded-full bg-caramel" style={{ width: `${pct}%` }} />
+        <span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${pct}%` }} />
         <span
           className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-crema shadow ring-2 ring-caramel"
           style={{ left: `${pct}%` }}

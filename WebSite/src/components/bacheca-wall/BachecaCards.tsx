@@ -62,7 +62,7 @@ function Tape({ className }: { className?: string }) {
 
 function Avatar({ src, name, className }: { src: string; name: string; className?: string }) {
   if (!src) {
-    return <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-full bg-ink/15 text-[0.6rem] font-semibold", className)}>{name.slice(0, 1).toUpperCase()}</span>;
+    return <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-full bg-ink/15 text-[0.6rem] font-bold", className)}>{name.slice(0, 1).toUpperCase()}</span>;
   }
    
   return <img src={src} alt="" loading="lazy" className={cn("size-6 shrink-0 rounded-full object-cover", className)} />;
@@ -320,7 +320,7 @@ export function Cassette({ item, onReact, onRepost, big = false }: { item: Bache
     <div className="relative rounded-xl bg-gradient-to-b from-[#3b2d25] to-[#21170f] p-3 text-crema shadow-[0_16px_28px_-12px_rgba(0,0,0,0.75)] ring-1 ring-black/40">
       <Pin tone="blue" />
       <div className="rounded-md bg-[#efe3c9] px-3 pb-2 pt-2.5 text-ink">
-        <p className="truncate font-display text-lg font-semibold leading-tight">🎙️ {item.author.name}</p>
+        <p className="truncate font-display text-lg font-bold leading-tight">🎙️ {item.author.name}</p>
         <p className={cn("mt-1 font-mono text-[0.72rem] leading-snug text-ink/75", big ? "" : "line-clamp-3")}>
           {item.text || "Clip vocale"}
         </p>
@@ -359,7 +359,7 @@ function SkullCard({ item, onReact }: { item: BachecaItem; onReact: (e: string) 
         className="absolute right-3 top-3 z-10 flex size-14 rotate-12 flex-col items-center justify-center rounded-full border-[3px] border-[#7a1f1f]/80 text-[#7a1f1f]/90 mix-blend-multiply"
       >
         <span className="text-lg leading-none">💀</span>
-        <span className="text-[0.65rem] font-semibold lining-nums">×{item.skulls || 1}</span>
+        <span className="text-[0.65rem] font-black lining-nums">×{item.skulls || 1}</span>
       </span>
       {item.imageUrl ? (
         <SafeImage src={item.imageUrl} alt={item.text ? item.text.slice(0, 120) : `Messaggio di ${item.author.name}`} className="w-full rounded-sm" />

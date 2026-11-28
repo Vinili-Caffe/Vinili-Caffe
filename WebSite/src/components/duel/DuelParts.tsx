@@ -135,7 +135,7 @@ export function DuelIntro({ game, busy, onStart }: { game: DuelGame; busy: boole
         type="button"
         disabled={busy}
         onClick={onStart}
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-caramel text-sm font-semibold text-ink disabled:opacity-60"
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink disabled:opacity-60"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Swords className="size-4" />} Crea la sfida
       </button>
@@ -194,7 +194,7 @@ export function DuelWaiting({ state }: { state: DuelState }) {
       <button
         type="button"
         onClick={() => void share()}
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-caramel text-sm font-semibold text-ink"
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink"
       >
         {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Link copiato" : inActivity ? "Manda su Discord" : "Manda la sfida"}
       </button>
@@ -232,10 +232,10 @@ export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () =
   const practice = state.mode === "practice";
   const title = practice
     ? state.result === "win"
-      ? "Indovinato"
+      ? "Indovinato!"
       : "Non questa volta"
     : state.result === "win"
-      ? "Hai vinto"
+      ? "Hai vinto!"
       : state.result === "lose"
         ? "Hai perso"
         : "Pari";
@@ -278,7 +278,7 @@ export function DuelResult({ state, onAgain }: { state: DuelState; onAgain: () =
       <button
         type="button"
         onClick={onAgain}
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-caramel text-sm font-semibold text-ink"
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink"
       >
         {practice ? <RotateCcw className="size-4" /> : <Swords className="size-4" />}
         {practice ? "Un'altra" : "Nuova sfida"}

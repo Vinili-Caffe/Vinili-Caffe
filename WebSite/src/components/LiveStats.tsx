@@ -89,7 +89,7 @@ function TinyPerson({
   );
   if (profileUrl) {
     return (
-      <a href={profileUrl} className="transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]" title={tip || name}>
+      <a href={profileUrl} className="transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]" title={tip || name}>
         {inner}
       </a>
     );
@@ -158,7 +158,7 @@ function BoostRow({ m, t }: { m: BoostMember; t: (k: string, v?: Record<string, 
     <>
       <Avatar userId={uid || undefined} src={m.avatarUrl} name={m.name} className="size-9 shrink-0 bg-crema/10 ring-1 ring-sand/20" />
       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-crema">{m.name}</span>
-      <span className="shrink-0 rounded-full bg-gradient-to-br from-[#6b4218] to-[#3f2a12] px-2 py-0.5 text-xs font-semibold text-[#fff8f0] ring-1 ring-[rgba(245,214,183,0.42)]">
+      <span className="shrink-0 rounded-full bg-gradient-to-br from-[#6b4218] to-[#3f2a12] px-2 py-0.5 text-[0.62rem] font-extrabold uppercase tracking-[0.08em] text-[#fff8f0] ring-1 ring-[rgba(245,214,183,0.42)]">
         {t("stats.boostCount", { n: count })}
       </span>
     </>
@@ -196,7 +196,7 @@ function RosterBody({
       <div>
         <div className="mb-3 flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-xs font-semibold text-caramel">{t("stats.staffKicker")}</p>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-caramel">{t("stats.staffKicker")}</p>
             <p className="mt-0.5 text-sm text-crema/55">{t("stats.staffCount", { people })}</p>
           </div>
         </div>
@@ -204,9 +204,9 @@ function RosterBody({
           {groups.map((g) => (
             <section
               key={g.roleId || g.role}
-              className="rounded-2xl bg-roast/85 px-3 py-2.5 ring-1 ring-sand/10"
+              className="rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast px-3 py-2.5 ring-1 ring-sand/10"
             >
-              <p className="text-xs font-semibold text-caramel/90">{g.role}</p>
+              <p className="text-[0.62rem] font-semibold uppercase tracking-[0.14em] text-caramel/90">{g.role}</p>
               {g.members.length ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {g.members.map((m) => (
@@ -239,7 +239,7 @@ function RosterBody({
       <div>
         <div className="mb-3 flex items-end justify-between gap-3 px-1">
           <div>
-            <p className="text-xs font-semibold text-caramel">{t("stats.boostersKicker")}</p>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-caramel">{t("stats.boostersKicker")}</p>
             <p className="mt-0.5 text-sm text-crema/55">
               {t("stats.boostersCount", { people: list.length, boosts: totalBoosts })}
             </p>
@@ -310,7 +310,7 @@ function MembersPulseBody({
     <div>
       <div className="mb-4 flex items-end justify-between gap-3 px-1">
         <div>
-          <p className="text-xs font-semibold text-caramel">{t("stats.pulseKicker")}</p>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-caramel">{t("stats.pulseKicker")}</p>
           <p className="mt-0.5 text-sm text-crema/55">{t("stats.pulseSub")}</p>
         </div>
       </div>
@@ -322,7 +322,9 @@ function MembersPulseBody({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               className="relative h-full overflow-hidden rounded-2xl bg-gradient-to-b from-crema/[0.07] to-crema/[0.02] px-4 py-4 ring-1 ring-sand/12"
-            ><span className="inline-flex size-9 items-center justify-center rounded-xl bg-caramel/15 text-caramel ring-1 ring-caramel/25">
+            >
+              <div className="absolute -right-4 -top-4 size-20 rounded-full bg-caramel/10 blur-2xl" />
+              <span className="inline-flex size-9 items-center justify-center rounded-xl bg-caramel/15 text-caramel ring-1 ring-caramel/25">
                 <c.icon className="size-4" />
               </span>
               <p className="mt-3 font-sans text-3xl font-semibold tracking-tight lining-nums tabular-nums text-crema sm:text-4xl">{c.value}</p>
@@ -362,7 +364,7 @@ function HoursBody({
     <div>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3 px-1">
         <div>
-          <p className="text-xs font-semibold text-caramel">{t("stats.hoursKicker")}</p>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-caramel">{t("stats.hoursKicker")}</p>
           <p className="mt-0.5 text-sm text-crema/55">{t("stats.hoursSub")}</p>
         </div>
         {onlineNow != null && onlineNow > 0 ? (
@@ -408,7 +410,7 @@ function HoursBody({
                       <p className="font-semibold text-crema">{s.label || s.range}</p>
                       {s.range && s.label ? <span className="text-xs tabular-nums text-crema/40">{s.range}</span> : null}
                       {s.hottest ? (
-                        <span className="rounded-full bg-ember/20 px-2 py-0.5 text-xs font-semibold text-ember">
+                        <span className="rounded-full bg-ember/20 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-ember">
                           {t("stats.hoursHot")}
                         </span>
                       ) : null}
@@ -416,7 +418,7 @@ function HoursBody({
                     {s.hint ? <p className="mt-1 text-xs leading-snug text-crema/50">{s.hint}</p> : null}
                     <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-crema/10">
                       <motion.div
-                        className={cn("h-full rounded-full", s.hottest ? "bg-caramel" : "bg-caramel/70")}
+                        className={cn("h-full rounded-full", s.hottest ? "bg-gradient-to-r from-caramel to-ember" : "bg-caramel/70")}
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
                         transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease: [0.22, 1, 0.36, 1] }}
@@ -528,7 +530,7 @@ export function LiveStats({ initial }: { initial: Stats }) {
       />
       <div className="relative mx-auto max-w-6xl px-6">
       <Reveal className="mb-10 text-center">
-        <p className="text-xs font-semibold text-caramel">{t("stats.kicker")}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("stats.kicker")}</p>
         <h2 className="mt-3 font-display text-4xl font-semibold text-balance sm:text-5xl">
           {t("stats.title")}
         </h2>
@@ -546,9 +548,11 @@ export function LiveStats({ initial }: { initial: Stats }) {
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className={cn(
                 "relative w-full overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-mocha/80 to-roast p-5 text-left ring-1 transition-[box-shadow,ring-color] duration-200 sm:p-7",
-                open === it.id ? "ring-caramel/55 shadow-[0_20px_48px_-24px_rgba(0,0,0,0.55)]" : "ring-sand/18 hover:ring-sand/30",
+                open === it.id ? "ring-caramel/55 shadow-[0_20px_48px_-24px_rgba(212,145,80,0.75)]" : "ring-sand/18 hover:ring-sand/30",
               )}
-            ><div className="flex items-center gap-2 text-sm text-crema/70">
+            >
+              <div className="absolute -right-6 -top-6 size-28 rounded-full bg-ember/15 blur-2xl" />
+              <div className="flex items-center gap-2 text-sm text-crema/70">
                 <it.icon className="size-4 text-caramel" />
                 {it.label}
                 {it.live && (

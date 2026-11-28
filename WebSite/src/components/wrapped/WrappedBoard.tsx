@@ -302,7 +302,7 @@ export function WrappedBoard() {
                       type="button"
                       disabled={launching || on}
                       onClick={() => setPeriodOpts({ period: p })}
-                      className={on ? "rounded-full bg-[#f4e9d8] px-4 py-1.5 text-xs font-semibold text-[#140d09]" : "rounded-full px-4 py-1.5 text-xs font-semibold text-[#f4e9d8]/70 transition hover:text-[#f4e9d8]"}
+                      className={on ? "rounded-full bg-[#f4e9d8] px-4 py-1.5 text-xs font-bold text-[#140d09]" : "rounded-full px-4 py-1.5 text-xs font-semibold text-[#f4e9d8]/70 transition hover:text-[#f4e9d8]"}
                     >
                       {label}
                     </button>
@@ -349,7 +349,7 @@ export function WrappedBoard() {
   if (!field) return null;
 
   const ink = field.mood.ink;
-  const iconBtn = "inline-flex size-10 items-center justify-center rounded-full backdrop-blur-sm transition ";
+  const iconBtn = "inline-flex size-10 items-center justify-center rounded-full backdrop-blur-sm transition hover:scale-105";
   return (
     <div
       className="fixed inset-0 z-[90] flex flex-col"
@@ -387,7 +387,7 @@ export function WrappedBoard() {
       </div>
 
       <div className="absolute inset-x-3 top-[max(1.4rem,env(safe-area-inset-top))] z-30 flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold" style={{ opacity: 0.7 }}>
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em]" style={{ opacity: 0.7 }}>
           Vinili Wrapped · {wrappedPeriodLabel(data)}
         </p>
         <div className="flex gap-1.5">
@@ -437,7 +437,7 @@ export function WrappedBoard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.6 }}
             transition={{ delay: 1.6 }}
-            className="pointer-events-none absolute inset-x-0 bottom-5 text-center text-xs font-semibold"
+            className="pointer-events-none absolute inset-x-0 bottom-5 text-center text-xs font-semibold uppercase tracking-[0.2em]"
           >
             Tocca per andare avanti →
           </motion.p>

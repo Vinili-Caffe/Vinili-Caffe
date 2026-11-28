@@ -139,7 +139,7 @@ export function TurnstileGateProvider({ children }: { children: React.ReactNode 
                         type="button"
                         disabled={!token}
                         onClick={() => finish(token)}
-                        className="flex-1 rounded-full bg-caramel px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-45"
+                        className="flex-1 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-45"
                       >
                         {token ? req.confirmLabel : <Loader2 className="mx-auto size-4 animate-spin" />}
                       </button>

@@ -185,13 +185,13 @@ export function CustomChannel({
   if (!entity) {
     const blocked = target === "voice" && state.voiceActivity?.recreationBlocked;
     return (
-      <div className="rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12 sm:p-8">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-8">
         <div className="flex items-start gap-4">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Icon className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-caramel">Canale libero</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Canale libero</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">{title}</h3>
             <p className="mt-2 text-sm text-crema/60">
               {target === "voice"
@@ -213,7 +213,7 @@ export function CustomChannel({
               type="button"
               disabled={busy || blocked}
               onClick={() => run("create")}
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-50"
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               Crea
@@ -232,10 +232,10 @@ export function CustomChannel({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-caramel">{title}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">{title}</p>
             <h3 className="mt-1 font-display text-2xl font-semibold"><EmojiText text={entity.name || "—"} /></h3>
           </div>
           <button
@@ -277,7 +277,7 @@ export function CustomChannel({
 
         <div className="mt-5 space-y-3">
           <label htmlFor="name" className="block">
-            <span className="text-xs font-semibold text-crema/50">Nome</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Nome</span>
             <div className="relative mt-1.5 flex gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-espresso/70 px-2.5 py-1.5 ring-1 ring-sand/15 focus-within:ring-caramel/60">
                 <span
@@ -357,7 +357,7 @@ export function CustomChannel({
 
           {target === "voice" ? (
             <label htmlFor="emoji" className="block">
-              <span className="text-xs font-semibold text-crema/50">Emoji canale</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Emoji canale</span>
               <div className="relative mt-1.5 flex gap-2">
                 <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl bg-espresso/70 px-2.5 py-1.5 ring-1 ring-sand/15 focus-within:ring-caramel/60">
                   <span className="select-none px-0.5 text-sm font-semibold text-crema/35" aria-hidden>
@@ -408,7 +408,7 @@ export function CustomChannel({
           ) : (
             <>
               <div>
-                <p className="text-xs font-semibold text-crema/50">Modalità colore</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-crema/50">Modalità colore</p>
                 <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Modalità colore">
                   {(
                     [
@@ -473,7 +473,7 @@ export function CustomChannel({
               </button>
 
               <label className="block">
-                <span className="text-xs font-semibold text-crema/50">Icona ruolo</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-crema/50">Icona ruolo</span>
                 <div className="relative mt-1.5 flex gap-2">
                   {/* l'emoji si vede davvero; le custom si leggono come :nome: invece del codice <:nome:id> */}
                   <span className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-espresso/70 pl-2.5 ring-1 ring-sand/15 focus-within:ring-caramel/60">
@@ -541,8 +541,8 @@ export function CustomChannel({
       </div>
 
       {/* membri condivisi */}
-      <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
-        <p className="text-xs font-semibold text-caramel">Condivisione</p>
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Condivisione</p>
         <h4 className="mt-1 font-display text-xl font-semibold">Membri</h4>
         <div className="mt-3 flex gap-2">
           <input name="member-id"
@@ -575,7 +575,7 @@ export function CustomChannel({
               )}
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                 {m.displayName || m.username || m.id}
-                {m.isOwner && <span className="ml-2 text-xs text-caramel">Tu</span>}
+                {m.isOwner && <span className="ml-2 text-[0.65rem] uppercase tracking-wider text-caramel">Tu</span>}
               </span>
               {!m.isOwner && (
                 <button

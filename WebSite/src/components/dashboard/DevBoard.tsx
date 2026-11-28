@@ -94,7 +94,7 @@ function Avatar({ url, name, round }: { url: string | null; name: string; round?
    
   if (url) return <img src={url} alt="" width={36} height={36} className={cls} />;
   return (
-    <span className={cn(cls, "flex items-center justify-center bg-crema/[0.08] text-sm font-semibold text-crema/80")} aria-hidden>
+    <span className={cn(cls, "flex items-center justify-center bg-crema/[0.08] text-sm font-bold text-crema/80")} aria-hidden>
       {(name.trim().charAt(0) || "?").toUpperCase()}
     </span>
   );
@@ -233,7 +233,7 @@ function OwnerCard({ token, userId }: { token: string; userId: string }) {
         <div className="min-w-0 flex-1 pt-1.5">
           <p className="flex items-center gap-1.5 truncate font-semibold text-white">
             <span className="truncate">{u.displayName}</span>
-            {u.bot ? <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-xs font-semibold text-white">Bot</span> : null}
+            {u.bot ? <span className="shrink-0 rounded bg-[#5865f2] px-1 py-px text-[0.55rem] font-bold uppercase text-white">Bot</span> : null}
           </p>
           <p className="truncate text-xs text-[#b5bac1]">
             @{u.username} · account del {u.createdAt ? new Date(u.createdAt).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" }) : "—"}

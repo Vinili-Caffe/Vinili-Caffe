@@ -94,7 +94,7 @@ type Row = { guess: number; diff: number };
 
 function closeness(diff: number) {
   const d = Math.abs(diff);
-  if (d <= ANGLE_TOLERANCE) return { label: "Preso", cls: "bg-emerald-500 text-white" };
+  if (d <= ANGLE_TOLERANCE) return { label: "Preso!", cls: "bg-emerald-500 text-white" };
   if (d <= 8) return { label: "Bollente", cls: "bg-ember text-white" };
   if (d <= 20) return { label: "Caldo", cls: "bg-caramel text-ink" };
   if (d <= 45) return { label: "Tiepido", cls: "bg-sand/70 text-ink" };
@@ -180,7 +180,7 @@ function Round({
       <div className="rounded-3xl bg-roast/80 p-4 ring-1 ring-sand/12">
         {!over ? (
           <>
-            <p className="text-center text-xs font-semibold text-crema/50">
+            <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-crema/50">
               Tentativo {rows.length + 1} di {ANGLE_ATTEMPTS}
             </p>
             <p className="mt-1 text-center text-[11px] text-crema/40">Serve il grado esatto</p>
@@ -195,7 +195,7 @@ function Round({
                   inputMode="numeric"
                   onChange={(e) => setValue(Math.max(0, Math.min(180, Number(e.target.value.replace(/\D/g, "")) || 0)))}
                   onKeyDown={(e) => e.key === "Enter" && submit()}
-                  className="w-28 rounded-2xl bg-espresso/80 py-2 text-center font-mono text-4xl font-semibold tabular-nums text-crema outline-none ring-1 ring-sand/20 focus:ring-2 focus:ring-caramel/60"
+                  className="w-28 rounded-2xl bg-espresso/80 py-2 text-center font-mono text-4xl font-bold tabular-nums text-crema outline-none ring-1 ring-sand/20 focus:ring-2 focus:ring-caramel/60"
                 />
                 <span className="pointer-events-none absolute right-3 top-1 font-mono text-xl text-crema/50">°</span>
               </label>
@@ -215,7 +215,7 @@ function Round({
             <button
               type="button"
               onClick={submit}
-              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-caramel text-sm font-semibold text-ink transition hover:brightness-105"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink transition hover:brightness-105"
             >
               <Target className="size-4" /> Prova
             </button>
@@ -233,8 +233,8 @@ function Round({
                 animate={{ opacity: 1, x: 0 }}
                 className="flex items-center gap-3 rounded-xl bg-espresso/70 px-3 py-2 ring-1 ring-sand/10"
               >
-                <span className="w-14 font-mono text-lg font-semibold tabular-nums text-crema">{r.guess}°</span>
-                <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", c.cls)}>{c.label}</span>
+                <span className="w-14 font-mono text-lg font-bold tabular-nums text-crema">{r.guess}°</span>
+                <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase", c.cls)}>{c.label}</span>
                 <span className="ml-auto inline-flex items-center gap-1 text-xs text-crema/60">
                   {hit ? (
                     <Check className="size-4 text-emerald-400" />
@@ -303,7 +303,7 @@ export function AngleGame({ challengeCode: fromProp, duelId: duelProp }: { chall
             key={t.id}
             type="button"
             onClick={() => setMode(t.id)}
-            className={cn("relative flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-semibold transition sm:text-sm", mode === t.id ? "text-ink" : "text-crema/65 hover:text-crema")}
+            className={cn("relative flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-bold uppercase tracking-wide transition sm:text-sm", mode === t.id ? "text-ink" : "text-crema/65 hover:text-crema")}
           >
             {mode === t.id ? <motion.span layoutId="angle-tab" className="absolute inset-0 rounded-xl bg-caramel" /> : null}
             <span className="relative">{t.icon}</span>
@@ -400,7 +400,7 @@ function Daily() {
           <button
             type="button"
             onClick={share}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-crema/[0.08] px-5 text-xs font-semibold text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.14]"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-crema/[0.08] px-5 text-xs font-bold uppercase tracking-wide text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.14]"
           >
             <Copy className="size-4" /> {copied ? "Copiato" : "Copia il risultato"}
           </button>
@@ -426,8 +426,8 @@ function StatsBox({ stats }: { stats: AngleStats }) {
           ["Record", stats.maxStreak],
         ].map(([k, v]) => (
           <div key={String(k)}>
-            <p className="font-mono text-xl font-semibold text-crema">{v}</p>
-            <p className="text-xs text-crema/50">{k}</p>
+            <p className="font-mono text-xl font-bold text-crema">{v}</p>
+            <p className="text-[10px] uppercase tracking-wide text-crema/50">{k}</p>
           </div>
         ))}
       </div>
@@ -438,7 +438,7 @@ function StatsBox({ stats }: { stats: AngleStats }) {
             <div key={n} className="flex items-center gap-2 text-xs">
               <span className="w-3 text-crema/60">{n}</span>
               <div className="h-4 flex-1 rounded bg-crema/[0.05]">
-                <div className="flex h-full items-center justify-end rounded bg-caramel/70 px-1 font-semibold text-ink" style={{ width: `${Math.max(8, (v / maxDist) * 100)}%` }}>
+                <div className="flex h-full items-center justify-end rounded bg-caramel/70 px-1 font-bold text-ink" style={{ width: `${Math.max(8, (v / maxDist) * 100)}%` }}>
                   {v}
                 </div>
               </div>
@@ -466,7 +466,7 @@ function Practice() {
     <>
       <p className="mb-4 flex items-center justify-center gap-2 text-sm text-crema/60">
         Angoli a caso, senza limiti ·
-        <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold", streak ? "bg-caramel text-ink" : "bg-crema/[0.07] text-crema/70")}>
+        <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold", streak ? "bg-caramel text-ink" : "bg-crema/[0.07] text-crema/70")}>
           <Flame className="size-3.5" /> serie {streak}
         </span>
       </p>
@@ -487,7 +487,7 @@ function Practice() {
           <button
             type="button"
             onClick={next}
-            className="inline-flex h-12 items-center gap-2 rounded-2xl bg-caramel px-8 text-sm font-semibold text-ink"
+            className="inline-flex h-12 items-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember px-8 text-sm font-bold uppercase tracking-wide text-ink"
           >
             <Dices className="size-4" /> Prossimo angolo
           </button>
@@ -509,7 +509,7 @@ function AngleDuel({ joinId: joinFrom }: { joinId?: string | null }) {
     return (
       <div className="mx-auto max-w-md rounded-3xl bg-roast/80 p-6 text-center text-sm text-crema/70 ring-1 ring-sand/12">
         {error}
-        <button type="button" onClick={again} className="mt-4 block w-full rounded-xl py-2 text-xs font-semibold text-caramel ring-1 ring-sand/15">
+        <button type="button" onClick={again} className="mt-4 block w-full rounded-xl py-2 text-xs font-bold uppercase tracking-wide text-caramel ring-1 ring-sand/15">
           Crea una sfida nuova
         </button>
       </div>
@@ -542,7 +542,7 @@ function Challenge({ angle }: { angle: number }) {
   const [done, setDone] = useState(false);
   return (
     <>
-      <p className="mb-4 text-center text-sm text-crema/60">Un amico ti ha sfidato: indovina il suo angolo</p>
+      <p className="mb-4 text-center text-sm text-crema/60">Un amico ti ha sfidato: indovina il suo angolo!</p>
       <Round key={round} answer={angle} rotate={rotationFor(angle)} onDone={(g, solved) => (solved || g.length >= ANGLE_ATTEMPTS) && setDone(true)} />
       {done ? (
         <div className="mt-6 text-center">
@@ -552,7 +552,7 @@ function Challenge({ angle }: { angle: number }) {
               setRound((r) => r + 1);
               setDone(false);
             }}
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-crema/[0.08] px-5 text-xs font-semibold text-crema ring-1 ring-sand/15"
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-crema/[0.08] px-5 text-xs font-bold uppercase tracking-wide text-crema ring-1 ring-sand/15"
           >
             Riprova
           </button>

@@ -67,7 +67,7 @@ export function WordleModes({
             type="button"
             onClick={() => pick(t.id)}
             className={cn(
-              "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-semibold transition sm:text-sm",
+              "relative flex flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-bold uppercase tracking-wide transition sm:text-sm",
               mode === t.id ? "text-ink" : "text-crema/65 hover:text-crema",
             )}
           >

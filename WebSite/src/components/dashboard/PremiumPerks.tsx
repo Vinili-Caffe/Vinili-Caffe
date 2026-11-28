@@ -63,7 +63,7 @@ export function PremiumPerks() {
                 </span>
                 <h3 className="mt-4 text-[0.95rem] font-semibold text-crema">{p.title}</h3>
                 <p className="mt-1.5 flex-1 text-sm leading-relaxed text-crema/65">{p.body}</p>
-                <p className="mt-4 text-xs font-semibold text-crema/60">Dove: {p.where}</p>
+                <p className="mt-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">Dove: {p.where}</p>
               </motion.article>
             ))}
           </div>
@@ -97,7 +97,7 @@ export function PremiumPerks() {
                   )}
                 >
                   {highlight ? (
-                    <span className="absolute -top-2.5 left-5 rounded-full bg-caramel px-2.5 py-0.5 text-xs font-semibold text-espresso">
+                    <span className="absolute -top-2.5 left-5 rounded-full bg-caramel px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-espresso">
                       Conviene di più
                     </span>
                   ) : null}

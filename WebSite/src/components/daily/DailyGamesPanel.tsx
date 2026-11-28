@@ -58,7 +58,7 @@ export function DailyGamesPanel() {
             )}
           >
             <Flame className="size-4" />
-            <span className="text-xs font-semibold tabular-nums">{token ? `${doneCount}/${DAILY_GAMES.length}` : "?"}</span>
+            <span className="text-xs font-bold tabular-nums">{token ? `${doneCount}/${DAILY_GAMES.length}` : "?"}</span>
             <ChevronRight className="size-3.5 opacity-60 transition group-hover:translate-x-0.5" />
           </motion.button>
         ) : null}
@@ -94,7 +94,7 @@ export function DailyGamesPanel() {
                   {token ? (
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold",
                         streak > 0 ? "bg-caramel text-ink" : "bg-crema/[0.07] text-crema/70",
                       )}
                       title="Giorni di fila con tutti i giochi del giorno fatti"
@@ -140,7 +140,7 @@ export function DailyGamesPanel() {
                         {e ? <Check className="size-4 shrink-0 text-emerald-400" /> : <Circle className="size-4 shrink-0 text-crema/30" />}
                         <span className={cn("min-w-0 flex-1 truncate font-semibold", e ? "text-crema" : "text-crema/80")}>{g.label}</span>
                         {e ? (
-                          <span className="shrink-0 text-xs font-semibold text-emerald-300">+{e.p} pt</span>
+                          <span className="shrink-0 text-xs font-bold text-emerald-300">+{e.p} pt</span>
                         ) : (
                           <span className="shrink-0 text-xs text-crema/40">da fare</span>
                         )}

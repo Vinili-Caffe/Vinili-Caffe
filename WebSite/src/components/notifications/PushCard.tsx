@@ -200,7 +200,7 @@ export function PushCard({ token, compact = false, className }: Props) {
             disabled={busy}
             className={cn(
               "inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60",
-              on ? "bg-crema/8 ring-1 ring-sand/25 hover:bg-crema/12" : "bg-caramel text-ink",
+              on ? "bg-crema/8 ring-1 ring-sand/25 hover:bg-crema/12" : "bg-gradient-to-r from-caramel to-ember text-ink",
             )}
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : on ? <BellOff className="size-4" /> : <BellRing className="size-4" />} {on ? "Disattiva" : "Attiva"}

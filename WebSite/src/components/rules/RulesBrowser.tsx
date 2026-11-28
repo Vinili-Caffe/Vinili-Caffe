@@ -140,7 +140,7 @@ function Track({ rule, open, onToggle, query }: { rule: Rule; open: boolean; onT
                 className="mt-4 inline-flex items-center gap-1.5 text-xs text-crema/40 transition-colors hover:text-crema/70"
               >
                 <Link2 className="size-3.5" />
-                {copied ? "Link copiato" : `Copia link alla regola ${rule.id}`}
+                {copied ? "Link copiato!" : `Copia link alla regola ${rule.id}`}
               </button>
             </div>
           </motion.div>
@@ -223,12 +223,12 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
               className="pointer-events-none absolute -right-6 -top-6 size-32 rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#2a1c14_1.5px_3px)] shadow-[0_10px_30px_rgba(0,0,0,0.55)] ring-1 ring-sand/15"
               aria-hidden
             >
-              <div className="absolute inset-[34%] flex items-center justify-center rounded-full bg-gradient-to-br from-caramel to-sand/80 font-display text-xl font-semibold text-ink">
+              <div className="absolute inset-[34%] flex items-center justify-center rounded-full bg-gradient-to-br from-caramel to-sand/80 font-display text-xl font-bold text-ink">
                 {SIDES[sideIdx]}
               </div>
             </motion.div>
 
-            <p className="relative pr-16 text-xs font-semibold text-caramel">
+            <p className="relative pr-16 text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
               {searching ? "Ricerca" : `Sezione ${SIDES[sideIdx]}`}
             </p>
             <AnimatePresence mode="wait">
@@ -270,7 +270,7 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cerca nel regolamento…"
               aria-label="Cerca nel regolamento"
-              className="w-full rounded-2xl bg-roast/85 py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
+              className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-12 text-base text-crema ring-1 ring-sand/15 transition-shadow placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60 [&::-webkit-search-cancel-button]:appearance-none"
             />
             {query && (
               <button
@@ -308,7 +308,7 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
                     {active && (
                       <motion.span
                         layoutId="rules-side-pill"
-                        className="absolute inset-0 -z-10 rounded-full bg-crema"
+                        className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
                         transition={{ type: "spring", stiffness: 400, damping: 32 }}
                       />
                     )}
@@ -323,8 +323,8 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
           </LayoutGroup>
 
           {/* tracklist */}
-          <div className="mt-6 overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
-            <div className="flex items-center gap-4 border-b border-sand/10 px-4 py-3 text-xs text-crema/35 sm:px-6">
+          <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
+            <div className="flex items-center gap-4 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/35 sm:px-6">
               <span className="w-10">N°</span>
               <span>Regola</span>
             </div>

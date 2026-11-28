@@ -15,6 +15,7 @@ import { useI18n } from "@/lib/i18n";
 import { getVinylMusicApi, subscribeVinylMusic } from "@/lib/vinyl-music-bus";
 import { loadStatsBundle } from "@/lib/stats";
 import { VinylRecord } from "@/components/VinylRecord";
+import { Magnet } from "@/components/react-bits";
 import { AvatarCircles } from "@/components/ui/avatar-circles";
 import { cn } from "@/lib/cn";
 
@@ -369,7 +370,7 @@ export function HeroStage({ className }: { className?: string }) {
             className={cn(
               "inline-flex size-[3.15rem] overflow-hidden rounded-full",
               "shadow-[0_16px_32px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.25)]",
-              "ring-2 ring-[#f4e9d8]/25 transition-transform  active:scale-95",
+              "ring-2 ring-[#f4e9d8]/25 transition-transform hover:-translate-y-0.5 active:scale-95",
             )}
           >
             { }
@@ -508,23 +509,26 @@ export function HeroStage({ className }: { className?: string }) {
             <span className="size-8" aria-hidden />
           )}
 
+          <Magnet strength={0.38} padding={64} disabled={!!reduce}>
             <motion.a
               href={DISCORD_INVITE}
               target="_blank"
               rel="noopener"
-              whileTap={{ scale: 0.97 }}
-              transition={{ duration: 0.12 }}
+              whileHover={reduce ? undefined : { y: -3, scale: 1.035 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 420, damping: 22 }}
               className={cn(
                 "inline-flex min-w-[8.5rem] items-center justify-center rounded-full",
                 "bg-gradient-to-b from-[#e0b080] to-[#b06535]",
                 "px-8 py-3.5 text-[0.95rem] font-semibold tracking-wide text-white",
-                "shadow-[0_12px_28px_-14px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,245,230,0.45),inset_0_-3px_0_rgba(90,45,18,0.35)]",
-                "ring-1 ring-white/20 transition-[filter] hover:brightness-105",
+                "shadow-[0_16px_34px_-12px_rgba(176,101,53,0.95),inset_0_1px_0_rgba(255,245,230,0.55),inset_0_-3px_0_rgba(90,45,18,0.35)]",
+                "ring-1 ring-white/20",
               )}
             >
               Entra
               <span className="sr-only"> — {t("common.discord")}</span>
             </motion.a>
+          </Magnet>
         </div>
       </motion.div>
     </motion.div>

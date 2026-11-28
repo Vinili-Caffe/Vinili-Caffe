@@ -99,7 +99,7 @@ function AppealForm({ type, token }: { type: AppealType; token: string }) {
 
   if (loadErr)
     return (
-      <div className="rounded-3xl bg-roast/85 p-8 text-center ring-1 ring-sand/12">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center ring-1 ring-sand/12">
         <p className="font-display text-2xl font-semibold">{loadErr.disabled ? "Richieste chiuse" : "Non riesco a leggere lo stato del tuo account"}</p>
         <p className="mt-2 text-crema/60">{loadErr.text}</p>
       </div>
@@ -124,7 +124,7 @@ function AppealForm({ type, token }: { type: AppealType; token: string }) {
       <div className={cn("flex items-center gap-3 rounded-2xl p-5 ring-1", state.can_submit ? "bg-caramel/10 ring-caramel/30" : "bg-crema/[0.04] ring-sand/12")}>
         {state.cooldown_until_ms ? <Clock className="size-5 shrink-0 text-caramel" /> : state.can_submit ? <Info className="size-5 shrink-0 text-caramel" /> : <CheckCircle2 className="size-5 shrink-0 text-[#9fd3ac] light:text-[#2f6b3f]" />}
         <div>
-          <p className="text-xs font-semibold text-crema/50">Stato account</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/50">Stato account</p>
           <p className="mt-0.5 text-crema/85">
             {state.message}
             {state.cooldown_until_ms > 0 && ` Potrai riprovare dal ${dateTimeIt(state.cooldown_until_ms)}.`}
@@ -133,7 +133,7 @@ function AppealForm({ type, token }: { type: AppealType; token: string }) {
       </div>
 
       {state.can_submit && (
-        <div className="rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12 sm:p-8">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-8">
           <p className="font-display text-2xl font-semibold">Modulo di richiesta {type}</p>
           <p className="mt-1 text-sm text-crema/55">La richiesta può essere inviata solo per te stesso.</p>
           <div className="mt-6 space-y-6">
@@ -149,7 +149,7 @@ function AppealForm({ type, token }: { type: AppealType; token: string }) {
             </button>
           </div>
           {err && <p className="mt-5 rounded-xl bg-[#a83a2c]/15 px-4 py-3 text-sm text-[#f0a493] light:text-[#a83a2c]">{err}</p>}
-          <button type="button" onClick={submit} disabled={busy} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)] transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60 sm:w-auto">
+          <button type="button" onClick={submit} disabled={busy} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60 sm:w-auto">
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {busy ? "Invio in corso…" : `Invia richiesta di ${type}`}
           </button>
         </div>
@@ -204,7 +204,7 @@ export function AppelliBoard() {
       )}
 
       <div className="space-y-4">
-        <div className="rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12 sm:p-7">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-7">
           <p className="font-display text-xl font-semibold">Prima di inviare</p>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-crema/70">
             <li className="flex gap-2.5">
@@ -226,7 +226,7 @@ export function AppelliBoard() {
           </p>
         </div>
 
-        <div className="rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12 sm:p-7">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12 sm:p-7">
           <p className="font-semibold">Informazioni importanti</p>
           <ul className="mt-3 space-y-2">
             {t.info.map((i) => (

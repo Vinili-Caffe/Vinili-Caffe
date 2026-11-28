@@ -37,7 +37,7 @@ function SoonRow({ icon, label, soon }: { icon: ReactNode; label: string; soon: 
         <span className="truncate">{label}</span>
       </span>
       <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="rounded-full bg-espresso/90 px-2 py-0.5 text-xs font-semibold text-sand ring-1 ring-sand/30">
+        <span className="rounded-full bg-espresso/90 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/30">
           {soon}
         </span>
       </span>
@@ -103,7 +103,7 @@ export function UserMenu({ className }: { className?: string }) {
           type="button"
           onClick={login}
           aria-label={t("auth.loginDiscord")}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#5865f2] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgba(88,101,242,0.9)] transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
+          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#5865f2] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgba(88,101,242,0.9)] transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
         >
           <LogIn className="size-[1.15rem]" strokeWidth={2.25} /> <span className="hidden sm:inline">{t("auth.login")}</span>
         </button>
@@ -211,7 +211,7 @@ export function UserMenu({ className }: { className?: string }) {
             {staff && user && (
               <>
                 <div className="my-1 border-t border-sand/10" />
-                <p className="px-3 pb-1 pt-1.5 text-xs font-semibold text-caramel">Area staff</p>
+                <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-caramel">Area staff</p>
                 {staffNavFor(staff).map((x) => {
                   const Icon =
                     x.href.startsWith("/seratafilm")
@@ -239,7 +239,7 @@ export function UserMenu({ className }: { className?: string }) {
 
             <div className="my-1 border-t border-sand/10" />
             <div className="px-2 py-1.5">
-              <p className="mb-1.5 px-1 text-xs font-semibold text-crema/40">
+              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-crema/40">
                 {t("auth.theme")}
               </p>
               <ThemePrefRow />

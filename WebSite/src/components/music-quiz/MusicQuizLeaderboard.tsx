@@ -63,7 +63,7 @@ export function MusicQuizLeaderboard({ slug, difficulty }: { slug: string; diffi
               <li key={`${r.rank}-${r.userId}`} className={cn("flex items-center gap-4 px-5 py-3.5 not-last:border-b not-last:border-sand/[0.07]", mine && "bg-caramel/10")}>
                 <span
                   className={cn(
-                    "grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold tabular-nums",
+                    "grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums",
                     r.rank === 1 ? "bg-caramel text-ink" : r.rank === 2 ? "bg-crema/70 text-ink" : r.rank === 3 ? "bg-ember/70 text-ink" : "bg-crema/[0.07] text-crema/60",
                   )}
                 >

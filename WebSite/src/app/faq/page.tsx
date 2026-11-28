@@ -39,7 +39,9 @@ export default function FaqPage() {
       {/* non hai trovato risposta */}
       <section className="mx-auto max-w-4xl px-6 pb-10">
         <Reveal>
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha to-roast p-8 ring-1 ring-sand/15 sm:p-10"><h2 className="relative font-display text-3xl font-semibold sm:text-4xl">Non hai trovato risposta?</h2>
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha to-roast p-8 ring-1 ring-sand/15 sm:p-10">
+            <div className="absolute -right-16 -top-16 size-56 rounded-full bg-caramel/15 blur-3xl" />
+            <h2 className="relative font-display text-3xl font-semibold sm:text-4xl">Non hai trovato risposta?</h2>
             <p className="relative mt-3 max-w-xl text-crema/70">
               Chiedi in chat alla community oppure apri un ticket: lo staff ti risponde il prima possibile.
             </p>

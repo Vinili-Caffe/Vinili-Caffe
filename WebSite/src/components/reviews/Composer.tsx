@@ -62,7 +62,7 @@ export function Composer({
 
   if (!token) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-3xl bg-roast/85 p-8 text-center ring-1 ring-sand/12">
+      <div className="flex flex-col items-center gap-4 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center ring-1 ring-sand/12">
         <Feather className="size-7 text-caramel" />
         <p className="font-display text-2xl">Vuoi lasciare la tua firma?</p>
         <p className="max-w-sm text-sm text-crema/60">Accedi con Discord per scrivere una recensione e mettere mi piace a quelle degli altri.</p>
@@ -75,8 +75,8 @@ export function Composer({
 
   if (kind === "staff" && viewer && !viewer.canWriteStaffReview) {
     return (
-      <div className="rounded-3xl bg-roast/85 p-6 text-center text-sm text-crema/60 ring-1 ring-sand/12">
-        Fai parte dello staff: le recensioni allo staff le lasciano i membri.
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 text-center text-sm text-crema/60 ring-1 ring-sand/12">
+        Fai parte dello staff: le recensioni allo staff le lasciano i membri. 🙂
       </div>
     );
   }
@@ -90,7 +90,7 @@ export function Composer({
     setMsg(null);
     const res = await submitReview(token, { kind, rating, content: text.trim(), ...(kind === "staff" ? { staffUserId: staffId } : {}) });
     setBusy(false);
-    setMsg(res.ok ? { ok: true, text: res.message || (existing ? "Recensione aggiornata" : "Grazie, recensione pubblicata!") } : { ok: false, text: res.message });
+    setMsg(res.ok ? { ok: true, text: res.message || (existing ? "Recensione aggiornata!" : "Grazie, recensione pubblicata!") } : { ok: false, text: res.message });
     if (res.ok) {
       draft.clear();
       onSaved();
@@ -125,7 +125,7 @@ export function Composer({
 
       {kind === "staff" && (
         <div className="mt-5">
-          <p className="text-xs font-semibold text-crema/45">Chi vuoi recensire?</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Chi vuoi recensire?</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {staffers.map((s) => {
               const done = viewer?.staffReviews.some((r) => r.staffUserId === s.id);
@@ -179,7 +179,7 @@ export function Composer({
           type="button"
           onClick={save}
           disabled={!valid || busy}
-          className="ml-auto inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(0,0,0,0.55)] disabled:opacity-40"
+          className="ml-auto inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-caramel to-[#b9773f] px-5 py-2.5 text-sm font-semibold text-ink shadow-[0_10px_24px_-12px_rgba(217,154,91,0.9)] disabled:opacity-40"
         >
           {busy && <Loader2 className="size-4 animate-spin" />}
           {existing ? "Aggiorna" : "Pubblica"}

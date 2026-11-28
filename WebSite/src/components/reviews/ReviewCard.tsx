@@ -100,7 +100,7 @@ export function ReviewCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">
             {r.authorName}
-            {mine && <span className="ml-2 rounded-full bg-caramel/20 px-2 py-0.5 text-xs font-semibold text-ember">tu</span>}
+            {mine && <span className="ml-2 rounded-full bg-caramel/20 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-ember">tu</span>}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-crema/45">
             <Stars value={r.rating} size="size-3.5" />
@@ -135,7 +135,7 @@ export function ReviewCard({
       {/* risposta ufficiale: server board vs staffer recensito */}
       {r.serverReply?.content && !replying && (
         <div className="mt-4 rounded-2xl bg-caramel/[0.08] p-4 ring-1 ring-caramel/20">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-caramel">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-caramel">
             <Coffee className="size-3.5" /> {r.kind === "staff" ? "Risposta dello staffer" : r.kind === "bot" ? "Risposta di Vinili" : "Risposta del server"}
           </p>
           <DiscordContent text={r.serverReply.content} className="mt-2 text-sm leading-relaxed text-crema/75" />

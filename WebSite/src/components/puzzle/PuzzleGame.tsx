@@ -414,7 +414,7 @@ export function PuzzleGame({
     <div className={cn("relative mx-auto flex w-full max-w-5xl flex-col gap-3", handId && "select-none")}>
       <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-[#e4c76b]">{difficulty.label}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#e4c76b]">{difficulty.label}</p>
           <h2 className="font-display text-2xl font-semibold text-crema sm:text-3xl">
             {cols}×{rows} · {pieceCount} pezzi
           </h2>
@@ -550,12 +550,12 @@ export function PuzzleGame({
           drawRandom(ev.clientX, ev.clientY);
         }}
         className={cn(
-          "rounded-3xl bg-roast/85 px-3 py-2.5 ring-1 ring-sand/12 transition hover:ring-caramel/40",
+          "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast px-3 py-2.5 ring-1 ring-sand/12 transition hover:ring-caramel/40",
           (trayPieces.length === 0 || timedOut || complete) && "cursor-default opacity-70",
           trayPieces.length > 0 && !timedOut && !complete && "cursor-pointer",
         )}
       >
-        <p className="mb-2 text-xs font-semibold text-crema/45">
+        <p className="mb-2 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-crema/45">
           {trayLabel(trayPieces.length, Boolean(handId))}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
@@ -576,7 +576,7 @@ export function PuzzleGame({
                   drawPiece(p, ev.clientX, ev.clientY);
                 }}
                 className={cn(
-                  "size-[clamp(2.1rem,4.2vw,2.85rem)] shrink-0 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.4)] ring-1 ring-caramel/35 transition-[transform,filter] duration-200 ease-out  active:scale-[0.97] ",
+                  "size-[clamp(2.1rem,4.2vw,2.85rem)] shrink-0 rounded-md shadow-[0_2px_4px_rgba(0,0,0,0.4)] ring-1 ring-caramel/35 transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] hover:scale-105",
                   p.seen && tokenFaces[p.id]
                     ? "bg-cover bg-center"
                     : "bg-gradient-to-br from-[#5a3a24]/95 to-[#2a1a10]/98",
@@ -636,7 +636,7 @@ export function PuzzleGame({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="max-w-sm rounded-[2rem] bg-roast p-8 text-center ring-1 ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)]"
+              className="max-w-sm rounded-[2rem] bg-gradient-to-b from-caramel/15 to-roast p-8 text-center ring-1 ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.45)]"
             >
               <p className="font-script text-2xl text-sand">{timedOut ? "Tempo scaduto" : "Completato"}</p>
               <h3 className="mt-1 font-display text-3xl font-semibold">
@@ -652,7 +652,7 @@ export function PuzzleGame({
               <button
                 type="button"
                 onClick={onExit}
-                className="mt-6 rounded-full bg-caramel px-6 py-2.5 font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
+                className="mt-6 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-2.5 font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 Torna alle difficoltà
               </button>

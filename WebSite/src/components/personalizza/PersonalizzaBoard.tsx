@@ -147,11 +147,11 @@ export function PersonalizzaBoard() {
     return (
       <div className="mx-auto max-w-lg px-6 pb-24">
         <Reveal>
-          <div className="rounded-3xl bg-roast p-8 text-center ring-1 ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)]">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/15 to-roast p-8 text-center ring-1 ring-caramel/40 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.4)]">
             <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
               <Disc3 className="size-6" />
             </span>
-            <p className="mt-5 text-xs font-semibold text-caramel">Personalizzazione</p>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Personalizzazione</p>
             <h2 className="mt-2 font-display text-3xl font-semibold">Accedi per continuare</h2>
             <p className="mt-3 text-sm leading-relaxed text-crema/60">
               Entra con Discord per cambiare colori, sfondo della rank card, ruoli personalizzati e reazioni.
@@ -164,7 +164,7 @@ export function PersonalizzaBoard() {
             <button
               type="button"
               onClick={login}
-              className="mt-7 inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97]"
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <LogIn className="size-4" /> Accedi con Discord
             </button>
@@ -209,7 +209,7 @@ export function PersonalizzaBoard() {
                   className={cn(
                     "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors sm:text-sm",
                     on
-                      ? "bg-caramel text-ink shadow-[0_8px_24px_-12px_rgba(0,0,0,0.55)]"
+                      ? "bg-caramel text-ink shadow-[0_8px_24px_-12px_rgba(217,154,91,0.8)]"
                       : "bg-crema/[0.04] text-crema/65 ring-1 ring-sand/10 hover:text-crema hover:ring-sand/25",
                   )}
                 >
@@ -271,7 +271,7 @@ export function PersonalizzaBoard() {
             exit={{ opacity: 0, y: 10 }}
             className={cn(
               "fixed bottom-6 left-1/2 z-50 max-w-sm -translate-x-1/2 rounded-2xl px-4 py-3 text-sm font-medium shadow-lg ring-1",
-              toast.err ? "bg-roast text-crema ring-caramel/40" : "bg-caramel text-ink ring-caramel/30",
+              toast.err ? "bg-roast text-crema ring-caramel/40" : "bg-gradient-to-r from-caramel to-ember text-ink ring-caramel/30",
             )}
           >
             {toast.msg}

@@ -50,7 +50,7 @@ function Beans({ total, done }: { total: number; done: number }) {
   return (
     <div className="flex items-center gap-1.5" aria-label={`Passo ${done} di ${total}`}>
       {Array.from({ length: total }, (_, i) => (
-        <span key={i} className={cn("h-3 w-2 rounded-[50%] transition-colors duration-500", i < done ? "bg-caramel " : "bg-crema/12")} />
+        <span key={i} className={cn("h-3 w-2 rounded-[50%] transition-colors duration-500", i < done ? "bg-caramel shadow-[0_0_8px_rgba(217,154,91,0.6)]" : "bg-crema/12")} />
       ))}
     </div>
   );
@@ -96,7 +96,7 @@ function Field({
   const head = (
     <div className="space-y-1">
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-caramel/15 font-mono text-[0.65rem] font-semibold lining-nums text-caramel ring-1 ring-caramel/25">
+        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-caramel/15 font-mono text-[0.65rem] font-bold lining-nums text-caramel ring-1 ring-caramel/25">
           {n}
         </span>
         <span className="text-sm font-semibold leading-snug text-crema/90">{q.text}</span>
@@ -311,8 +311,8 @@ export function CandidatureBoard() {
       {/* requisiti ed esito */}
       <Reveal>
         <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
-          <div className="rounded-3xl bg-roast/85 p-7 ring-1 ring-sand/12">
-            <p className="text-xs font-semibold text-caramel">Requisiti</p>
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-7 ring-1 ring-sand/12">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Requisiti</p>
             <p className="mt-3 text-crema/70">Per candidarti servono questi requisiti:</p>
             <ul className="mt-4 space-y-2.5">
               {REQUIREMENTS.map((r) => (
@@ -327,7 +327,7 @@ export function CandidatureBoard() {
           </div>
           <div className="space-y-4">
             <div className="rounded-3xl bg-gradient-to-br from-mocha/70 to-roast p-7 ring-1 ring-sand/15">
-              <p className="text-xs font-semibold text-caramel">Esito</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Esito</p>
               <p className="mt-3 leading-relaxed text-crema/75">
                 L’esito ti arriva sul server. Se entro 15 giorni non hai notizie, puoi ricandidarti.
               </p>
@@ -362,11 +362,11 @@ export function CandidatureBoard() {
                 onClick={() => (setType(r.id), setDone(null))}
                 className={cn(
                   "relative overflow-hidden rounded-3xl p-6 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out",
-                  on ? "bg-roast ring-caramel/60 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.55)]" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
+                  on ? "bg-gradient-to-b from-caramel/15 to-roast ring-caramel/60 shadow-[0_24px_60px_-30px_rgba(212,145,80,0.6)]" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
                 )}
               >
                 {/* il cartellino sul grembiule */}
-                <span className="absolute right-5 top-5 rotate-3 rounded-md bg-paper px-2.5 py-1 font-mono text-xs font-semibold text-ink shadow">{r.questions.length} domande</span>
+                <span className="absolute right-5 top-5 rotate-3 rounded-md bg-paper px-2.5 py-1 font-mono text-[0.65rem] font-bold uppercase tracking-wider text-ink shadow">{r.questions.length} domande</span>
                 <span className={cn("flex size-12 items-center justify-center rounded-2xl ring-1", on ? "bg-caramel text-ink ring-caramel" : "bg-crema/6 text-sand ring-sand/20")}>
                   <Icon className="size-6" />
                 </span>
@@ -391,7 +391,7 @@ export function CandidatureBoard() {
               "rounded-3xl p-6 ring-1 sm:p-7",
               type === "partnermanager"
                 ? "bg-gradient-to-br from-mocha/80 via-roast to-roast ring-sand/15"
-                : "bg-roast/90 ring-caramel/25",
+                : "bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast ring-caramel/25",
             )}
           >
             <div className="flex items-center gap-2.5">
@@ -403,7 +403,7 @@ export function CandidatureBoard() {
               >
                 {type === "partnermanager" ? <Gift className="size-4" /> : <Sparkles className="size-4" />}
               </span>
-              <p className="text-xs font-semibold text-caramel">{ROLE_INTROS[type]!.title}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">{ROLE_INTROS[type]!.title}</p>
             </div>
 
             {ROLE_INTROS[type]!.body ? (
@@ -424,7 +424,7 @@ export function CandidatureBoard() {
                     key={tier.points}
                     className="flex items-center gap-3 rounded-xl bg-espresso/50 px-3.5 py-2.5 ring-1 ring-sand/12"
                   >
-                    <span className="shrink-0 rounded-md bg-caramel/15 px-2 py-1 font-mono text-[0.7rem] font-semibold tabular-nums text-ember ring-1 ring-caramel/25">
+                    <span className="shrink-0 rounded-md bg-caramel/15 px-2 py-1 font-mono text-[0.7rem] font-bold tabular-nums text-ember ring-1 ring-caramel/25">
                       {tier.points}
                     </span>
                     <span className="min-w-0 flex-1 text-sm text-crema/85">
@@ -446,7 +446,7 @@ export function CandidatureBoard() {
         ) : !token ? (
           <AuthGateCard title="Accedi per candidarti" text="Accedi con Discord per compilare il modulo." />
         ) : eligErr ? (
-          <div className="rounded-3xl bg-roast/85 p-10 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-10 text-center ring-1 ring-sand/12">
             <p className="font-display text-3xl font-semibold">{eligErr.disabled ? "Candidature chiuse" : "Non riesco a verificare il tuo account"}</p>
             <p className="mt-2 text-crema/60">{eligErr.text}</p>
           </div>
@@ -463,13 +463,13 @@ export function CandidatureBoard() {
             </p>
           </motion.div>
         ) : !me?.eligible ? (
-          <div className="rounded-3xl bg-roast/85 p-10 text-center ring-1 ring-sand/12">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-10 text-center ring-1 ring-sand/12">
             <p className="font-display text-3xl font-semibold">Per ora non puoi candidarti come {role.label}</p>
             <p className="mt-2 text-crema/60">{me?.code === "cooldown" && me.cooldown_until_ms ? `Hai già inviato una candidatura: potrai riprovare dal ${dateTimeIt(me.cooldown_until_ms)}.` : me?.message || "Le candidature per questo ruolo non sono ancora aperte."}</p>
           </div>
         ) : (
           <form
-            className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-8"
+            className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-8"
             onSubmit={(e) => {
               e.preventDefault();
               if (review) void submit();
@@ -478,7 +478,7 @@ export function CandidatureBoard() {
           >
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-sand/10 pb-5">
               <div>
-                <p className="text-xs font-semibold text-caramel">Modulo · {role.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Modulo · {role.label}</p>
                 <p className="mt-1 font-display text-2xl font-semibold">{review ? "Riepilogo" : `Parte ${step + 1} di ${steps}`}</p>
               </div>
               <Beans total={steps + 1} done={step + 1} />
@@ -497,7 +497,7 @@ export function CandidatureBoard() {
                   <dl className="space-y-3">
                     {questions.map((q, i) => (
                       <div key={q.id} className="rounded-xl border border-sand/10 bg-espresso/40 px-4 py-3">
-                        <dt className="text-xs font-semibold text-crema/45">
+                        <dt className="text-xs font-semibold uppercase tracking-wide text-crema/45">
                           {i + 1}. {q.text}
                         </dt>
                         <dd className="mt-1.5 whitespace-pre-line break-words text-sm leading-relaxed text-crema/90">{show(answers[q.id])}</dd>
@@ -538,14 +538,14 @@ export function CandidatureBoard() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)] transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {busy ? "Invio in corso…" : "Invia candidatura"}
                 </button>
               ) : (
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-full bg-crema px-6 py-3 font-semibold text-espresso transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97]"
+                  className="inline-flex items-center gap-2 rounded-full bg-crema px-6 py-3 font-semibold text-espresso transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
                 >
                   {step === steps - 1 ? "Rileggi" : "Avanti"} <ArrowRight className="size-4" />
                 </button>

@@ -108,7 +108,7 @@ export function ChatPanel({ chat }: { chat: StreamChat }) {
               type="button"
               onClick={() => chat.setPlatform(x.id)}
               className={cn(
-                "rounded-2xl px-3 py-2.5 text-sm font-semibold transition",
+                "rounded-2xl px-3 py-2.5 text-sm font-bold transition",
                 chat.platform === x.id ? "bg-crema text-ink" : "bg-crema/[0.06] text-crema/80 hover:bg-crema/[0.1]",
               )}
             >
@@ -130,7 +130,7 @@ export function ChatPanel({ chat }: { chat: StreamChat }) {
             placeholder="nome del canale"
             className="min-w-0 flex-1 bg-transparent py-2 text-crema outline-none placeholder:text-crema/30"
           />
-          <button type="submit" disabled={!chat.input.trim()} className="rounded-xl bg-caramel px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-40">
+          <button type="submit" disabled={!chat.input.trim()} className="rounded-xl bg-caramel px-4 py-2 text-sm font-bold text-ink transition hover:brightness-110 disabled:opacity-40">
             {chat.status === "connecting" ? "Collego…" : chat.channel && chat.ready ? "Cambia" : "Collega"}
           </button>
         </form>
@@ -196,7 +196,7 @@ function Ranking({ viewers, limit = 10 }: { viewers: Record<string, Viewer>; lim
     <ol className="mt-4 space-y-1.5 text-left">
       {list.map((v, i) => (
         <li key={v.user} className={cn("flex items-center gap-3 rounded-xl px-3 py-2", i === 0 ? "bg-caramel/20 ring-1 ring-caramel/40" : "bg-crema/[0.04]")}>
-          <span className="w-5 text-center font-mono text-sm font-semibold text-crema/60">{i === 0 ? <Crown className="size-4 text-caramel" /> : i + 1}</span>
+          <span className="w-5 text-center font-mono text-sm font-bold text-crema/60">{i === 0 ? <Crown className="size-4 text-caramel" /> : i + 1}</span>
           <span className="min-w-0 flex-1 truncate font-semibold text-crema">{v.user}</span>
           <span className="font-mono text-sm tabular-nums text-caramel">{formatCount(v.points)}</span>
         </li>
@@ -208,7 +208,7 @@ function Ranking({ viewers, limit = 10 }: { viewers: Record<string, Viewer>; lim
 function TimerBar({ left, total }: { left: number; total: number }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-crema/10">
-      <motion.div className="h-full rounded-full bg-caramel" style={{ width: `${(left / total) * 100}%` }} />
+      <motion.div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${(left / total) * 100}%` }} />
     </div>
   );
 }
@@ -374,16 +374,16 @@ export function StreamHigherLower({
               >
                 <Backdrop item={it} />
                 <div className={cn("pointer-events-none absolute inset-0 transition", phase !== "vote" && won ? "bg-emerald-500/15" : phase !== "vote" ? "bg-ember/10" : "")} />
-                <span className="absolute left-1/2 top-16 -translate-x-1/2 rounded-2xl bg-crema px-4 py-1.5 font-display text-2xl font-semibold text-ink shadow-xl sm:top-20">
+                <span className="absolute left-1/2 top-16 -translate-x-1/2 rounded-2xl bg-crema px-4 py-1.5 font-display text-2xl font-bold text-ink shadow-xl sm:top-20">
                   {side + 1}
                 </span>
                 <div className="relative flex max-w-lg flex-col items-center">
                   <h2 className="text-balance font-display text-3xl leading-tight text-crema drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-5xl">{it.name}</h2>
-                  {it.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70">{it.sub}</p> : null}
+                  {it.sub ? <p className="mt-1.5 text-sm font-semibold uppercase tracking-wide text-crema/70">{it.sub}</p> : null}
                   <div className="mt-4 min-h-[4.5rem]">
                     {revealed ? (
                       <>
-                        <p className="font-mono text-4xl font-semibold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
+                        <p className="font-mono text-4xl font-bold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
                           {side === 1 ? <CountUp to={it.value} format={c.format} /> : formatNumberQuizValue(it.value, c.format)}
                         </p>
                         {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -395,7 +395,7 @@ export function StreamHigherLower({
                   {/* barra dei voti della chat */}
                   <div className="mt-4 w-56 max-w-full">
                     <div className="h-3 overflow-hidden rounded-full bg-ink/60 ring-1 ring-sand/20">
-                      <motion.div className="h-full bg-caramel" animate={{ width: `${share}%` }} transition={{ type: "spring", stiffness: 160, damping: 22 }} />
+                      <motion.div className="h-full bg-gradient-to-r from-caramel to-ember" animate={{ width: `${share}%` }} transition={{ type: "spring", stiffness: 160, damping: 22 }} />
                     </div>
                     <p className="mt-1 text-xs font-semibold text-crema/75">
                       {share}% · {counts[side]} {counts[side] === 1 ? "voto" : "voti"}
@@ -414,7 +414,7 @@ export function StreamHigherLower({
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 420, damping: 16 }}
             className={cn(
-              "grid size-16 place-items-center rounded-full font-display text-xl font-semibold ring-4 ring-ink sm:size-20",
+              "grid size-16 place-items-center rounded-full font-display text-xl font-bold ring-4 ring-ink sm:size-20",
               phase === "right" ? "bg-emerald-500 text-white" : phase === "wrong" ? "bg-ember text-white" : "bg-crema text-ink",
             )}
           >
@@ -431,13 +431,13 @@ export function StreamHigherLower({
                   : skipped
                     ? "Nessun voto: si va avanti."
                     : phase === "wrong"
-                      ? "La chat ha sbagliato"
+                      ? "La chat ha sbagliato!"
                       : phase === "right"
-                        ? "Giusto"
+                        ? "Giusto!"
                         : "Vediamo…"}
               </p>
               {phase === "vote" ? (
-                <button type="button" onClick={reveal} className="shrink-0 rounded-xl bg-caramel px-3 py-2 text-xs font-semibold text-ink">
+                <button type="button" onClick={reveal} className="shrink-0 rounded-xl bg-caramel px-3 py-2 text-xs font-bold uppercase text-ink">
                   Rivela ora
                 </button>
               ) : null}
@@ -552,12 +552,12 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
         <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 pb-4 pt-20 text-center">
           <Backdrop item={item} />
           <div className="relative w-full max-w-2xl">
-            <p className="text-xs font-semibold text-caramel">{c.title}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-caramel">{c.title}</p>
             <h2 className="mt-2 text-balance font-display text-4xl leading-tight text-crema drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-6xl">{item.name}</h2>
-            {item.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70">{item.sub}</p> : null}
+            {item.sub ? <p className="mt-1.5 text-sm font-semibold uppercase tracking-wide text-crema/70">{item.sub}</p> : null}
             {result ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
-                <p className="font-mono text-5xl font-semibold tabular-nums text-caramel sm:text-6xl">
+                <p className="font-mono text-5xl font-bold tabular-nums text-caramel sm:text-6xl">
                   <CountUp to={item.value} format={c.format} />
                 </p>
                 {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -573,7 +573,7 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
                       <span aria-hidden>{g.emoji}</span>
                       <span className="min-w-0 flex-1 truncate font-semibold text-crema">{g.user}</span>
                       <span className="font-mono text-sm tabular-nums text-crema/70">{formatNumberQuizValue(g.value, c.format)}</span>
-                      <span className="w-14 text-right font-mono text-sm font-semibold tabular-nums text-caramel">+{g.points}</span>
+                      <span className="w-14 text-right font-mono text-sm font-bold tabular-nums text-caramel">+{g.points}</span>
                     </motion.li>
                   ))}
                   {!result.length ? <li className="text-center text-sm text-crema/60">Nessuno ha risposto.</li> : null}
@@ -604,7 +604,7 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
             <button
               type="button"
               onClick={result ? advance : reveal}
-              className="inline-flex h-12 min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-caramel px-6 text-sm font-semibold text-ink transition hover:brightness-105"
+              className="inline-flex h-12 min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember px-6 text-sm font-bold uppercase tracking-wide text-ink transition hover:brightness-105"
             >
               {result ? (round >= HC_ROUNDS ? "Classifica" : "Avanti") : "Rivela ora"}
             </button>

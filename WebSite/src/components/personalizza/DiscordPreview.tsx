@@ -48,7 +48,7 @@ export function RolePreview({ name, mode, color, color2, icon }: { name: string;
   };
   return (
     <div className="scheme-dark overflow-hidden rounded-2xl bg-[#313338] text-[#dbdee1] ring-1 ring-black/40">
-      <p className="border-b border-black/25 bg-[#2b2d31] px-4 py-2 text-xs font-semibold text-[#949ba4]">
+      <p className="border-b border-black/25 bg-[#2b2d31] px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#949ba4]">
         Come appare su Discord
       </p>
       <div className="flex gap-3 px-4 pb-3 pt-3.5">
@@ -75,7 +75,7 @@ export function RolePreview({ name, mode, color, color2, icon }: { name: string;
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-black/20 px-4 py-3">
-        <span className="text-xs font-semibold text-[#949ba4]">Ruolo</span>
+        <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[#949ba4]">Ruolo</span>
         <span className="inline-flex max-w-full items-center gap-1.5 rounded-[4px] bg-[#232428] px-2 py-1 text-xs font-medium">
           <span className="size-3 shrink-0 rounded-full" style={{ background: fill }} />
           <RoleIconGlyph value={icon} className="size-3.5 text-xs" />
@@ -93,9 +93,9 @@ export function VoicePreview({ name, emoji, members }: { name: string; emoji: st
   const label = formatCustomVocPreview(emoji, name);
   return (
     <div className="scheme-dark overflow-hidden rounded-2xl bg-[#2b2d31] text-[#949ba4] ring-1 ring-black/40">
-      <p className="border-b border-black/25 px-4 py-2 text-xs font-semibold">Come appare su Discord</p>
+      <p className="border-b border-black/25 px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em]">Come appare su Discord</p>
       <div className="px-2 py-3">
-        <p className="px-2 pb-1 text-xs font-semibold">Vocali private</p>
+        <p className="px-2 pb-1 text-[0.68rem] font-bold uppercase tracking-wide">Vocali private</p>
         <div className="flex items-center gap-1.5 rounded-md bg-[#404249] px-2 py-1.5 text-[#f2f3f5]">
           <Volume2 className="size-4 shrink-0 text-[#949ba4]" />
           <span className="truncate font-medium">{label}</span>

@@ -19,7 +19,7 @@ export function LockPlate({
           <Lock className="size-5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-caramel">Canale bloccato</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Canale bloccato</p>
           <h3 className="mt-1 font-display text-2xl font-semibold text-crema">{title}</h3>
           {note && <p className="mt-2 text-sm leading-relaxed text-crema/60">{note}</p>}
           {anyOf && anyOf.length > 0 && (

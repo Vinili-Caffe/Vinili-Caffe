@@ -388,7 +388,7 @@ export function StaffInbox({ token }: { token: string }) {
                     type="button"
                     onClick={() => setSelected(it)}
                     className={cn(
-                      "flex w-full gap-3 rounded-3xl bg-roast/85 p-4 text-left ring-1 transition",
+                      "flex w-full gap-3 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-4 text-left ring-1 transition",
                       on ? "ring-caramel/40 bg-caramel/10" : "ring-sand/12 hover:ring-sand/30",
                     )}
                   >
@@ -402,7 +402,7 @@ export function StaffInbox({ token }: { token: string }) {
                       {it.preview ? <span className="mt-1 block line-clamp-2 text-sm text-crema/45">{it.preview}</span> : null}
                       <span className="mt-2 flex flex-wrap gap-2">
                         {it.statusLabel || it.status ? (
-                          <span className="rounded-full bg-crema/8 px-2.5 py-0.5 text-xs font-semibold text-crema/55 ring-1 ring-sand/15">
+                          <span className="rounded-full bg-crema/8 px-2.5 py-0.5 text-[0.7rem] font-semibold uppercase tracking-wider text-crema/55 ring-1 ring-sand/15">
                             {it.statusLabel || it.status}
                           </span>
                         ) : null}
@@ -495,25 +495,25 @@ export function StaffInbox({ token }: { token: string }) {
             <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {sheetItem.userId ? (
                 <div className="rounded-xl bg-crema/[0.04] px-3 py-2.5 ring-1 ring-sand/10">
-                  <dt className="text-xs font-semibold text-crema/40">User</dt>
+                  <dt className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/40">User</dt>
                   <dd className="mt-0.5 truncate text-xs lining-nums text-crema/75">{sheetItem.userId}</dd>
                 </div>
               ) : null}
               {sheetItem.kind || sheetItem.type ? (
                 <div className="rounded-xl bg-crema/[0.04] px-3 py-2.5 ring-1 ring-sand/10">
-                  <dt className="text-xs font-semibold text-crema/40">Tipo</dt>
+                  <dt className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/40">Tipo</dt>
                   <dd className="mt-0.5 text-xs text-crema/75">{sheetItem.kind || sheetItem.type}</dd>
                 </div>
               ) : null}
               {sheetItem.statusLabel || sheetItem.status ? (
                 <div className="rounded-xl bg-crema/[0.04] px-3 py-2.5 ring-1 ring-sand/10">
-                  <dt className="text-xs font-semibold text-crema/40">Stato</dt>
+                  <dt className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/40">Stato</dt>
                   <dd className="mt-0.5 text-xs text-crema/75">{sheetItem.statusLabel || sheetItem.status}</dd>
                 </div>
               ) : null}
               {sheetItem.decidedByName ? (
                 <div className="rounded-xl bg-crema/[0.04] px-3 py-2.5 ring-1 ring-sand/10">
-                  <dt className="text-xs font-semibold text-crema/40">Gestita da</dt>
+                  <dt className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/40">Gestita da</dt>
                   <dd className="mt-0.5 truncate text-xs text-crema/75">{sheetItem.decidedByName}</dd>
                 </div>
               ) : null}
@@ -545,7 +545,7 @@ export function StaffInbox({ token }: { token: string }) {
 
             {chatKey ? (
               <div className="mt-6 border-t border-sand/10 pt-5">
-                <p className="mb-2 text-xs font-semibold text-caramel">Chat pratica</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-caramel">Chat pratica</p>
                 <p className="mb-3 text-xs text-crema/40">
                   {sheetItem.canAct
                     ? "Puoi aggiungere il richiedente alla discussione: riceve notifica e può rispondere dal sito."

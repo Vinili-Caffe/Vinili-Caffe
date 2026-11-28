@@ -124,7 +124,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
                 aria-pressed={active}
                 className={cn("min-w-0 p-4 text-left transition-colors sm:p-7", active ? "bg-roast" : "bg-espresso/60 hover:bg-espresso/30")}
               >
-                <span className="flex items-center gap-1.5 truncate text-xs font-semibold text-crema/50 sm:gap-2 sm:text-xs">
+                <span className="flex items-center gap-1.5 truncate text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-crema/50 sm:gap-2 sm:text-xs sm:tracking-[0.18em]">
                   <Icon className="size-3.5" /> {m.label}
                 </span>
                 <span className="mt-2 block font-display text-3xl font-semibold tabular-nums sm:text-4xl">{data ? fmt(data.totals[m.id]) : "—"}</span>
@@ -158,7 +158,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
               <ul className="max-h-72 divide-y divide-sand/10 overflow-y-auto pr-1">
                 {data.leads.map((l, i) => (
                   <li key={i} className="flex items-center gap-3 py-3">
-                    <span className="w-24 shrink-0 text-xs font-semibold text-crema/45">{SOURCE_LABEL[l.source] || l.source}</span>
+                    <span className="w-24 shrink-0 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/45">{SOURCE_LABEL[l.source] || l.source}</span>
                     <span className="min-w-0 flex-1 truncate text-crema/85">{l.value || <span className="text-crema/35">—</span>}</span>
                     <span className="font-semibold tabular-nums text-crema">{fmt(l.count)}</span>
                   </li>
@@ -202,13 +202,13 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
             type="button"
             disabled={goalBusy}
             onClick={() => void onSaveGoals()}
-            className="rounded-full bg-caramel px-5 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+            className="rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2 text-sm font-bold text-ink disabled:opacity-50"
           >
             {goalBusy ? "Salvo…" : "Salva obiettivi"}
           </button>
         </div>
         <div className="mb-5 flex flex-wrap gap-2">
-          <span className="w-full text-xs font-semibold text-crema/45">Preset rapidi</span>
+          <span className="w-full text-xs font-semibold uppercase tracking-[0.16em] text-crema/45">Preset rapidi</span>
           {GOAL_PRESETS.map((p) => (
             <button
               key={p.label}
@@ -242,7 +242,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
             const pct = target > 0 ? Math.min(100, Math.round((cur / target) * 100)) : 0;
             return (
               <div key={m.id} className="rounded-2xl bg-espresso/50 p-4 ring-1 ring-sand/10">
-                <label className="text-xs font-semibold text-crema/45">{m.label}</label>
+                <label className="text-xs font-semibold uppercase tracking-[0.16em] text-crema/45">{m.label}</label>
                 <input
                   type="number"
                   min={0}
@@ -261,7 +261,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
                       <span className="font-semibold text-crema/80">{pct}%</span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-crema/10">
-                      <motion.div className="h-full rounded-full bg-caramel" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} />
+                      <motion.div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }} />
                     </div>
                   </div>
                 ) : (
@@ -295,7 +295,7 @@ function DeltaBadge({ value, prev }: { value: number; prev: number }) {
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7">
-      <p className="mb-4 text-xs font-semibold text-crema/50">{title}</p>
+      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-crema/50">{title}</p>
       {children}
     </section>
   );

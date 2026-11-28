@@ -54,15 +54,16 @@ export function DonateBoard() {
                   className={cn(
                     "relative flex h-full flex-col overflow-hidden rounded-[2rem] p-7 ring-1",
                     star
-                      ? "bg-roast shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)] ring-caramel/50 lg:-translate-y-4"
-                      : "bg-roast/85 ring-sand/15",
+                      ? "bg-gradient-to-b from-caramel/15 via-roast to-roast shadow-[0_30px_80px_-30px_rgba(212,145,80,0.45)] ring-caramel/50 lg:-translate-y-4"
+                      : "bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-sand/15",
                   )}
                 >
+                  {star && <div className="absolute -top-24 left-1/2 size-56 -translate-x-1/2 rounded-full bg-caramel/20 blur-3xl" />}
                   <PromoSticker className="absolute left-4 top-4 z-10" />
                   {t.badge && (
                     <span
                       className={cn(
-                        "absolute right-5 top-5 rounded-full px-3 py-1 text-xs font-semibold",
+                        "absolute right-5 top-5 rounded-full px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.18em]",
                         star ? "bg-caramel text-ink" : "bg-crema/8 text-sand ring-1 ring-sand/20",
                       )}
                     >
@@ -76,7 +77,7 @@ export function DonateBoard() {
                       <PromoPrice
                         value={t.amount}
                         prefix={t.from ? "da " : undefined}
-                        className="font-display text-5xl font-semibold text-crema"
+                        className="font-display text-5xl font-bold text-crema"
                         oldClassName="mb-1 font-display text-2xl font-semibold"
                       />
                     </p>
@@ -89,9 +90,9 @@ export function DonateBoard() {
                     target="_blank"
                     rel="noopener"
                     className={cn(
-                      "relative mt-8 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-semibold transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97]",
+                      "relative mt-8 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3.5 font-semibold transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]",
                       star
-                        ? "bg-caramel text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)] hover:brightness-110"
+                        ? "bg-gradient-to-r from-caramel to-ember text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] hover:brightness-110"
                         : "bg-crema/8 text-crema ring-1 ring-sand/25 hover:bg-crema/12",
                     )}
                   >

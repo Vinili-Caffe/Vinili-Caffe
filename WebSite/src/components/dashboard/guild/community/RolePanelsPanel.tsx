@@ -481,7 +481,7 @@ export function RolePanelsPanel({ guildId, token, onToast }: { guildId: string; 
                     <p className="truncate text-sm font-semibold text-crema">@{role?.name || r.id}</p>
                     <p className="truncate text-xs text-crema/55">{r.note.charAt(0).toUpperCase() + r.note.slice(1)}</p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-crema/[0.08] px-2 py-0.5 text-xs font-semibold text-crema/55">sistema</span>
+                  <span className="shrink-0 rounded-full bg-crema/[0.08] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-crema/55">sistema</span>
                 </li>
               );
             })}

@@ -79,7 +79,7 @@ export function ManagePanel({ token, userId, data, onDone }: { token: string; us
               className="mt-2 w-full resize-y rounded-xl bg-espresso/70 p-3 text-sm outline-none ring-1 ring-sand/15 placeholder:text-crema/30 focus:ring-caramel/60"
             />
           </label>
-          <button type="button" onClick={submit} disabled={busy} className="mt-3 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60">
+          <button type="button" onClick={submit} disabled={busy} className="mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60">
             {busy && <Loader2 className="size-4 animate-spin" />} {pick.label}
           </button>
         </div>

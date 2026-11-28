@@ -61,10 +61,10 @@ export function MusicQuizHub() {
           transition={{ repeat: Infinity, ease: "linear", duration: 30 }}
           className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#2a1c14_1.5px_3px)] opacity-60 ring-1 ring-sand/10"
         >
-          <span className="absolute inset-[36%] rounded-full bg-caramel" />
+          <span className="absolute inset-[36%] rounded-full bg-gradient-to-br from-caramel to-ember" />
         </motion.div>
         <div className="relative max-w-2xl">
-          <p className="text-xs font-semibold text-caramel">Indovina la canzone</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-caramel">Indovina la canzone</p>
           <h1 className="mt-2 font-display text-4xl font-semibold leading-tight text-crema sm:text-5xl">Quanto conosci la tua musica?</h1>
           <p className="mt-3 text-crema/65">Scegli un artista o una playlist, ascolta pochi secondi di ogni brano e indovina il titolo prima degli altri.</p>
         </div>
@@ -187,7 +187,7 @@ function FeatureTile({ p, big, i = 0 }: { p: MusicQuizPackCard; big?: boolean; i
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={p.cover || COVER} alt="" className="size-full object-cover transition duration-500 group-hover:scale-105" />
         <span className="absolute inset-0 bg-gradient-to-t from-ink via-ink/25 to-transparent" />
-        {big ? <span className="absolute left-4 top-4 rounded-full bg-caramel px-3 py-1 text-xs font-semibold text-ink">Numero uno</span> : null}
+        {big ? <span className="absolute left-4 top-4 rounded-full bg-caramel px-3 py-1 text-xs font-bold uppercase tracking-wider text-ink">Numero uno</span> : null}
         <span className={cn("absolute inset-x-0 bottom-0 p-4", big && "sm:p-6")}>
           <span className={cn("block font-display font-semibold leading-tight text-crema", big ? "text-4xl sm:text-5xl" : "text-xl")}>{p.title}</span>
           <span className="mt-1 block text-xs text-crema/70">Gioca ora</span>
@@ -267,7 +267,7 @@ function CommunitySection({
         <div className="shrink-0 snap-start">
           <SmartLink
             href={page("/music-quiz/crea/")}
-            className="group flex aspect-square w-40 flex-col justify-between rounded-3xl bg-caramel p-4 text-ink transition  sm:w-48"
+            className="group flex aspect-square w-40 flex-col justify-between rounded-3xl bg-gradient-to-br from-caramel to-ember p-4 text-ink transition hover:-translate-y-0.5 sm:w-48"
           >
             <span className="grid size-11 place-items-center rounded-full bg-ink/15">
               <Plus className="size-6" aria-hidden />

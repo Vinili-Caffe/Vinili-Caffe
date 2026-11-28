@@ -47,7 +47,7 @@ function LevelField({
 
   return (
     <label className="block min-w-0 flex-1">
-      <span className="text-xs font-semibold text-crema/45">{label}</span>
+      <span className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">{label}</span>
       <input
         type="text"
         inputMode="numeric"
@@ -192,12 +192,12 @@ function ComparisonRow({
         <div className="min-w-0">
           <p className="truncate font-semibold text-crema/90">
             {label}
-            <span className="ml-2 font-display text-sm font-semibold text-ember lining-nums">{mult(multiplier)}</span>
+            <span className="ml-2 font-display text-sm font-bold text-ember lining-nums">{mult(multiplier)}</span>
           </p>
           {hint ? <p className="truncate text-xs text-crema/45">{hint}</p> : null}
         </div>
         {badge ? (
-          <span className="hidden rounded-full bg-crema/10 px-2 py-0.5 text-xs font-semibold text-crema/55 sm:inline">
+          <span className="hidden rounded-full bg-crema/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-crema/55 sm:inline">
             {badge}
           </span>
         ) : (
@@ -335,7 +335,7 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
     <div className="space-y-7">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-xs font-semibold text-caramel">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-caramel">
             <Target className="size-3.5" aria-hidden /> Calcolatore
           </p>
           <h3 className="mt-1 font-display text-2xl font-semibold text-balance sm:text-3xl">Quanto ci metti a salire?</h3>
@@ -351,7 +351,7 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ease-out",
             usingAvg
-              ? "bg-caramel text-ink shadow-[0_10px_24px_-12px_rgba(0,0,0,0.55)]"
+              ? "bg-gradient-to-r from-caramel to-ember text-ink shadow-[0_10px_24px_-12px_rgba(240,180,110,0.7)]"
               : "bg-crema/[0.06] text-crema/75 ring-1 ring-sand/15 hover:bg-crema/[0.1] hover:text-crema",
           )}
         >
@@ -394,7 +394,9 @@ export function LevelSimulator({ p, sim }: { p: ProfileData; sim: LevelsSimConfi
         />
       </div>
 
-      <div className="relative overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-caramel/20 via-mocha/80 to-espresso p-5 ring-1 ring-caramel/25 sm:p-6"><p className="relative text-sm font-semibold text-crema/60">
+      <div className="relative overflow-hidden rounded-[1.35rem] bg-gradient-to-br from-caramel/20 via-mocha/80 to-espresso p-5 ring-1 ring-caramel/25 sm:p-6">
+        <div className="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full bg-ember/20 blur-3xl" aria-hidden />
+        <p className="relative text-sm font-semibold text-crema/60">
           Arrivi al livello <span className="text-crema lining-nums">{safeTo}</span> in
         </p>
         <div className="relative mt-2 min-h-[3.25rem]">

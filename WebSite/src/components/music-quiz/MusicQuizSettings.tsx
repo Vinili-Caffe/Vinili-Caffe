@@ -2,25 +2,7 @@
 
 import { useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { motion } from "motion/react";
-import {
-  CassetteTape,
-  Clapperboard,
-  CloudUpload,
-  Disc3,
-  Drum,
-  Globe,
-  Guitar,
-  Headphones,
-  Heart,
-  KeyboardMusic,
-  Lock,
-  Mic,
-  Plus,
-  Radio,
-  Tv,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { CloudUpload, Globe, Lock, Plus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Select } from "@/components/ui/Select";
 
@@ -67,22 +49,6 @@ export const QUIZ_CATEGORIES: Array<{ id: string; label: string; emoji: string }
   { id: "kpop", label: "K-Pop", emoji: "💜" },
   { id: "world", label: "Mondo", emoji: "🌍" },
 ];
-
-/** icone a linea dei generi (le emoji restano nei dati per Discord) */
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  general: Disc3,
-  pop: Mic,
-  rap: Headphones,
-  rock: Guitar,
-  metal: Drum,
-  electronic: KeyboardMusic,
-  jazz: Radio,
-  retro: CassetteTape,
-  soundtrack: Clapperboard,
-  anime: Tv,
-  kpop: Heart,
-  world: Globe,
-};
 
 export const QUIZ_LANGUAGES: Array<{ id: string; label: string }> = [
   { id: "it", label: "Italiano" },
@@ -274,10 +240,9 @@ export function MusicQuizSettings({
                 )}
               >
                 {on ? <motion.span layoutId="quiz-category" className="absolute inset-0 rounded-2xl bg-caramel/15" /> : null}
-                {(() => {
-                  const Icon = CATEGORY_ICONS[c.id] || Disc3;
-                  return <Icon className="relative size-4 shrink-0 opacity-80" aria-hidden />;
-                })()}
+                <span className="relative text-lg leading-none" aria-hidden>
+                  {c.emoji}
+                </span>
                 <span className="relative">{c.label}</span>
               </button>
             );
@@ -356,7 +321,7 @@ export function MusicQuizSettings({
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={creator.avatar} alt="" className="size-full rounded-full object-cover" />
               ) : (
-                <span className="text-sm font-semibold">{creator.name.slice(0, 1).toUpperCase()}</span>
+                <span className="text-sm font-bold">{creator.name.slice(0, 1).toUpperCase()}</span>
               )
             }
             title={creator.name || "Tu"}
@@ -366,7 +331,7 @@ export function MusicQuizSettings({
           <Choice
             on={value.anonymous}
             onClick={() => set("anonymous", true)}
-            icon={<span className="text-sm font-semibold">A</span>}
+            icon={<span className="text-sm font-bold">A</span>}
             title="Anonimo"
             text="Il tuo nome non compare mai"
             round
@@ -380,7 +345,7 @@ export function MusicQuizSettings({
 function Field({ label, hint, required, done, children }: { label: string; hint?: string; required?: boolean; done?: boolean; children: ReactNode }) {
   return (
     <div>
-      <p className="flex items-center gap-2 text-xs font-semibold text-crema/55">
+      <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-crema/55">
         {label}
         {required ? (
           <span

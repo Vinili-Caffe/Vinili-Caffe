@@ -321,7 +321,7 @@ export function DiscordContent({ text, names: namesProp = {}, className }: { tex
           const h = line.match(/^(#{1,3})\s+(.+)$/);
           if (h) {
             nodes.push(
-              <span key={k} className={h[1].length === 1 ? "block text-lg font-semibold" : "block font-semibold"}>
+              <span key={k} className={h[1].length === 1 ? "block text-lg font-bold" : "block font-bold"}>
                 {inline(h[2], names, k)}
               </span>,
             );

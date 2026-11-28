@@ -57,7 +57,7 @@ function CheckRow({ c }: { c: HealthCheck }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-crema">{c.title}</p>
-            <span className="rounded-md bg-crema/[0.06] px-1.5 py-0.5 text-xs font-semibold text-crema/55">
+            <span className="rounded-md bg-crema/[0.06] px-1.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-crema/55">
               {AREA_LABEL[c.area] || c.area}
             </span>
           </div>

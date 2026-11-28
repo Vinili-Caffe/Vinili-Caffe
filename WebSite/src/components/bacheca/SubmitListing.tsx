@@ -327,7 +327,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
         <Sparkles className="mx-auto size-12 text-ember" />
         <p className="mt-4 font-display text-4xl">Prima, fatti riconoscere</p>
         <p className="mt-2 text-crema/60">Per mettere in vetrina un server o un bot accedi con Discord: così sappiamo che è davvero tuo.</p>
-        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
+        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi con Discord
         </button>
       </section>
@@ -507,7 +507,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
       showToast("Bozza salvata nelle tue schede");
       return;
     }
-    const doneMsg = message || (editing ? "Modifiche salvate." : "Scheda inviata in revisione");
+    const doneMsg = message || (editing ? "Modifiche salvate." : "Scheda inviata in revisione!");
     draft.clear();
     setSent(doneMsg);
     showToast(doneMsg);
@@ -644,7 +644,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                       <p className="mt-1 text-sm text-crema/65">Serve per leggere nome, icona e membri e per creare l’invito. Aggiungilo, poi ricontrolla.</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {addBotUrl && (
-                          <a href={addBotUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink">
+                          <a href={addBotUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink">
                             <Plus className="size-4" /> Aggiungi il bot
                           </a>
                         )}
@@ -704,7 +704,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 />
               </Field>
               <div>
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-crema/45">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
                   <span className="flex-1">Descrizione</span>
                   <Counter n={form.description.trim().length} min={minDesc} />
                   <span className="inline-flex rounded-full bg-espresso/60 p-0.5 normal-case tracking-normal ring-1 ring-sand/12">
@@ -735,7 +735,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 <span className="mt-1.5 block text-xs text-crema/40">Formato di Discord: **grassetto**, *corsivo*, # titoli, &gt; citazioni, elenchi e link.</span>
               </div>
               <Field label="Note per chi entra" hint="Facoltativo: cosa fare appena arrivati.">
-                <input value={form.visitorNotes} onChange={(e) => set({ visitorNotes: e.target.value })} maxLength={300} placeholder="Leggi le regole in #benvenuto e presentati" className={INPUT} />
+                <input value={form.visitorNotes} onChange={(e) => set({ visitorNotes: e.target.value })} maxLength={300} placeholder="Leggi le regole in #benvenuto e presentati!" className={INPUT} />
               </Field>
             </div>
           </Step>
@@ -901,7 +901,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
           <Step n={editing ? 5 : 6} title="Personalizzazione">
             <div className="space-y-6">
               <div>
-                <p className="mb-2 text-xs font-semibold text-crema/45">Banner (facoltativo)</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Banner (facoltativo)</p>
                 <div
                   className="relative flex h-40 items-end overflow-hidden rounded-2xl ring-1 ring-sand/15"
                   style={{ background: form.bannerUrl ? undefined : `radial-gradient(120% 140% at 15% 0%, ${form.accent}aa, transparent 55%), #1a110c` }}
@@ -911,7 +911,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                     <img src={form.bannerUrl} alt="" className="absolute inset-0 size-full object-cover" />
                   ) : null}
                   <div className="relative flex w-full flex-wrap gap-2 bg-gradient-to-t from-espresso/90 to-transparent p-3">
-                    <button type="button" onClick={() => fileRef.current?.click()} disabled={busy === "banner"} className="inline-flex items-center gap-1.5 rounded-full bg-crema px-3.5 py-1.5 text-sm font-semibold text-ink disabled:opacity-60">
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={busy === "banner"} className="inline-flex items-center gap-1.5 rounded-full bg-crema px-3.5 py-1.5 text-sm font-bold text-ink disabled:opacity-60">
                       {busy === "banner" ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />} {form.bannerUrl ? "Cambia banner" : "Carica banner"}
                     </button>
                     {form.bannerUrl && (
@@ -926,7 +926,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-semibold text-crema/45">Colore della scheda</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Colore della scheda</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {ACCENTS.map((c) => (
                     <button
@@ -935,7 +935,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                       aria-label={`Colore ${c}`}
                       aria-pressed={form.accent.toLowerCase() === c}
                       onClick={() => set({ accent: c })}
-                      className={cn("size-9 rounded-full ring-2 ring-offset-2 ring-offset-roast transition-transform ", form.accent.toLowerCase() === c ? "ring-crema" : "ring-transparent")}
+                      className={cn("size-9 rounded-full ring-2 ring-offset-2 ring-offset-roast transition-transform hover:scale-110", form.accent.toLowerCase() === c ? "ring-crema" : "ring-transparent")}
                       style={{ background: c }}
                     />
                   ))}
@@ -956,7 +956,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
           <Step n={editing ? 6 : 7} title="Funzionalità">
             <div className="space-y-4">
               <div>
-                <p className="mb-2 text-xs font-semibold text-crema/45">Il progetto è…</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Il progetto è…</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup">
                   {(
                     [
@@ -1013,7 +1013,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
               </span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-crema/8">
-              <motion.div className="h-full rounded-full bg-caramel" animate={{ width: `${(done / all.length) * 100}%` }} />
+              <motion.div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" animate={{ width: `${(done / all.length) * 100}%` }} />
             </div>
             <ul className="mt-4 space-y-1.5 text-sm">
               {all.map((c) => (
@@ -1034,7 +1034,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 <button
                   type="submit"
                   disabled={!!busy || !canSend}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-3.5 font-semibold text-ink transition  disabled:translate-y-0 disabled:opacity-45"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember py-3.5 font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-45"
                 >
                   {busy === "send" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                   {editing && (status === "approved" || status === "pending") ? "Salva le modifiche" : "Invia in revisione"}
@@ -1072,7 +1072,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
     <motion.fieldset initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: n * 0.04 }} className="rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7">
       <legend className="sr-only">{title}</legend>
       <div className="mb-5 flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-full bg-caramel/15 font-display text-lg font-semibold text-ember ring-1 ring-caramel/30">{n}</span>
+        <span className="flex size-9 items-center justify-center rounded-full bg-caramel/15 font-display text-lg font-bold text-ember ring-1 ring-caramel/30">{n}</span>
         <h2 className="font-display text-2xl font-semibold">{title}</h2>
       </div>
       {children}
@@ -1085,7 +1085,7 @@ function Field({ label, hint, counter, status, group = false, children }: { labe
   const Tag = group ? "div" : "label";
   return (
     <Tag className="block">
-      <span className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold text-crema/45">
+      <span className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">
         <span>{label}</span>
         {counter}
         {status}
@@ -1129,7 +1129,7 @@ function Toggle({ on, onClick, icon, label, danger = false }: { on: boolean; onC
       {icon}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <span className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors", on ? (danger ? "bg-[#a83a2c]" : "bg-ember") : "bg-crema/15")}>
-        <span className={cn("absolute top-0.5 size-4 rounded-full bg-crema transition-[color,background-color,border-color,opacity,transform]", on ? "left-[1.125rem]" : "left-0.5")} />
+        <span className={cn("absolute top-0.5 size-4 rounded-full bg-crema transition-all", on ? "left-[1.125rem]" : "left-0.5")} />
       </span>
     </button>
   );

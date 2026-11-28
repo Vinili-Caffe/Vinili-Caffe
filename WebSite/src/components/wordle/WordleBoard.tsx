@@ -81,7 +81,7 @@ function CoasterTile({
             : { type: "spring", stiffness: 420, damping: 22 }
       }
       className={cn(
-        "relative grid aspect-square w-full place-items-center rounded-xl font-sans text-2xl font-semibold uppercase leading-none lining-nums ring-1 sm:rounded-2xl sm:text-3xl",
+        "relative grid aspect-square w-full place-items-center rounded-xl font-sans text-2xl font-bold uppercase leading-none lining-nums ring-1 sm:rounded-2xl sm:text-3xl",
         mark ? tileMark(mark) : filled ? "bg-mocha text-crema ring-sand/30" : "bg-roast/90 text-crema/25 ring-sand/12",
         !mark && "shadow-[inset_0_1px_0_rgba(244,233,216,0.06)]",
       )}
@@ -560,7 +560,7 @@ export function WordleBoard({ initial }: Props) {
           {lost && answer ? (
             <p className="mb-2 rounded-2xl bg-crema/8 px-4 py-2 text-center text-sm ring-1 ring-sand/15">
               {t("wordle.answerWas")}{" "}
-              <span className="font-display text-base font-semibold uppercase tracking-wider text-ember">{answer}</span>
+              <span className="font-display text-base font-bold uppercase tracking-wider text-ember">{answer}</span>
             </p>
           ) : null}
 

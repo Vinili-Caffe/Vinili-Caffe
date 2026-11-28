@@ -76,7 +76,7 @@ function AuthorAvatar({ author, bot, avatarUrl, color }: { author: string; bot: 
   }
 
   return (
-    <span className="flex size-10 items-center justify-center rounded-full text-sm font-semibold text-[#1e1f22]" style={{ background: color }} aria-hidden>
+    <span className="flex size-10 items-center justify-center rounded-full text-sm font-bold text-[#1e1f22]" style={{ background: color }} aria-hidden>
       {(author.replace(/^[^a-zA-Z0-9]+/, "").charAt(0) || "?").toUpperCase()}
     </span>
   );
@@ -198,7 +198,7 @@ function MessageRow({ m, prev, fix, avatarUrl }: { m: TextMessage; prev?: TextMe
             <span className="font-semibold" style={{ color }}>
               {m.author}
             </span>
-            {m.bot ? <span className="rounded bg-[#5865f2] px-1 py-px text-xs font-semibold text-white">Bot</span> : null}
+            {m.bot ? <span className="rounded bg-[#5865f2] px-1 py-px text-[0.6rem] font-bold uppercase text-white">Bot</span> : null}
             <span className="text-xs text-[#949ba4]">{fmtTime(m.at)}</span>
           </p>
         ) : null}

@@ -232,13 +232,13 @@ export function ExtrasPanel({
     const panel = extras.rolePanel?.byKey?.[roleCat];
     return (
       <div className="space-y-4">
-        <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+        <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
           <div className="flex items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
               <Palette className="size-4" />
             </span>
             <div>
-              <p className="text-xs font-semibold text-caramel">Palette colori</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Palette colori</p>
               <h3 className="mt-1 font-display text-2xl font-semibold">Ruoli & colori PLUS</h3>
               <p className="mt-1 text-sm text-crema/55">
                 Pronomi, hobby e colore in chat. I colori Plus si sbloccano con un boost o una donazione.
@@ -263,11 +263,11 @@ export function ExtrasPanel({
         </div>
 
         {panel && (
-          <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h4 className="font-display text-xl font-semibold"><EmojiText text={panel.label} /></h4>
               {panel.key === "colors_plus" && panel.canPickPlus === false && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-caramel/10 px-2.5 py-1 text-xs font-semibold text-caramel ring-1 ring-caramel/25">
+                <span className="inline-flex items-center gap-1 rounded-full bg-caramel/10 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wider text-caramel ring-1 ring-caramel/25">
                   <Lock className="size-3" /> Bloccati
                 </span>
               )}
@@ -320,13 +320,13 @@ export function ExtrasPanel({
     const bdayErr = birthdayInputError(day, month, year, BIRTHDAY_MIN_AGE);
     const canSave = !busy && !bdayErr;
     return (
-      <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Cake className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-caramel">Compleanno</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Compleanno</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">Quando festeggiamo?</h3>
             <p className="mt-2 text-sm leading-relaxed text-crema/60">
               Vale in tutti i server dove c&apos;è il bot: il giorno del tuo compleanno ti fanno gli auguri nei server che hanno
@@ -343,7 +343,7 @@ export function ExtrasPanel({
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <label htmlFor="day" className="block">
-                <span className="text-xs font-semibold text-crema/45">Giorno</span>
+                <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Giorno</span>
                 <NumberField
                   id="day"
                   name="day"
@@ -357,7 +357,7 @@ export function ExtrasPanel({
                 />
               </label>
               <label htmlFor="month" className="block">
-                <span className="text-xs font-semibold text-crema/45">Mese</span>
+                <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Mese</span>
                 <NumberField
                   id="month"
                   name="month"
@@ -371,7 +371,7 @@ export function ExtrasPanel({
                 />
               </label>
               <label htmlFor="year" className="block">
-                <span className="text-xs font-semibold text-crema/45">Anno</span>
+                <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-crema/45">Anno</span>
                 <NumberField
                   id="year"
                   name="year"
@@ -414,7 +414,7 @@ export function ExtrasPanel({
                     showAge: b.showAge !== false,
                   });
                 }}
-                className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : null}
                 Salva
@@ -484,7 +484,7 @@ export function ExtrasPanel({
     const mainId = pvGuilds.find((g) => g.isMain)?.id || "";
     if (outsider && !shownGuilds.length) {
       return (
-        <p className="rounded-3xl bg-roast/85 p-6 text-sm text-crema/65 ring-1 ring-sand/12">
+        <p className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 text-sm text-crema/65 ring-1 ring-sand/12">
           La privacy vale per server: entra in un server con il bot per scegliere cosa possono fare gli altri con te.
         </p>
       );
@@ -510,7 +510,7 @@ export function ExtrasPanel({
     return (
       <div>
         {switcher}
-      <div className="overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
+      <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
         {/* testata: lucchetto che si chiude man mano che proteggi le voci */}
         <div className="relative flex flex-col gap-5 bg-gradient-to-br from-caramel/15 via-roast/40 to-transparent p-5 sm:flex-row sm:items-center sm:p-6">
           <div className="relative flex size-20 shrink-0 items-center justify-center self-start rounded-[1.4rem] bg-espresso/70 ring-1 ring-caramel/30 sm:self-auto">
@@ -540,7 +540,7 @@ export function ExtrasPanel({
             </svg>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-caramel">Privacy</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Privacy</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">Cosa possono fare gli altri con te</h3>
             <p className="mt-1 text-sm text-crema/55">
               <span className="font-semibold text-crema lining-nums">
@@ -554,7 +554,7 @@ export function ExtrasPanel({
               type="button"
               disabled={busy || closed === kinds.length}
               onClick={() => run("privacy", { action: "all_off" })}
-              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-xs font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-40 disabled:hover:translate-y-0"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-xs font-semibold text-ink transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-40 disabled:hover:translate-y-0"
             >
               <Lock className="size-3.5" /> Proteggi tutto
             </button>
@@ -584,8 +584,8 @@ export function ExtrasPanel({
                   className={cn(
                     "group flex h-full w-full items-start gap-3 rounded-2xl p-4 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out disabled:opacity-60",
                     k.blocked
-                      ? "bg-caramel/12 ring-caramel/40 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.55)]"
-                      : "bg-espresso/40 ring-sand/12  hover:ring-sand/30",
+                      ? "bg-caramel/12 ring-caramel/40 shadow-[0_18px_40px_-28px_rgba(217,154,91,0.9)]"
+                      : "bg-espresso/40 ring-sand/12 hover:-translate-y-0.5 hover:ring-sand/30",
                   )}
                 >
                   <span
@@ -650,13 +650,13 @@ export function ExtrasPanel({
     const slots = Math.max(mr.max, mr.reactions.length);
     const tokens = mr.reactions || [];
     return (
-      <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+      <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Smile className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-caramel">Mention Reactions</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Mention Reactions</p>
             <h3 className="mt-1 font-display text-2xl font-semibold">Reazioni automatiche</h3>
             <p className="mt-1 text-sm text-crema/55">Fino a {mr.max} emoji quando ti menzionano.</p>
             <div className="relative mt-4 flex flex-wrap gap-2">
@@ -730,13 +730,13 @@ export function ExtrasPanel({
     return <LockPlate title="Mention Response" note={resp.accessHint || "Funzione riservata. Controlla i requisiti sul server."} />;
   }
   return (
-    <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+    <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
           <MessageSquare className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-caramel">Mention Response</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-caramel">Mention Response</p>
           <h3 className="mt-1 font-display text-2xl font-semibold">Risposta automatica</h3>
           <p className="mt-1 text-sm text-crema/55">{resp.accessHint}</p>
           <div className="relative mt-4">
@@ -782,7 +782,7 @@ export function ExtrasPanel({
           {/* nel campo le emoji del server restano codice: qui si vedono come su Discord */}
           {responseText.trim() && (
             <div className="scheme-dark mt-3 rounded-2xl bg-[#313338] px-4 py-3 text-[0.94rem] leading-relaxed text-[#dbdee1] ring-1 ring-black/40">
-              <p className="mb-1 text-xs font-semibold text-[#949ba4]">Come appare su Discord</p>
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#949ba4]">Come appare su Discord</p>
               <DiscordContent text={responseText} />
             </div>
           )}
@@ -791,7 +791,7 @@ export function ExtrasPanel({
               type="button"
               disabled={busy}
               onClick={() => run("mention_response", { action: "set", text: responseText })}
-              className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : null}
               Salva

@@ -599,7 +599,7 @@ export function TestDraftButton({
         sent ? "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30" : "bg-crema/[0.05] text-crema/80 ring-sand/15 hover:bg-crema/[0.09] hover:text-crema",
       )}
     >
-      <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata" : "Prova"}
+      <Send className="size-3.5" aria-hidden /> {busy ? "Invio…" : sent ? "Inviata!" : "Prova"}
     </button>
   );
 }
@@ -856,7 +856,7 @@ export function EditorWithPreview({ editor, preview }: { editor: React.ReactNode
     <div className="grid gap-5 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] @5xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
       <div className="min-w-0">{editor}</div>
       <div className="min-w-0 @3xl:sticky @3xl:top-20 @3xl:self-start @3xl:max-h-[calc(100dvh-6rem)] @3xl:overflow-y-auto @3xl:overscroll-contain">
-        <p className="mb-1.5 text-xs font-semibold text-crema/60">Anteprima</p>
+        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">Anteprima</p>
         {preview}
       </div>
     </div>

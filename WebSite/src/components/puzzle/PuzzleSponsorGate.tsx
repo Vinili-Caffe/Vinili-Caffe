@@ -86,7 +86,7 @@ export function PuzzleSponsorGate({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="w-full max-w-md rounded-[1.75rem] bg-gradient-to-b from-[#1a2744] to-[#05070f] p-6 ring-1 ring-[#c9a227]/40"
       >
-        <p className="text-xs font-semibold text-[#e4c76b]">Bonus</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e4c76b]">Bonus</p>
         <h3 className="mt-1 font-display text-2xl font-semibold text-crema">{title}</h3>
         {subtitle ? <p className="mt-1 text-sm text-crema/60">{subtitle}</p> : null}
 
@@ -121,7 +121,7 @@ export function PuzzleSponsorGate({
               type="button"
               disabled={busy}
               onClick={() => void (adsOn ? startAd() : startFallbackOnly())}
-              className="w-full rounded-full bg-caramel py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+              className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
             >
               {busy ? "…" : adsOn ? "Guarda" : "Avvia"}
             </button>
@@ -130,7 +130,7 @@ export function PuzzleSponsorGate({
               type="button"
               disabled={left > 0 || busy}
               onClick={() => void finish()}
-              className="w-full rounded-full bg-caramel py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+              className="w-full rounded-full bg-gradient-to-r from-caramel to-ember py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
             >
               {busy ? "…" : "Sblocca"}
             </button>

@@ -631,7 +631,7 @@ function GuildHero({ guild, premiumActive, prefix }: { guild: GuildOverview; pre
            
           <img src={guild.iconUrl} alt="" className="size-full scale-125 object-cover opacity-40 blur-2xl" />
         ) : (
-          <span className="absolute inset-0 bg-mocha" />
+          <span className="absolute inset-0 bg-gradient-to-br from-caramel/25 via-mocha to-roast" />
         )}
         <span className="absolute inset-0 bg-gradient-to-t from-roast via-roast/30 to-transparent" />
       </div>
@@ -832,7 +832,7 @@ function BotIdentityCard({
     canCustomize ? (
       <span
         className={cn(
-          "pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/55 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+          "pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/55 text-[0.7rem] font-bold uppercase tracking-wider text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
           round && "rounded-full",
         )}
       >
@@ -950,7 +950,7 @@ function BotIdentityCard({
                       setEditingNick(false);
                     }
                   }}
-                  className="min-w-0 flex-1 rounded-md bg-[#111214] px-2 py-1 text-xl font-semibold text-white outline-none ring-2 ring-[#5865f2]/placeholder:text-[#b5bac1]"
+                  className="min-w-0 flex-1 rounded-md bg-[#111214] px-2 py-1 text-xl font-bold text-white outline-none ring-2 ring-[#5865f2]/placeholder:text-[#b5bac1]"
                 />
               ) : (
                 <button
@@ -959,7 +959,7 @@ function BotIdentityCard({
                   onClick={startEditNick}
                   title={canCustomize ? "Clicca per cambiare il nickname" : undefined}
                   className={cn(
-                    "group/name flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left text-xl font-semibold text-white",
+                    "group/name flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left text-xl font-bold text-white",
                     canCustomize && "hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel",
                     canCustomize ? "cursor-pointer px-1.5 py-0.5 -ml-1.5" : "cursor-default",
                   )}
@@ -970,7 +970,7 @@ function BotIdentityCard({
                   ) : null}
                 </button>
               )}
-              <span className="shrink-0 rounded bg-[#5865f2] px-1.5 py-px text-xs font-semibold text-white">Bot</span>
+              <span className="shrink-0 rounded bg-[#5865f2] px-1.5 py-px text-[0.6rem] font-bold uppercase text-white">Bot</span>
               {canCustomize && settings.botNickname && !editingNick ? (
                 <button
                   type="button"
@@ -997,7 +997,7 @@ function BotIdentityCard({
             </div>
             <p className="mt-0.5 truncate text-sm text-[#b5bac1]">{settings.botUsername || "vinili"}</p>
             <div className="mt-4 rounded-lg bg-[#111214] px-3 py-2.5">
-              <p className="text-xs font-semibold text-[#b5bac1]">Stato</p>
+              <p className="text-[0.65rem] font-bold uppercase tracking-wider text-[#b5bac1]">Stato</p>
               <p className="mt-0.5 truncate text-sm text-[#dbdee1]" title={settings.botPresence?.text || presence.label}>
                 {settings.botPresence?.text || presence.label}
               </p>
@@ -1095,11 +1095,13 @@ function FirstSetupModal({
         initial={{ opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] ring-1 ring-sand/20"
-      ><div className="relative">
+      >
+        <div className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-caramel/25 blur-3xl" aria-hidden />
+        <div className="relative">
           <span className="flex size-12 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
             <Rocket className="size-6" aria-hidden />
           </span>
-          <h2 id="first-setup-title" className="mt-4 font-display text-2xl font-semibold text-crema">Benvenuto su Vinili</h2>
+          <h2 id="first-setup-title" className="mt-4 font-display text-2xl font-semibold text-crema">Benvenuto su Vinili!</h2>
           <p className="mt-1 text-sm text-crema/65">Prima di iniziare imposta le basi per <span className="font-semibold text-crema">{guildName}</span>. Puoi cambiarle quando vuoi da Impostazioni.</p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -1788,7 +1790,7 @@ function CommandsSection({
       <section key={group.id} id={`spy-${group.id}`} data-spy={group.id} className="scroll-mt-24 overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/10">
         <header className={cn("border-b border-sand/[0.08] px-4 py-3.5 sm:px-5", catOpen && "bg-espresso/40")}>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/10 text-ember ring-1 ring-caramel/20">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20">
               <GroupIcon className="size-4" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
@@ -1851,7 +1853,7 @@ function CommandsSection({
                   <div className="flex items-center gap-3">
                     <span
                       className={cn(
-                        "hidden size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-semibold sm:flex",
+                        "hidden size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-bold sm:flex",
                         on ? "bg-caramel/12 text-ember" : "bg-crema/[0.04] text-crema/50",
                       )}
                       aria-hidden
@@ -1863,11 +1865,11 @@ function CommandsSection({
                         <span className={cn("text-sm font-semibold", !context && "font-mono", on ? "text-crema" : "text-crema/60")}>
                           {shownName}
                         </span>
-                        <span className="rounded bg-crema/[0.06] px-1.5 py-px text-xs font-semibold text-crema/60">
+                        <span className="rounded bg-crema/[0.06] px-1.5 py-px text-[0.58rem] font-semibold uppercase tracking-wider text-crema/60">
                           {badge}
                         </span>
                         {restricted ? (
-                          <span className="rounded bg-caramel/12 px-1.5 py-px text-xs font-semibold text-ember/90">
+                          <span className="rounded bg-caramel/12 px-1.5 py-px text-[0.58rem] font-semibold uppercase tracking-wider text-ember/90">
                             limitato
                           </span>
                         ) : null}

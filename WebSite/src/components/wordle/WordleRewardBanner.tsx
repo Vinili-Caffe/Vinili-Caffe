@@ -52,7 +52,7 @@ export function WordleRewardBanner({
           href={DISCORD_INVITE}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 rounded-full bg-caramel px-3 py-1 text-xs font-semibold text-ink"
+          className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-3 py-1 text-xs font-bold text-ink"
         >
           <Disc3 className="size-3.5" /> Discord
         </a>
@@ -69,7 +69,7 @@ export function WordleRewardBanner({
         <button
           type="button"
           onClick={onLogin}
-          className="inline-flex items-center gap-1 rounded-full bg-caramel px-3 py-1 text-xs font-semibold text-ink"
+          className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-caramel to-ember px-3 py-1 text-xs font-bold text-ink"
         >
           <LogIn className="size-3.5" /> {t("wordle.rewardLogin")}
         </button>

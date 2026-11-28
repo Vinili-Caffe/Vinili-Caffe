@@ -537,7 +537,7 @@ export function AnnouncementsPanel({
                 <div key={r.id} className="rounded-2xl bg-espresso/40 ring-1 ring-sand/10">
                   <div className="flex items-center gap-2 p-3">
                     <button type="button" onClick={() => setOpenRule(open ? null : r.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                      <span className="flex h-9 min-w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-caramel/12 px-2 text-xs font-semibold text-ember ring-1 ring-caramel/25">
+                      <span className="flex h-9 min-w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-caramel/12 px-2 text-xs font-bold text-ember ring-1 ring-caramel/25">
                         {daysLabel(r.days)}
                       </span>
                       <span className="min-w-0 flex-1">

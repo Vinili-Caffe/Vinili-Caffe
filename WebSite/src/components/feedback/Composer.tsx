@@ -136,10 +136,10 @@ export function Composer({
         <button type="button" onClick={onClose} disabled={busy} aria-label="Chiudi" className="absolute right-4 top-4 rounded-full p-1.5 text-ink/50 hover:bg-ink/8 hover:text-ink">
           <X className="size-5" />
         </button>
-        <h2 className="font-display text-3xl font-semibold">{editing ? "Modifica il feedback" : "Scrivi un feedback"}</h2>
+        <h2 className="font-display text-3xl font-bold">{editing ? "Modifica il feedback" : "Scrivi un feedback"}</h2>
         <p className="mt-1 text-sm text-ink/60">Descrivi il caso in modo chiaro: lo leggeranno lo staff e tutta la community.</p>
 
-        <p className="mt-6 text-xs font-semibold text-ink/50">Tipo</p>
+        <p className="mt-6 text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Tipo</p>
         <div role="radiogroup" className="mt-2 grid grid-cols-2 gap-2">
           {KINDS.map((k) => {
             const on = kind === k.id;
@@ -161,7 +161,7 @@ export function Composer({
 
         {api.topics ? (
         <>
-        <p className="mt-5 text-xs font-semibold text-ink/50">Argomento</p>
+        <p className="mt-5 text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Argomento</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {TOPICS.map((t) => {
             const off = kind === "bug" && t.id === "eventi";
@@ -187,7 +187,7 @@ export function Composer({
         ) : null}
 
         <label htmlFor={messageId} className="mt-5 block">
-          <span className="text-xs font-semibold text-ink/50">Messaggio</span>
+          <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink/50">Messaggio</span>
           <textarea id={messageId} name="message"
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_LEN))}
@@ -238,7 +238,7 @@ export function Composer({
           type="button"
           onClick={submit}
           disabled={busy}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-6 py-3.5 font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out  active:scale-[0.97] disabled:opacity-60"
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-6 py-3.5 font-semibold text-paper transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-60"
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {editing ? "Salva modifiche" : "Pubblica feedback"}
         </button>

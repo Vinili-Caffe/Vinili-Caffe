@@ -114,7 +114,7 @@ function CaseRow({ row }: { row: ModerationCase }) {
   const dur = formatDuration(row.durationMs);
   return (
     <li className="flex flex-wrap items-start gap-3 px-3 py-2.5">
-      <span className={cn("mt-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold", actionTone(row.action))}>
+      <span className={cn("mt-0.5 rounded-md px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide", actionTone(row.action))}>
         {row.action}
       </span>
       <div className="min-w-0 flex-1">
@@ -463,7 +463,7 @@ export function ModerationPanel({
                 const dirty = Boolean(msgDraft) && draftVal !== savedVal;
                 return (
                   <div key={field.key} className="space-y-1.5">
-                    <p className="text-xs font-semibold text-crema/50">{field.label}</p>
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-crema/50">{field.label}</p>
                     <div className="flex items-stretch gap-1.5">
                       <input name="moderationpanel-input-468" id="moderationpanel-input-468"
                         value={draftVal}
@@ -513,7 +513,7 @@ export function ModerationPanel({
             <div className="rounded-2xl bg-espresso/40 p-4 ring-1 ring-sand/10">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(0,11rem)_minmax(0,12rem)_minmax(0,11rem)_auto]">
                 <label className="block min-w-0">
-                  <span className="text-xs font-semibold text-crema/50">Warn raggiunti</span>
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Warn raggiunti</span>
                   <div className="mt-1.5 flex h-[2.625rem] items-center gap-2">
                     <input name="moderationpanel-input-518" id="moderationpanel-input-518"
                       value={apWarnCount}
@@ -528,7 +528,7 @@ export function ModerationPanel({
                 </label>
 
                 <label className="block min-w-0">
-                  <span className="text-xs font-semibold text-crema/50">Azione</span>
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Azione</span>
                   <div className="mt-1.5">
                     <Select
                       value={apAction}
@@ -542,7 +542,7 @@ export function ModerationPanel({
 
                 {apAction === "mute" || apAction === "ban" ? (
                   <label className="block min-w-0">
-                    <span className="text-xs font-semibold text-crema/50">Durata</span>
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Durata</span>
                     <div className="mt-1.5 flex h-[2.625rem] items-center gap-2">
                       <input name="moderationpanel-input-547" id="moderationpanel-input-547"
                         value={apDuration}
@@ -559,7 +559,7 @@ export function ModerationPanel({
 
                 {apAction === "add_role" || apAction === "remove_role" ? (
                   <label className="block min-w-0 sm:col-span-2 xl:col-span-1">
-                    <span className="text-xs font-semibold text-crema/50">Ruolo</span>
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-crema/50">Ruolo</span>
                     <div className="mt-1.5">
                       <Select
                         value={apRoleId}
@@ -594,7 +594,7 @@ export function ModerationPanel({
             ) : (
               <div className="overflow-hidden rounded-xl ring-1 ring-sand/10">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-espresso/60 text-xs text-crema/50">
+                  <thead className="bg-espresso/60 text-[0.65rem] uppercase tracking-wide text-crema/50">
                     <tr>
                       <th className="px-3 py-2.5 font-semibold">Warn n.</th>
                       <th className="px-3 py-2.5 font-semibold">Azione</th>
@@ -715,7 +715,7 @@ export function ModerationPanel({
                 const dirty = Number(row.draft || 0) !== Number(row.saved || 0);
                 return (
                   <div key={row.key} className="space-y-1.5">
-                    <p className="text-xs font-semibold text-crema/50">{row.label}</p>
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-crema/50">{row.label}</p>
                     <div className="flex items-stretch gap-1.5">
                       <input name="moderationpanel-input-720" id="moderationpanel-input-720"
                         value={row.draft}

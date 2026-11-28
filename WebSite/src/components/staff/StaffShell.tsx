@@ -162,7 +162,7 @@ export function StaffShell({
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-28 sm:px-6 sm:pt-32">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-sand/10 pb-5">
         <div>
-          <p className="text-xs font-semibold text-caramel">{kicker}</p>
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-caramel">{kicker}</p>
           <h1 className="mt-1 font-display text-3xl font-semibold lining-nums sm:text-4xl">
             {title}
             {accent ? <span className="italic text-sand"> {accent}</span> : null}

@@ -61,9 +61,11 @@ function VoteKey({
 
   return (
     <Reveal delay={i * 0.1} className="h-full">
-      <div className="relative flex h-full flex-col overflow-hidden rounded-[2rem] bg-gradient-to-b from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-7"><div className="relative flex items-start justify-between gap-3">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-[2rem] bg-gradient-to-b from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-7">
+        <div className="pointer-events-none absolute -top-24 left-1/2 size-56 -translate-x-1/2 rounded-full blur-3xl" style={{ background: `${p.accent}33` }} />
+        <div className="relative flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-crema/45">{t("vote.cooldownEvery", { hours: p.cooldownHours })}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-crema/45">{t("vote.cooldownEvery", { hours: p.cooldownHours })}</p>
             <h3 className="mt-1 font-display text-4xl font-semibold">{p.name}</h3>
           </div>
           {loggedIn && st && (
@@ -149,9 +151,9 @@ function GoalDisc({ total, goal }: { total: number; goal: number }) {
           </linearGradient>
         </defs>
       </svg>
-      <div className="absolute inset-[30%] flex flex-col items-center justify-center rounded-full bg-crema text-espresso">
-        <span className="font-display text-3xl font-semibold leading-none lining-nums sm:text-4xl">{nf.format(total)}</span>
-        <span className="mt-1 text-xs font-semibold">su {nf.format(goal)}</span>
+      <div className="absolute inset-[30%] flex flex-col items-center justify-center rounded-full bg-gradient-to-br from-crema to-sand text-espresso">
+        <span className="font-display text-3xl font-bold leading-none lining-nums sm:text-4xl">{nf.format(total)}</span>
+        <span className="mt-1 text-[0.65rem] font-semibold uppercase tracking-wider">su {nf.format(goal)}</span>
       </div>
     </div>
   );
@@ -310,7 +312,7 @@ export function VoteBoard({ initial }: { initial: VoteData | null }) {
         </Reveal>
         <div>
           <Reveal>
-            <p className="text-xs font-semibold text-caramel">Perché votare</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Perché votare</p>
             <h2 className="mt-2 font-display text-4xl font-semibold sm:text-5xl">Un voto per il server</h2>
             <p className="mt-3 max-w-xl text-crema/60">Votare è gratis, dura un attimo e ti fa guadagnare qualcosa ogni volta.</p>
           </Reveal>
@@ -321,7 +323,7 @@ export function VoteBoard({ initial }: { initial: VoteData | null }) {
               { icon: Trophy, t: "Più visibilità", d: "Il server sale in classifica e arrivano nuovi membri." },
             ].map((x, i) => (
               <Reveal key={x.t} delay={i * 0.08}>
-                <div className="h-full rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/12">
+                <div className="h-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12">
                   <x.icon className="size-5 text-caramel" />
                   <p className="mt-2 font-semibold">{x.t}</p>
                   <p className="mt-1 text-sm text-crema/55">{x.d}</p>
@@ -344,7 +346,7 @@ export function VoteBoard({ initial }: { initial: VoteData | null }) {
       {/* top voters */}
       <section id="vote-list" className="scroll-mt-28">
         <Reveal className="mb-6">
-          <p className="text-xs font-semibold text-caramel">Top voters</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Top voters</p>
           <h2 className="mt-2 font-display text-4xl font-semibold">Chi vota di più</h2>
           <div className="mt-3 flex gap-4 text-xs text-crema/50">
             {PLATFORMS.map((p) => (
@@ -354,7 +356,7 @@ export function VoteBoard({ initial }: { initial: VoteData | null }) {
             ))}
           </div>
         </Reveal>
-        <div className="overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
+        <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
           {rows.length === 0 && <p className="px-6 py-10 text-center text-crema/55">{t("vote.emptyLeaderboard")}</p>}
           <ul>
             {slice.map((r, i) => {

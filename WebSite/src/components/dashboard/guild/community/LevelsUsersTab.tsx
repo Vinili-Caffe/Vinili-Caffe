@@ -254,15 +254,15 @@ export function LevelsUsersTab({
           <section className="rounded-3xl bg-gradient-to-br from-[#826bc2]/20 via-roast/80 to-roast/70 p-5 ring-1 ring-[#826bc2]/25">
             <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
               <div>
-                <p className="text-xs font-semibold text-crema/50">Livello</p>
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Livello</p>
                 <p className="font-display text-5xl font-semibold leading-none text-crema lining-nums">{user.level}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-crema/50">EXP totali</p>
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">EXP totali</p>
                 <p className="text-xl font-semibold text-crema lining-nums">{user.totalExp.toLocaleString("it-IT")}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-crema/50">Questa settimana</p>
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Questa settimana</p>
                 <p className="text-xl font-semibold text-crema lining-nums">{user.weeklyExp.toLocaleString("it-IT")}</p>
               </div>
             </div>

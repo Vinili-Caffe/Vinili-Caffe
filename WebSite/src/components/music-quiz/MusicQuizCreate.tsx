@@ -136,7 +136,7 @@ export function MusicQuizCreate() {
         type="button"
         disabled={busy || !ready}
         onClick={() => void publish()}
-        className="w-full rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition  disabled:translate-y-0 disabled:opacity-40"
+        className="w-full rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
       >
         {busy
           ? editSlug
@@ -188,7 +188,7 @@ export function MusicQuizCreate() {
       {step === "details" ? (
         <>
           <section className="rounded-[2rem] bg-gradient-to-br from-mocha to-roast p-6 ring-1 ring-sand/15 sm:p-8">
-            <p className="text-xs font-semibold text-caramel">{editSlug ? "Modifica quiz" : "Nuovo quiz"}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-caramel">{editSlug ? "Modifica quiz" : "Nuovo quiz"}</p>
             <input
               value={title}
               maxLength={80}
@@ -215,7 +215,7 @@ export function MusicQuizCreate() {
                 setStep("questions");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition  disabled:translate-y-0 disabled:opacity-40"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
             >
               Continua: aggiungi le domande <ArrowRight className="size-4" aria-hidden />
             </button>
@@ -228,7 +228,7 @@ export function MusicQuizCreate() {
         {/* elenco delle domande */}
         <aside className="flex h-fit flex-col rounded-3xl bg-roast/70 ring-1 ring-sand/10 lg:sticky lg:top-24">
           <div className="flex items-center justify-between px-4 pb-2 pt-4">
-            <h2 className="text-xs font-semibold text-crema/55">Domande</h2>
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-crema/55">Domande</h2>
             <span className={cn("text-xs font-semibold tabular-nums", questions.length >= MIN_TRACKS ? "text-caramel" : "text-crema/50")}>
               {questions.length} {questions.length === 1 ? "brano" : "brani"}
             </span>
@@ -275,7 +275,7 @@ export function MusicQuizCreate() {
               onClick={() => setPanel({ kind: "add" })}
               disabled={questions.length >= MAX_TRACKS}
               className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition disabled:opacity-40",
+                "flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition disabled:opacity-40",
                 panel.kind === "add" ? "bg-caramel text-ink" : "bg-crema/[0.07] text-crema hover:bg-crema/[0.12]",
               )}
             >
@@ -360,7 +360,7 @@ function StepTabs({
             className="relative flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-45"
           >
             {on ? <motion.span layoutId="create-step" className="absolute inset-0 rounded-[1.25rem] bg-gradient-to-br from-mocha to-roast ring-1 ring-caramel/45" /> : null}
-            <span className={cn("relative grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold", on ? "bg-caramel text-ink" : "bg-crema/[0.08] text-crema/60")}>
+            <span className={cn("relative grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold", on ? "bg-caramel text-ink" : "bg-crema/[0.08] text-crema/60")}>
               {t.n}
             </span>
             <span className="relative min-w-0">
@@ -587,7 +587,7 @@ function ImportPanel({
         <button
           type="submit"
           disabled={busy || !link.trim() || full}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-caramel px-6 py-3 text-sm font-semibold text-ink transition  disabled:translate-y-0 disabled:opacity-40"
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 text-sm font-bold text-ink transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
         >
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
           {busy ? "Cerco i brani…" : "Importa"}
@@ -598,7 +598,7 @@ function ImportPanel({
         <div className="mt-4 overflow-hidden rounded-2xl bg-espresso/70 ring-1 ring-caramel/30" role="status" aria-live="polite">
           <div className="relative h-1.5 w-full overflow-hidden bg-crema/[0.07]">
             <motion.span
-              className="absolute inset-y-0 w-1/3 rounded-full bg-caramel"
+              className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-caramel to-ember"
               animate={{ x: ["-100%", "300%"] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
             />

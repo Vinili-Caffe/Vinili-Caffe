@@ -60,7 +60,7 @@ function ChannelRow({ channel, depth = 0 }: { channel: BackupPreviewChannel; dep
         className={cn(
           "flex items-center gap-1.5 rounded-md px-2 py-[5px] text-[0.8125rem] leading-none",
           isCategory
-            ? "mt-2.5 mb-0.5 text-xs font-semibold text-[#949ba4]"
+            ? "mt-2.5 mb-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[#949ba4]"
             : "text-[#dbdee1] hover:bg-white/[0.04]",
         )}
         style={{ paddingLeft: `${0.45 + depth * 0.7}rem` }}
@@ -83,7 +83,7 @@ function ChannelRow({ channel, depth = 0 }: { channel: BackupPreviewChannel; dep
 function MetaStat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs text-crema/40">{label}</p>
+      <p className="text-[0.65rem] uppercase tracking-[0.12em] text-crema/40">{label}</p>
       <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-crema">{value}</p>
     </div>
   );
@@ -204,7 +204,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
       <div className="grid border-t border-white/[0.06] lg:grid-cols-[minmax(14rem,17rem)_minmax(0,1fr)]">
         <aside className="border-b border-white/[0.06] bg-[#2b2d31] lg:border-b-0 lg:border-r lg:border-white/[0.06]">
           <div className="sticky top-0 z-[1] border-b border-black/20 bg-[#2b2d31] px-3 py-2.5">
-            <p className="truncate text-xs font-semibold text-[#949ba4]">
+            <p className="truncate text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[#949ba4]">
               Canali
               <span className="ml-1.5 tabular-nums text-[#6d6f78]">{channelCount}</span>
             </p>
@@ -225,7 +225,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
 
         <div className="min-w-0 bg-[#313338]">
           <div className="border-b border-black/20 px-4 py-3 sm:px-5">
-            <p className="text-xs font-semibold text-[#949ba4]">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[#949ba4]">
               Ruoli
               <span className="ml-1.5 tabular-nums text-[#6d6f78]">{roles.length}</span>
             </p>
@@ -246,12 +246,12 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
                     </span>
                     <span className="flex shrink-0 gap-1">
                       {role.hoist ? (
-                        <span className="rounded bg-black/25 px-1.5 py-0.5 text-xs text-[#b5bac1]">
+                        <span className="rounded bg-black/25 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-[#b5bac1]">
                           hoist
                         </span>
                       ) : null}
                       {role.managed ? (
-                        <span className="rounded bg-black/25 px-1.5 py-0.5 text-xs text-[#b5bac1]">
+                        <span className="rounded bg-black/25 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-[#b5bac1]">
                           bot
                         </span>
                       ) : null}
@@ -266,7 +266,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
 
           {preview.emojis.length ? (
             <div className="border-b border-black/20 px-4 py-3 sm:px-5">
-              <p className="text-xs font-semibold text-[#949ba4]">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[#949ba4]">
                 Emoji
                 <span className="ml-1.5 tabular-nums text-[#6d6f78]">
                   {preview.stats?.emojis ?? preview.emojis.length}
@@ -287,7 +287,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
 
           {preview.stickers.length ? (
             <div className="border-b border-black/20 px-4 py-3 sm:px-5">
-              <p className="text-xs font-semibold text-[#949ba4]">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[#949ba4]">
                 Sticker
                 <span className="ml-1.5 tabular-nums text-[#6d6f78]">
                   {preview.stats?.stickers ?? preview.stickers.length}
@@ -309,7 +309,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
           <div className="px-4 py-3 sm:px-5">
             {preview.messages.byChannelTop.length ? (
               <>
-                <p className="text-xs font-semibold text-[#949ba4]">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[#949ba4]">
                   Messaggi per canale
                 </p>
                 <ul className="mt-2 space-y-1">
@@ -340,7 +340,7 @@ export function BackupPreviewView({ preview }: { preview: BackupPreview }) {
 
             {preview.bans.sample.length ? (
               <div className="mt-4">
-                <p className="text-xs font-semibold text-[#949ba4]">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-[#949ba4]">
                   Ban
                 </p>
                 <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-sm">

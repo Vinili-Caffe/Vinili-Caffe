@@ -218,7 +218,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           className="relative mx-auto max-w-4xl text-center"
         >
-          <p className="inline-flex items-center gap-2 rounded-full bg-crema/6 px-3.5 py-1.5 text-xs font-semibold text-caramel ring-1 ring-sand/15">
+          <p className="inline-flex items-center gap-2 rounded-full bg-crema/6 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-caramel ring-1 ring-sand/15">
             <Disc3 className="size-4" /> Vetrina
           </p>
           <h1 className="mt-5 font-display text-6xl font-semibold leading-[0.98] sm:text-7xl md:text-8xl">
@@ -329,9 +329,9 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
             <Info className="mt-0.5 size-6 shrink-0 text-ember" />
             <div className="min-w-0">
               <p className="font-display text-2xl font-semibold text-crema">La vetrina sta allestendo gli scaffali</p>
-              <p className="mt-1 text-crema/70">{closedMsg || cfg?.message || "Per ora è visibile solo allo staff."}</p>
+              <p className="mt-1 text-crema/70">{closedMsg || cfg?.message || "Per ora è visibile solo allo staff. Torna a trovarci presto!"}</p>
               {!token && ready && (
-                <button type="button" onClick={login} className="mt-4 inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink">
+                <button type="button" onClick={login} className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink">
                   <LogIn className="size-4" /> Accedi con Discord
                 </button>
               )}
@@ -409,7 +409,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
               onClick={() => {
                 window.location.href = page(`/vetrina/confronta/?ids=${compareIds.map(encodeURIComponent).join(",")}`);
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink disabled:opacity-40"
             >
               <Columns2 className="size-4" /> Confronta
             </button>

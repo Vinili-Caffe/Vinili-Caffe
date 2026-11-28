@@ -123,10 +123,10 @@ export function InstallAppBoard() {
             alt=""
             width={64}
             height={64}
-            className="size-16 rounded-2xl ring-1 ring-sand/25 shadow-[0_12px_30px_-12px_rgba(0,0,0,0.55)]"
+            className="size-16 rounded-2xl ring-1 ring-sand/25 shadow-[0_12px_30px_-12px_rgba(212,145,80,0.45)]"
           />
           <div className="min-w-0">
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 px-2.5 py-1 text-xs font-semibold text-sand ring-1 ring-sand/20">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-crema/8 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-sand ring-1 ring-sand/20">
               <Smartphone className="size-3 text-caramel" aria-hidden />
               {label}
             </p>

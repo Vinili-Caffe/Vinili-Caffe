@@ -73,10 +73,10 @@ function SponsorHouseCard({ prominent }: { prominent?: boolean }) {
     <div
       className={cn(
         "w-full rounded-2xl bg-gradient-to-br from-roast to-espresso p-5 text-left ring-1 ring-sand/20",
-        prominent ? "mt-6 shadow-[0_30px_70px_-35px_rgba(0,0,0,0.55)] ring-ember/35 sm:p-6" : "mt-5 sm:max-w-xs",
+        prominent ? "mt-6 shadow-[0_30px_70px_-35px_rgba(217,154,91,0.75)] ring-ember/35 sm:p-6" : "mt-5 sm:max-w-xs",
       )}
     >
-      <span className="inline-flex items-center rounded-full bg-caramel/20 px-2.5 py-0.5 text-xs font-semibold text-ember ring-1 ring-caramel/35">
+      <span className="inline-flex items-center rounded-full bg-caramel/20 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-ember ring-1 ring-caramel/35">
         Sponsor
       </span>
       {prominent ? <p className="mt-3 font-script text-xl text-caramel/90">Grazie allo sponsor</p> : null}
@@ -86,7 +86,7 @@ function SponsorHouseCard({ prominent }: { prominent?: boolean }) {
       </p>
       <SmartLink
         href={SITE_DISCORD_INVITE}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink transition "
+        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink transition hover:-translate-y-0.5"
       >
         <Disc3 className="size-4" /> Entra su Discord <ArrowUpRight className="size-3.5" />
       </SmartLink>
@@ -247,7 +247,7 @@ export function VoteListing() {
       return;
     }
     setRemindAt(r.data.remindAt || null);
-    const okMsg = r.data.message || "Voto registrato, grazie";
+    const okMsg = r.data.message || "Voto registrato. Grazie!";
     setMsg(okMsg);
     showToast(okMsg);
     setVoteStreak(Math.max(0, Number(r.data.voteStreak) || 0));
@@ -261,7 +261,7 @@ export function VoteListing() {
         <ThumbsUp className="mx-auto size-12 text-ember" />
         <p className="mt-4 font-display text-4xl">Un voto, un passo avanti</p>
         <p className="mt-2 text-crema/60">Per votare entra con Discord. Ogni account può votare di nuovo dopo qualche ora.</p>
-        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
+        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi con Discord
         </button>
       </section>
@@ -302,7 +302,7 @@ export function VoteListing() {
 
   return (
     <section className="mx-auto max-w-xl px-4 pb-28 sm:px-6">
-      <div className="overflow-hidden rounded-[2rem] bg-roast ring-1 ring-sand/15 shadow-[0_40px_90px_-40px_rgba(0,0,0,0.55)]">
+      <div className="overflow-hidden rounded-[2rem] bg-roast ring-1 ring-sand/15 shadow-[0_40px_90px_-40px_rgba(217,154,91,0.55)]">
         <div className="relative p-6 sm:p-7" style={{ background: `radial-gradient(120% 140% at 0% 0%, ${accent}55, transparent 60%)` }}>
           {listing?.bannerUrl ? (
              
@@ -318,7 +318,7 @@ export function VoteListing() {
               )}
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-ember">Stai votando</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-ember">Stai votando</p>
               <p className="truncate font-display text-3xl font-semibold">{listing?.name || "…"}</p>
               {listing ? <p className="text-sm text-crema/55">{(listing.votesMonth || 0).toLocaleString("it-IT")} voti questo mese</p> : null}
             </div>
@@ -367,7 +367,7 @@ export function VoteListing() {
                 type="button"
                 disabled={busy || !listingId}
                 onClick={begin}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-4 text-lg font-semibold text-ink transition  disabled:opacity-50"
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember py-4 text-lg font-bold text-ink transition hover:-translate-y-0.5 disabled:opacity-50"
               >
                 <ThumbsUp className="size-5" /> {busy ? "Preparo…" : "Inizia a votare"}
               </button>
@@ -448,7 +448,7 @@ export function VoteListing() {
               aria-hidden={step !== "ready"}
             >
               {step === "ready" ? (
-                <p className="mb-3 text-center text-xs font-semibold text-crema/45">Verifica anti-robot</p>
+                <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-crema/45">Verifica anti-robot</p>
               ) : null}
               <Turnstile key={captchaKey} siteKey={siteKey} onToken={setCaptcha} />
               {captcha && step === "ready" ? (
@@ -469,7 +469,7 @@ export function VoteListing() {
                 type="button"
                 disabled={busy || (needsCaptcha && !captcha)}
                 onClick={confirm}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-4 text-lg font-semibold text-ink transition  disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember py-4 text-lg font-bold text-ink transition hover:-translate-y-0.5 disabled:opacity-50"
               >
                 <Check className="size-5" /> {busy ? "Registro…" : "Conferma il voto"}
               </button>
@@ -478,10 +478,10 @@ export function VoteListing() {
 
           {step === "done" && (
             <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
-              <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-caramel text-ink ">
+              <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-gradient-to-br from-caramel to-ember text-ink shadow-[0_0_60px_-10px_rgba(240,180,110,0.8)]">
                 <Check className="size-10" strokeWidth={3} />
               </span>
-              <p className="mt-5 font-display text-3xl font-semibold">Voto registrato</p>
+              <p className="mt-5 font-display text-3xl font-semibold">Voto registrato!</p>
               <p className="mt-2 text-crema/60">{msg || "Grazie: hai dato una spinta a questa scheda."}</p>
               {voteStreak > 0 ? (
                 <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-ember/15 px-4 py-2 text-sm font-semibold text-ember ring-1 ring-ember/30">

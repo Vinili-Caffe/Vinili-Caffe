@@ -113,7 +113,7 @@ export function QuizCardMenu({
                     type="button"
                     disabled={busy}
                     onClick={() => void remove()}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-ember px-3 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-ember px-3 py-2 text-sm font-bold text-ink disabled:opacity-50"
                   >
                     {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null} Elimina
                   </button>

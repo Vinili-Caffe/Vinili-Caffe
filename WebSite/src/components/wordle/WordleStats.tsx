@@ -40,10 +40,10 @@ export function WordleStats({
   ];
 
   return (
-    <div className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+    <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold text-caramel">{t("wordle.statsKicker")}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">{t("wordle.statsKicker")}</p>
           <h3 className="mt-1 font-display text-2xl font-semibold">{t("wordle.statsTitle")}</h3>
         </div>
         {shareText && (onShare || onCopy) ? (
@@ -62,7 +62,7 @@ export function WordleStats({
               <button
                 type="button"
                 onClick={onShare}
-                className="inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 <Share2 className="size-4" />
                 <span className="hidden sm:inline">{shareLabel || t("wordle.share")}</span>
@@ -76,12 +76,12 @@ export function WordleStats({
         {cards.map((c) => (
           <div key={c.label} className="rounded-2xl bg-crema/[0.04] px-2 py-3 text-center ring-1 ring-sand/10">
             <p className="font-display text-2xl font-semibold lining-nums text-crema sm:text-3xl">{c.value}</p>
-            <p className="mt-0.5 text-xs text-crema/45 sm:text-xs">{c.label}</p>
+            <p className="mt-0.5 text-[0.65rem] uppercase tracking-wider text-crema/45 sm:text-xs">{c.label}</p>
           </div>
         ))}
       </div>
 
-      <p className="mt-6 text-xs font-semibold text-crema/40">{t("wordle.distribution")}</p>
+      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.25em] text-crema/40">{t("wordle.distribution")}</p>
       <ul className="mt-3 space-y-1.5">
         {dist.map((n, i) => (
           <li key={i} className="flex items-center gap-2">

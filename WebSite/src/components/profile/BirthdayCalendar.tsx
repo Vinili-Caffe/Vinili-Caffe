@@ -142,7 +142,7 @@ export function BirthdayCalendar({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <h2 className="inline-flex min-w-0 items-center gap-2 text-center text-[1.02rem] font-semibold capitalize tracking-wide text-crema">
+                <h2 className="inline-flex min-w-0 items-center gap-2 text-center text-[1.02rem] font-extrabold capitalize tracking-wide text-crema">
                   <Cake className="size-4 shrink-0 text-sand" />
                   <span className="truncate">
                     {monthTitle} {year}
@@ -207,12 +207,12 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
         key={d}
         className={cn(
           "flex min-h-14 flex-col gap-0.5 rounded-lg border border-sand/15 bg-crema/[0.03] px-1 py-1",
-          isToday && "border-sand/50 ",
+          isToday && "border-sand/50 shadow-[0_0_10px_rgba(212,168,136,0.16)]",
           dayEntries.length > 0 && "border-sand/35 bg-[rgba(168,118,82,0.1)]",
-          hasMine && "border-sand/60 ",
+          hasMine && "border-sand/60 shadow-[0_0_12px_rgba(212,168,136,0.2)]",
         )}
       >
-        <span className="text-[0.62rem] font-semibold lining-nums text-crema/75">{d}</span>
+        <span className="text-[0.62rem] font-extrabold lining-nums text-crema/75">{d}</span>
         {dayEntries.length > 0 && (
           <div className="flex min-w-0 flex-col gap-0.5">
             {dayEntries.slice(0, 3).map((e) => (
@@ -226,7 +226,7 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
               </a>
             ))}
             {dayEntries.length > 3 && (
-              <span className="text-[0.55rem] font-semibold text-crema/45">+{dayEntries.length - 3}</span>
+              <span className="text-[0.55rem] font-bold text-crema/45">+{dayEntries.length - 3}</span>
             )}
           </div>
         )}
@@ -238,7 +238,7 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
     <>
       <div className="mb-2 grid grid-cols-7 gap-1" aria-label="Calendario mensile">
         {WEEKDAYS.map((w) => (
-          <span key={w} className="pb-0.5 text-center text-xs font-semibold text-crema/45">
+          <span key={w} className="pb-0.5 text-center text-[0.62rem] font-bold uppercase tracking-wider text-crema/45">
             {w}
           </span>
         ))}
@@ -265,7 +265,7 @@ function MonthList({
   }
   return (
     <div className="mt-3 border-t border-sand/15 pt-3">
-      <p className="mb-2 text-xs font-semibold text-crema/45">Compleanni in {monthLabel}</p>
+      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-crema/45">Compleanni in {monthLabel}</p>
       <ul className="flex flex-col gap-1.5">
         {entries.map((e) => {
           const mine = highlightUserId && String(e.userId) === String(highlightUserId);

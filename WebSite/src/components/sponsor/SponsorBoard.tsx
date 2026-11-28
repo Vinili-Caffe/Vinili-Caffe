@@ -103,8 +103,8 @@ export function SponsorBoard() {
             <p className="font-display text-2xl font-semibold leading-snug">Con una sponsorizzazione presenti il tuo server ai membri di Vinili & Caffè, in cambio di un compenso.</p>
             <p className="mt-3 text-crema/60">Hai tre spazi a disposizione: un canale tutto tuo, il sito e le attività in vocale con la community.</p>
           </div>
-          <div className="rounded-3xl bg-roast/90 p-7 ring-1 ring-sand/15">
-            <p className="text-xs font-semibold text-caramel">Requisiti</p>
+          <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.12] via-roast/90 to-roast p-7 ring-1 ring-sand/15">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Requisiti</p>
             <ul className="mt-4 space-y-3">
               {REQUIREMENTS.map((r) => (
                 <li key={r} className="flex gap-2.5 text-crema/75">
@@ -140,12 +140,12 @@ export function SponsorBoard() {
                     onClick={() => (setKind(k.id), setExtra(0))}
                     className={cn(
                       "relative flex flex-col rounded-2xl p-3 text-left ring-1 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out sm:rounded-3xl sm:p-5",
-                      on ? "bg-roast shadow-[0_20px_50px_-25px_rgba(0,0,0,0.55)] ring-caramel/60" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
+                      on ? "bg-gradient-to-b from-caramel/15 to-roast shadow-[0_20px_50px_-25px_rgba(212,145,80,0.6)] ring-caramel/60" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
                     )}
                   >
                     <span className="flex items-center justify-between">
                       <span className={cn("flex size-10 items-center justify-center rounded-xl ring-1 [&>svg]:size-5", on ? "bg-caramel text-ink ring-caramel" : "bg-crema/6 text-sand ring-sand/20")}>{k.icon}</span>
-                      <span className="hidden rounded-full bg-crema/8 px-2.5 py-0.5 text-xs font-semibold text-sand sm:inline">{k.badge}</span>
+                      <span className="hidden rounded-full bg-crema/8 px-2.5 py-0.5 text-[0.6rem] font-bold uppercase tracking-[0.15em] text-sand sm:inline">{k.badge}</span>
                     </span>
                     <span className="mt-3 font-display text-base font-semibold leading-tight sm:mt-4 sm:text-xl">
                       <span className="sm:hidden">{k.short}</span>
@@ -164,7 +164,7 @@ export function SponsorBoard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-5 rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12"
+                className="space-y-5 rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12"
               >
                 <p className="text-sm leading-relaxed text-crema/60 sm:hidden">{KINDS.find((k) => k.id === kind)!.text}</p>
                 {kind !== "events" ? (
@@ -222,7 +222,7 @@ export function SponsorBoard() {
                     <p className="text-sm font-semibold text-crema">{CHANNEL.title}</p>
                   </div>
                   <div className="px-4 py-1 text-sm lining-nums">
-                    <div className="grid grid-cols-[1fr_6.5rem_6.5rem] gap-x-2 py-1.5 text-xs font-semibold text-crema/35">
+                    <div className="grid grid-cols-[1fr_6.5rem_6.5rem] gap-x-2 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/35">
                       <span>Durata</span>
                       <span className="text-right">×1 ping</span>
                       <span className="text-right">×2 ping</span>
@@ -282,13 +282,13 @@ export function SponsorBoard() {
                   whileInView={{ scale: 1, opacity: 1, rotate: 14 }}
                   viewport={{ once: true }}
                   transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.4 }}
-                  className="absolute -right-2 top-16 rounded-lg border-[3px] border-[#b5502a] px-2.5 py-1 font-display text-sm font-semibold text-[#b5502a] opacity-80 mix-blend-multiply"
+                  className="absolute -right-2 top-16 rounded-lg border-[3px] border-[#b5502a] px-2.5 py-1 font-display text-sm font-black uppercase tracking-widest text-[#b5502a] opacity-80 mix-blend-multiply"
                 >
                   {promo.name} -{promo.percent}%
                 </motion.span>
               )}
-              <p className="text-center font-display text-2xl font-semibold uppercase tracking-[0.04em]">VINILI & CAFFÈ</p>
-              <p className="text-center text-xs text-ink/50">preventivo sponsor</p>
+              <p className="text-center font-display text-2xl font-bold uppercase tracking-[0.04em]">VINILI & CAFFÈ</p>
+              <p className="text-center text-[0.7rem] uppercase tracking-[0.3em] text-ink/50">preventivo sponsor</p>
               <div className="my-5 border-t-2 border-dashed border-ink/20" />
               <ul className="space-y-3 text-sm">
                 <AnimatePresence initial={false}>
@@ -309,8 +309,8 @@ export function SponsorBoard() {
               <div className="my-5 border-t-2 border-dashed border-ink/20" />
               {promo && <p className="-mb-1 text-right text-sm text-ink/45 line-through decoration-[#b5502a] decoration-2 lining-nums">{eur(subtotal)}</p>}
               <div className="flex items-end justify-between">
-                <span className="text-sm font-semibold">Totale</span>
-                <motion.span key={total} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-4xl font-semibold lining-nums">
+                <span className="text-sm font-bold uppercase tracking-widest">Totale</span>
+                <motion.span key={total} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-4xl font-bold lining-nums">
                   {eur(total)}
                 </motion.span>
               </div>
@@ -322,7 +322,7 @@ export function SponsorBoard() {
             <div className="mt-6 grid gap-3">
               <SmartLink
                 href={page("/tickets/")}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-caramel px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)] transition-[transform,filter,box-shadow] duration-200 ease-out  hover:brightness-110 active:scale-[0.97]"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3.5 font-semibold text-ink shadow-[0_12px_30px_-10px_rgba(232,160,90,0.7)] transition-[transform,filter,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.97]"
               >
                 <Ticket className="size-4" /> Apri un ticket High Staff
               </SmartLink>
@@ -337,13 +337,13 @@ export function SponsorBoard() {
       {/* traffico vero del sito (GA4 o log nginx), per la vetrina "Sito web" */}
       <section>
         <Reveal className="mb-8">
-          <p className="text-xs font-semibold text-caramel">Vetrina sul sito · {(analytics?.label || "periodo recente").toLowerCase()}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-caramel">Vetrina sul sito · {(analytics?.label || "periodo recente").toLowerCase()}</p>
           <h2 className="mt-2 font-display text-4xl font-semibold sm:text-5xl">Quanta gente ti vede</h2>
         </Reveal>
         <div className="grid gap-4 sm:grid-cols-3">
           {audience.map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08}>
-              <div className="rounded-3xl bg-roast/85 p-6 ring-1 ring-sand/12">
+              <div className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-6 ring-1 ring-sand/12">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-5">{s.icon}</span>
                 <p className="mt-4 font-display text-5xl font-semibold lining-nums">{s.value}</p>
                 <p className="mt-1 text-sm text-crema/55">{s.label}</p>

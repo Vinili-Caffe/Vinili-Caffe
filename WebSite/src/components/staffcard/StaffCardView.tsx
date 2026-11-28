@@ -90,12 +90,12 @@ function Navigator({ roster, current, onGo }: { roster: { label: string; members
                 if (!list.length) return null;
                 return (
                   <div key={s.label} className="mb-1">
-                    <p className="px-2 pb-1 pt-2 text-xs font-semibold text-caramel">{cleanRole(s.label)}</p>
+                    <p className="px-2 pb-1 pt-2 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-caramel">{cleanRole(s.label)}</p>
                     {list.map((m) => (
                       <button key={m.userId} type="button" onClick={() => go(m.userId)} className={cn("flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm hover:bg-crema/[0.06]", m.userId === current && "bg-caramel/12 text-ember")}>
                         <Avatar userId={m.userId} src={m.avatarUrl} name={m.displayName} className="size-7 text-xs" />
                         <span className="min-w-0 flex-1 truncate">{m.displayName}</span>
-                        {m.onPause && <span className="text-xs font-semibold text-sand">pausa</span>}
+                        {m.onPause && <span className="text-[0.6rem] font-bold uppercase text-sand">pausa</span>}
                       </button>
                     ))}
                   </div>
@@ -117,7 +117,7 @@ function Tile({ value, label, icon, tone, onClick, badge }: { value: number | st
     <Comp
       {...(onClick ? { type: "button" as const, onClick } : {})}
       className={cn(
-        "relative flex flex-col items-start rounded-2xl bg-roast/80 p-4 text-left ring-1 ring-sand/12 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out",
+        "relative flex flex-col items-start rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 text-left ring-1 ring-sand/12 transition-[transform,background-color,box-shadow,opacity] duration-200 ease-out",
         onClick && "hover:-translate-y-0.5 hover:ring-caramel/40",
       )}
     >
@@ -131,14 +131,14 @@ function Tile({ value, label, icon, tone, onClick, badge }: { value: number | st
       </span>
       <span className="mt-3 font-display text-3xl font-semibold leading-none lining-nums">{value}</span>
       <span className="mt-1 text-xs text-crema/55">{label}</span>
-      {badge ? <span className="absolute right-3 top-3 rounded-full bg-ember px-2 py-0.5 text-[0.65rem] font-semibold text-ink lining-nums">{badge}</span> : null}
+      {badge ? <span className="absolute right-3 top-3 rounded-full bg-ember px-2 py-0.5 text-[0.65rem] font-bold text-ink lining-nums">{badge}</span> : null}
     </Comp>
   );
 }
 
 function Block({ title, icon, link, children }: { title: string; icon: React.ReactNode; link?: { href: string; label: string }; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6">
+    <section className="rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 font-display text-2xl font-semibold [&>svg]:size-5 [&>svg]:text-caramel">
           {icon} {title}
@@ -239,7 +239,7 @@ export function StaffCardView({
       flags.length ? (
         <>
           {flags.map((f, i) => (
-            <span key={f.k} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-semibold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "rotate-2" : "-rotate-2")}>
+            <span key={f.k} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-bold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "rotate-2" : "-rotate-2")}>
               {f.icon}
               {f.t}
             </span>
@@ -250,7 +250,7 @@ export function StaffCardView({
      
   }, [flagsKey, Boolean(card)]);
 
-  if (err) return <p className="mx-auto max-w-xl rounded-3xl bg-roast/85 p-8 text-center text-crema/70 ring-1 ring-sand/12">{err}</p>;
+  if (err) return <p className="mx-auto max-w-xl rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-8 text-center text-crema/70 ring-1 ring-sand/12">{err}</p>;
   if (!card)
     return (
       <div className="flex h-64 items-center justify-center gap-2 text-crema/55">
@@ -293,7 +293,7 @@ export function StaffCardView({
           <button
             type="button"
             onClick={() => setSheet("manage")}
-            className="relative z-30 inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink"
+            className="relative z-30 inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-semibold text-ink"
           >
             <Settings2 className="size-4" /> Gestisci
           </button>
@@ -414,7 +414,7 @@ export function StaffCardView({
               <div className="flex flex-wrap items-center gap-3">
                 <Clapperboard className="size-5 text-caramel" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-caramel">Serata film</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-caramel">Serata film</p>
                   <p className="text-sm text-crema/75">{card.serataFilm.label}</p>
                 </div>
                 {canOpenSerata && (

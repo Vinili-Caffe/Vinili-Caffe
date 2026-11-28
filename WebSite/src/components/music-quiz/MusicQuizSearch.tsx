@@ -238,7 +238,7 @@ export function SearchResults({ hits, onPickSlug }: { hits: Hits; onPickSlug?: (
 
 function ResultsHead({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <p className="mb-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-crema/55">
+    <p className="mb-3 flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-[0.22em] text-crema/55">
       {icon}
       {label}
     </p>

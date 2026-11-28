@@ -148,7 +148,7 @@ export function DailyMusicGame({ kind }: { kind: DailyKind }) {
               <span className="min-w-0 flex-1 truncate">
                 {!g ? "" : g.result === "skip" ? (kind === "song" ? "Saltato: si sente di più" : "Saltato: si vede di più") : g.label}
               </span>
-              {g?.result === "artist" ? <span className="shrink-0 text-xs font-semibold">artista giusto</span> : null}
+              {g?.result === "artist" ? <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide">artista giusto</span> : null}
               {g?.result === "hit" ? <Check className="size-4 shrink-0" /> : null}
             </li>
           );
@@ -217,7 +217,7 @@ function SongPlayer({ today, used, done }: { today: DailyToday; used: number; do
           type="button"
           onClick={() => void toggle()}
           aria-label={playing ? "Ferma" : "Ascolta"}
-          className="grid size-14 shrink-0 place-items-center rounded-full bg-caramel text-ink shadow-lg transition "
+          className="grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-caramel to-ember text-ink shadow-lg transition hover:scale-105"
         >
           {playing ? <Pause className="size-6" /> : <Play className="ml-0.5 size-6" />}
         </button>
@@ -299,7 +299,7 @@ function GuessBox({ kind, busy, onPick, onSkip }: { kind: DailyKind; busy: boole
           type="button"
           disabled={busy}
           onClick={onSkip}
-          className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-2xl px-4 text-xs font-semibold text-crema/70 ring-1 ring-sand/20 transition hover:text-crema disabled:opacity-50"
+          className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-2xl px-4 text-xs font-bold uppercase tracking-wide text-crema/70 ring-1 ring-sand/20 transition hover:text-crema disabled:opacity-50"
         >
           <FastForward className="size-4" /> Salta
         </button>
@@ -361,7 +361,7 @@ function Result({ kind, state, reward }: { kind: DailyKind; state: DailyState; r
         state.solved ? "bg-emerald-500/10 ring-emerald-400/30" : "bg-roast/80 ring-sand/12",
       )}
     >
-      <p className={cn("font-display text-3xl", state.solved ? "text-emerald-300" : "text-crema")}>{state.solved ? "Indovinato" : "Non questa volta"}</p>
+      <p className={cn("font-display text-3xl", state.solved ? "text-emerald-300" : "text-crema")}>{state.solved ? "Indovinato!" : "Non questa volta"}</p>
       <p className="mt-1 text-sm text-crema/60">{state.solved ? `In ${state.attempts} su ${state.maxAttempts}` : "Tentativi finiti"}</p>
       {state.answer ? (
         <div className="mt-4 flex w-full items-center gap-3 rounded-2xl bg-espresso/60 p-3 text-left ring-1 ring-sand/10">
@@ -379,7 +379,7 @@ function Result({ kind, state, reward }: { kind: DailyKind; state: DailyState; r
       <button
         type="button"
         onClick={share}
-        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-caramel text-sm font-semibold text-ink"
+        className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink"
       >
         <Copy className="size-4" /> {copied ? "Copiato" : "Condividi il risultato"}
       </button>

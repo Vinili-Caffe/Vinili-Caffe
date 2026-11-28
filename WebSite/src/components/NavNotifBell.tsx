@@ -239,7 +239,7 @@ export function NavNotifBell() {
                     className={cn(
                       "mt-1.5 size-2 shrink-0 rounded-full",
                       narrow && "mt-2 size-2.5",
-                      n.read ? "bg-crema/20" : "bg-ember ",
+                      n.read ? "bg-crema/20" : "bg-ember shadow-[0_0_6px_rgba(240,180,110,0.7)]",
                     )}
                     aria-hidden
                   />
@@ -261,7 +261,7 @@ export function NavNotifBell() {
                       </span>
                     ) : null}
                     {cat ? (
-                      <span className="mt-1 inline-block text-xs font-semibold text-caramel/80">
+                      <span className="mt-1 inline-block text-[0.65rem] font-semibold uppercase tracking-wider text-caramel/80">
                         {cat}
                       </span>
                     ) : null}
@@ -330,7 +330,7 @@ export function NavNotifBell() {
               animate={{ scale: [1.35, 1], opacity: 1 }}
               exit={{ scale: 0.4, opacity: 0 }}
               transition={{ type: "spring", stiffness: 520, damping: 18 }}
-              className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-ember px-1 text-center text-[0.65rem] font-semibold leading-4 text-ink"
+              className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-ember px-1 text-center text-[0.65rem] font-bold leading-4 text-ink"
             >
               {unread > 99 ? "99+" : unread}
             </motion.span>

@@ -98,7 +98,9 @@ function PodiumDisc({
       whileHover="hover"
       className={cn("group flex min-w-0 flex-col items-center text-center", place === 0 ? "order-2 sm:-mt-6" : place === 1 ? "order-1" : "order-3")}
     >
-      <div className="relative">{/* il disco: gira solo all'hover (a riposo zero CPU) */}
+      <div className="relative">
+        <div className="absolute inset-[-14%] rounded-full blur-2xl" style={{ background: `radial-gradient(circle, ${p.glow}, transparent 65%)` }} />
+        {/* il disco: gira solo all'hover (a riposo zero CPU) */}
         <motion.div
           variants={{ hover: { rotate: 180 } }}
           transition={{ duration: 1.6, ease: "easeInOut" }}
@@ -118,14 +120,14 @@ function PodiumDisc({
         </motion.div>
         <span
           className={cn(
-            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 text-base lining-nums sm:size-9 items-center justify-center rounded-full bg-gradient-to-br font-display text-lg font-semibold text-espresso shadow-lg ring-2 ring-espresso",
+            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 text-base lining-nums sm:size-9 items-center justify-center rounded-full bg-gradient-to-br font-display text-lg font-bold text-espresso shadow-lg ring-2 ring-espresso",
             p.label2,
           )}
         >
           {row.rank}
         </span>
       </div>
-      <p className="mt-4 text-xs font-semibold text-crema/45 sm:text-xs">{p.label}</p>
+      <p className="mt-4 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-crema/45 sm:text-[0.68rem] sm:tracking-[0.25em]">{p.label}</p>
       <p className={cn("mt-1 max-w-full truncate font-display text-lg font-semibold sm:max-w-[12rem] sm:text-2xl", me && "text-ember")}>{row.displayName}</p>
       <p className="mt-0.5 text-sm font-semibold text-sand">{m.main}</p>
       {m.sub && <p className="text-xs text-crema/45">{m.sub}</p>}
@@ -163,11 +165,11 @@ function Row({
         <span className="min-w-0 flex-1">
           <span className={cn("block truncate font-medium", me ? "text-ember" : "text-crema")}>
             {row.displayName}
-            {me && <span className="ml-2 rounded-full bg-caramel/20 px-2 py-0.5 text-xs font-semibold text-ember">tu</span>}
+            {me && <span className="ml-2 rounded-full bg-caramel/20 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-ember">tu</span>}
           </span>
           <span className="mt-1.5 block h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-crema/8">
             <motion.span
-              className="block h-full rounded-full bg-caramel"
+              className="block h-full rounded-full bg-gradient-to-r from-caramel to-ember"
               initial={{ width: 0 }}
               animate={{ width: `${Math.max(2, Math.min(100, m.pct))}%` }}
               transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
@@ -228,7 +230,7 @@ export function LeaderboardBrowser({
                 {active && (
                   <motion.span
                     layoutId="board-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-crema"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -260,7 +262,7 @@ export function LeaderboardBrowser({
                 {p.active && (
                   <motion.span
                     layoutId="period-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-crema"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -365,8 +367,8 @@ function DailyBoard({ initial, period }: { initial: DailyWeek | null; period: Da
       ) : null}
 
       {rest.length > 0 ? (
-        <div className="mt-10 overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
-          <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs text-crema/40 sm:px-6">
+        <div className="mt-10 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
+          <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
             <Trophy className="size-3.5" /> Classifica
           </div>
           <ul>
@@ -540,7 +542,7 @@ function CommunityBoard({ initial, board, period }: { initial: LeaderPage | null
             onChange={(e) => setQuery(e.target.value.replace(/[^\d]/g, ""))}
             placeholder="Cerca un utente per ID Discord…"
             aria-label="ID Discord da cercare"
-            className="w-full rounded-2xl bg-roast/85 py-4 pl-14 pr-24 text-base text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60"
+            className="w-full rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast py-4 pl-14 pr-24 text-base text-crema ring-1 ring-sand/15 placeholder:text-crema/35 focus:outline-none focus:ring-2 focus:ring-caramel/60"
           />
           <button
             type="submit"
@@ -572,8 +574,8 @@ function CommunityBoard({ initial, board, period }: { initial: LeaderPage | null
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-3 overflow-hidden rounded-2xl bg-roast/85 ring-1 ring-caramel/30">
-              <div className="flex items-center justify-between px-4 pt-3 text-xs text-crema/40 sm:px-6">
+            <div className="mt-3 overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast ring-1 ring-caramel/30">
+              <div className="flex items-center justify-between px-4 pt-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
                 <span>
                   Risultato · {boardInfo.label} · {PERIODS.find((p) => p.id === period)?.label}
                 </span>
@@ -614,8 +616,8 @@ function CommunityBoard({ initial, board, period }: { initial: LeaderPage | null
             ))}
           </div>
         ) : rest.length > 0 ? (
-          <div className="mt-6 overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
-            <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs text-crema/40 sm:px-6">
+          <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
+            <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
               <Trophy className="size-3.5" /> {page === 1 ? "Classifica" : `Pagina ${page}`}
             </div>
             <ul>

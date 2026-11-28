@@ -68,12 +68,12 @@ function AccountCard() {
 }
 
 /* stessa veste delle sezioni del profilo staff (sfumatura caramello, titolo in display) */
-const PROFILE_SECTION = "rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6";
+const PROFILE_SECTION = "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6";
 
 /* stesso riquadro delle statistiche staff */
 function ProfileStat({ value, label, icon }: { value: number | string; label: string; icon: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-start rounded-2xl bg-roast/80 p-4 ring-1 ring-sand/12">
+    <div className="flex flex-col items-start rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/80 to-roast p-4 ring-1 ring-sand/12">
       <span className="flex size-9 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25 [&>svg]:size-4">{icon}</span>
       <span className="mt-3 font-display text-3xl font-semibold leading-none lining-nums">{typeof value === "number" ? value.toLocaleString("it-IT") : value}</span>
       <span className="mt-1 text-xs text-crema/55">{label}</span>
@@ -206,12 +206,12 @@ export function PartnerProfile({
                       <p className={cn("text-sm font-semibold", o.done ? "text-ember" : "text-crema")}>{o.title}</p>
                       {o.desc ? <p className="mt-0.5 text-xs leading-relaxed text-crema/55">{o.desc}</p> : null}
                     </div>
-                    {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-xs font-semibold text-ember">fatto</span> : null}
+                    {o.done ? <span className="shrink-0 rounded-full bg-caramel/15 px-2 py-0.5 text-[0.65rem] font-bold uppercase text-ember">fatto</span> : null}
                   </div>
                   {!o.done ? (
                     <div className="mt-2.5 flex items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-crema/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={o.title}>
-                        <div className="h-full rounded-full bg-caramel" style={{ width: `${pct}%` }} />
+                        <div className="h-full rounded-full bg-gradient-to-r from-caramel to-ember" style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-[0.7rem] text-crema/50 lining-nums">
                         {label}
@@ -231,7 +231,7 @@ export function PartnerProfile({
 function CountList({ title, items, tone }: { title: string; items: ReturnType<typeof summarizeCounts>; tone: "danger" | "muted" }) {
   return (
     <div>
-      <p className="mb-1.5 text-xs font-semibold text-crema/60">{title}</p>
+      <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{title}</p>
       {items.length === 0 ? (
         <p className="text-sm text-crema/60">Niente.</p>
       ) : (

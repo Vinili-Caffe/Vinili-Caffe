@@ -600,7 +600,7 @@ function BigNumber({
 }) {
   return (
     <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
-      <p className="text-xs font-semibold text-crema/50">{label}</p>
+      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">{label}</p>
       <div className="mt-2 flex items-center gap-2">
         <div className="w-36">
           <NumberField className="!mt-0" value={value} min={min} max={max} step={step} disabled={disabled} onChange={(v) => onChange(Number(v) || 0)} aria-label={label} />
@@ -855,7 +855,7 @@ export function LevelsPanel({
               <div className="grid gap-3 sm:grid-cols-2">
                 <BigNumber label="EXP al minuto" value={cfg.voiceExpPerMinute} min={0} max={500} onChange={(voiceExpPerMinute) => set({ voiceExpPerMinute })} suffix="EXP" />
                 <div className="rounded-2xl bg-[#826bc2]/10 p-3.5 ring-1 ring-[#826bc2]/20">
-                  <p className="text-xs font-semibold text-crema/50">Un&apos;ora in vocale</p>
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Un&apos;ora in vocale</p>
                   <p className="mt-2 flex h-10 items-center font-display text-2xl font-semibold text-crema lining-nums">≈ {voicePerHour.toLocaleString("it-IT")} EXP</p>
                   <p className="mt-2 text-xs text-crema/50">col moltiplicatore globale, senza bonus dei ruoli</p>
                 </div>
@@ -986,19 +986,19 @@ export function LevelsPanel({
                       <ul className="space-y-2">
                         {segs.map(({ row, i }) => (
                           <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
-                            <span className="text-xs font-semibold text-crema/45">Fino al lv</span>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Fino al lv</span>
                             <div className="w-36 shrink-0 sm:w-40">
                               <NumberField className="!mt-0" size="sm" value={row.upTo} min={1} max={100000} onChange={(v) => setSeg(i, { upTo: Math.max(1, Math.floor(Number(v) || 1)) })} aria-label="Livello massimo del segmento" />
                             </div>
-                            <span className="text-xs font-semibold text-crema/45">Base</span>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Base</span>
                             <div className="w-36 shrink-0 sm:w-40">
                               <NumberField className="!mt-0" size="sm" value={row.base} min={1} max={1_000_000} onChange={(v) => setSeg(i, { base: Math.max(1, Math.floor(Number(v) || 1)) })} aria-label="EXP base del segmento" />
                             </div>
-                            <span className="text-xs font-semibold text-crema/45">Da lv</span>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Da lv</span>
                             <div className="w-32 shrink-0 sm:w-36">
                               <NumberField className="!mt-0" size="sm" value={row.from} min={0} max={100000} onChange={(v) => setSeg(i, { from: Math.max(0, Math.floor(Number(v) || 0)) })} aria-label="Livello iniziale del segmento" />
                             </div>
-                            <span className="text-xs font-semibold text-crema/45">+ / lv</span>
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">+ / lv</span>
                             <div className="w-36 shrink-0 sm:w-40">
                               <NumberField className="!mt-0" size="sm" value={row.perLevel} min={0} max={1_000_000} onChange={(v) => setSeg(i, { perLevel: Math.max(0, Math.floor(Number(v) || 0)) })} aria-label="EXP aggiuntivi per livello" />
                             </div>
@@ -1120,7 +1120,7 @@ export function LevelsPanel({
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {roleRows.map(({ key, label }) => (
                       <div key={key} className="rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
-                        <p className="text-xs font-semibold text-crema/50">{label}</p>
+                        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">{label}</p>
                         <div className="mt-2 flex items-center gap-2">
                           <div className="w-28">
                             <NumberField className="!mt-0" value={cd.roles[key]} min={0} max={3600} onChange={(v) => setRole(key, Number(v) || 0)} aria-label={`Cooldown ${label}`} />
@@ -1199,7 +1199,7 @@ export function LevelsPanel({
                     <ul className="space-y-2">
                       {tiers.map((row, i) => (
                         <li key={i} className="flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
-                          <span className="text-xs font-semibold text-crema/45">Dal lv</span>
+                          <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Dal lv</span>
                           <div className="w-28">
                             <NumberField className="!mt-0" value={row.minLevel} min={1} max={10000} onChange={(v) => setTier(i, { minLevel: Math.max(1, Number(v) || 1) })} aria-label="Livello soglia cooldown" />
                           </div>
@@ -1259,7 +1259,7 @@ export function LevelsPanel({
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
                     <BigNumber label="EXP regalati" value={first.amount} min={0} max={100000} onChange={(amount) => setBonus({ amount })} suffix="EXP" />
                     <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
-                      <p className="text-xs font-semibold text-crema/50">Canali</p>
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Canali</p>
                       <MultiSelect
                         value={first.channelIds}
                         onChange={(channelIds) => setBonus({ channelIds })}
@@ -1309,7 +1309,7 @@ export function LevelsPanel({
                 {rewards.map(({ row, i }) => (
                   <li key={i} className="relative flex flex-wrap items-center gap-2 rounded-2xl bg-espresso/45 p-2 pl-3 ring-1 ring-sand/10">
                     <span className="absolute -left-[1.15rem] top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-[#826bc2] ring-4 ring-roast" aria-hidden />
-                    <span className="text-xs font-semibold text-crema/45">Lv</span>
+                    <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">Lv</span>
                     <div className="w-36 shrink-0">
                       <NumberField className="!mt-0" value={row.level} min={1} max={10000} onChange={(v) => setReward(i, { level: Math.max(1, Number(v) || 1) })} aria-label="Livello del premio" />
                     </div>
@@ -1566,7 +1566,7 @@ export function LevelsPanel({
                     </div>
 
                     <div className="rounded-2xl bg-espresso/45 p-3.5 ring-1 ring-sand/10">
-                      <p className="text-xs font-semibold text-crema/50">Fascia oraria</p>
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50">Fascia oraria</p>
                       <p className="mt-1 text-xs text-crema/50">Fuori da queste ore i round automatici non partono.</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-crema/75">
                         dalle
@@ -2113,7 +2113,7 @@ export function LevelsPanel({
                       <div className="w-40 shrink-0">
                         <NumberField className="!mt-0" value={row.exp} min={1} max={100000000} step={100} onChange={(v) => setGame(i, { exp: Math.max(1, Number(v) || 1) })} aria-label="EXP dei minigiochi" />
                       </div>
-                      <span className="text-xs font-semibold text-crema/45">EXP</span>
+                      <span className="text-[0.7rem] font-bold uppercase tracking-wider text-crema/45">EXP</span>
                       <span className="size-2.5 shrink-0 rounded-full" style={{ background: roleColor(pickerRoles, row.roleId) }} aria-hidden />
                       <div className="min-w-[10rem] flex-1">
                         <Select value={row.roleId} onChange={(roleId) => setGame(i, { roleId })} options={roles} className={cn(fieldClass, "!mt-0")} aria-label="Ruolo premio minigiochi" />
@@ -2283,7 +2283,7 @@ function EventCard({
     }
   };
 
-  const label = "text-xs font-semibold text-crema/50";
+  const label = "text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/50";
 
   return (
     <Card

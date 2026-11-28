@@ -59,7 +59,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
             initial={{ opacity: 0, x: -14 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease }}
-            className="inline-flex items-center gap-2 rounded-full border border-[#f4e9d8]/25 px-3.5 py-1.5 text-xs font-semibold"
+            className="inline-flex items-center gap-2 rounded-full border border-[#f4e9d8]/25 px-3.5 py-1.5 text-[0.68rem] font-bold uppercase tracking-[0.24em]"
           >
             <span className="size-1.5 rounded-full bg-[#f0b46e]" />
             Vinili & Caffè · Wrapped
@@ -80,7 +80,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="mt-4 text-sm font-semibold text-[#f0b46e]"
+              className="mt-4 text-sm font-bold uppercase tracking-[0.22em] text-[#f0b46e]"
             >
               Il disco di {plainName}
             </motion.p>
@@ -109,19 +109,19 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
               <button
                 type="button"
                 onClick={onAction}
-                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#5865f2] px-8 text-base font-semibold text-white shadow-[0_16px_40px_-14px_rgba(88,101,242,0.8)] transition  hover:brightness-110 active:scale-[0.98]"
+                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#5865f2] px-8 text-base font-bold text-white shadow-[0_16px_40px_-14px_rgba(88,101,242,0.8)] transition hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98]"
               >
                 <LogIn className="size-5" aria-hidden /> Accedi con Discord
               </button>
             ) : mode === "loading" ? (
-              <span className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8]/10 px-8 text-base font-semibold text-[#f4e9d8]/80 ring-1 ring-[#f4e9d8]/15">
+              <span className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8]/10 px-8 text-base font-bold text-[#f4e9d8]/80 ring-1 ring-[#f4e9d8]/15">
                 <Loader2 className="size-5 animate-spin" aria-hidden /> Masterizzo…
               </span>
             ) : mode === "error" ? (
               <button
                 type="button"
                 onClick={onAction}
-                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8] px-8 text-base font-semibold text-[#140d09] transition "
+                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8] px-8 text-base font-bold text-[#140d09] transition hover:-translate-y-0.5"
               >
                 Riprova
               </button>
@@ -130,7 +130,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
                 type="button"
                 onClick={onAction}
                 disabled={launching}
-                className="group inline-flex min-h-14 items-center gap-3 rounded-full bg-[#f0b46e] py-2 pl-2 pr-8 text-base font-semibold text-[#140d09] shadow-[0_18px_44px_-14px_rgba(0,0,0,0.55)] transition  hover:brightness-105 active:scale-[0.98] disabled:pointer-events-none"
+                className="group inline-flex min-h-14 items-center gap-3 rounded-full bg-[#f0b46e] py-2 pl-2 pr-8 text-base font-bold text-[#140d09] shadow-[0_18px_44px_-14px_rgba(240,180,110,0.75)] transition hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] disabled:pointer-events-none"
               >
                 <span className="grid size-10 place-items-center rounded-full bg-[#140d09] text-[#f0b46e]">
                   <Disc3 className={cn("size-5 transition-transform duration-700 group-hover:rotate-180", launching && "animate-spin")} aria-hidden />
@@ -186,7 +186,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
               style={{ backgroundImage: "radial-gradient(#c8553d 1.8px, transparent 1.9px)", backgroundSize: "13px 13px" }}
               aria-hidden
             />
-            <div className="relative flex items-start justify-between text-xs font-semibold text-[#1b1410]/70">
+            <div className="relative flex items-start justify-between text-[0.62rem] font-bold uppercase tracking-[0.25em] text-[#1b1410]/70">
               <span>Vinili Wrapped</span>
               <span>{periodLabel || "Lato A"}</span>
             </div>
@@ -199,7 +199,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
             </div>
             <div className="relative">
               <p className="font-display text-[clamp(2.3rem,8vw,3.6rem)] font-semibold leading-[0.88]">{ready && plainName ? plainName : "Il tuo nome qui"}</p>
-              <p className="mt-2 text-xs font-semibold text-[#c8553d]">Lato A · 33 giri</p>
+              <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.22em] text-[#c8553d]">Lato A · 33 giri</p>
             </div>
           </motion.div>
         </div>

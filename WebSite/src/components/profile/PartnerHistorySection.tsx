@@ -62,8 +62,8 @@ export function PartnerHistorySection({
     <section
       className={cn(
         compact
-          ? "rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6"
-          : "rounded-3xl bg-roast/85 p-5 ring-1 ring-sand/12 sm:p-6",
+          ? "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6"
+          : "rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast p-5 ring-1 ring-sand/12 sm:p-6",
         className,
       )}
     >
@@ -137,7 +137,7 @@ export function PartnerHistorySection({
                        
                       <img src={row.iconUrl} alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
                     ) : (
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-semibold text-crema/80" aria-hidden>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
                         {initialLetter(name)}
                       </span>
                     )}

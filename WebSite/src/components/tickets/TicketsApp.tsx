@@ -109,7 +109,7 @@ function ListChrome({
         <div className="flex items-center justify-between gap-2">
           <p className="font-display text-xl font-semibold">{t("tickets.listTitle")}</p>
           {!hasOpenOwn && scope === "mine" && (
-            <button type="button" onClick={onNew} className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-1.5 text-sm font-semibold text-ink">
+            <button type="button" onClick={onNew} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-3.5 py-1.5 text-sm font-semibold text-ink">
               <MessageSquarePlus className="size-4" /> {t("tickets.new")}
             </button>
           )}
@@ -294,7 +294,7 @@ function PaneBody({
             : t("tickets.emptyPanePickOrNew")}
       </p>
       {!hasOpenOwn && scope === "mine" && (
-        <button type="button" onClick={onCreate} className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
+        <button type="button" onClick={onCreate} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <MessageSquarePlus className="size-4" /> {t("tickets.openTicket")}
         </button>
       )}
@@ -577,7 +577,7 @@ export function TicketsApp() {
     <>
       {/* Mobile: lista con altezza max così overflow-y sulla lista funziona (prima overflow-hidden senza max-h tagliava senza scroll) */}
       <div className="mx-auto max-w-7xl lg:hidden">
-        <div className="flex max-h-[min(36rem,calc(100dvh-12rem))] min-h-[22rem] flex-col overflow-hidden rounded-[1.5rem] bg-roast/85 ring-1 ring-sand/15">
+        <div className="flex max-h-[min(36rem,calc(100dvh-12rem))] min-h-[22rem] flex-col overflow-hidden rounded-[1.5rem] bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/15">
           <ListChrome {...listProps} />
         </div>
       </div>

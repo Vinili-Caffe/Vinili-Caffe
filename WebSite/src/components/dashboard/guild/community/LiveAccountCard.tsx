@@ -151,7 +151,7 @@ export function LiveAccountCard({
       <div className="flex items-center gap-2 p-3">
         <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold"
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold uppercase"
             style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
             aria-hidden
           >

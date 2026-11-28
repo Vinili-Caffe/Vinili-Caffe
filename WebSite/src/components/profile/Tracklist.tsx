@@ -27,19 +27,19 @@ export function Tracklist({ p }: { p: ProfileData }) {
   const side = (label: string, tracks: Track[], delay: number) => (
     <Reveal delay={delay} className="h-full">
       <div className="h-full rounded-3xl bg-paper p-6 text-ink shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)] sm:p-7">
-        <p className="flex items-center justify-between border-b-2 border-ink/15 pb-3 font-display text-xl font-semibold">
-          {label} <span className="text-xs font-semibold text-ink/45">server</span>
+        <p className="flex items-center justify-between border-b-2 border-ink/15 pb-3 font-display text-xl font-bold">
+          {label} <span className="text-xs font-semibold uppercase tracking-[0.3em] text-ink/45">server</span>
         </p>
         <ol className="mt-2 divide-y divide-ink/10">
           {tracks.map((t) => (
             <li key={`${label}-${t.no}`} className="flex items-center gap-4 py-3.5">
-              <span className="w-7 shrink-0 font-mono text-xs font-semibold text-ink/40">{t.no}</span>
+              <span className="w-7 shrink-0 font-mono text-xs font-bold text-ink/40">{t.no}</span>
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">{t.title}</span>
                 <span className="block truncate text-xs text-ink/55 lining-nums">{t.detail}</span>
               </span>
               <span className="shrink-0 text-right">
-                <NumberTicker value={t.n} format={t.fmt} className="block font-display text-2xl font-semibold leading-none lining-nums tabular-nums" />
+                <NumberTicker value={t.n} format={t.fmt} className="block font-display text-2xl font-bold leading-none lining-nums tabular-nums" />
                 {t.rank ? (
                   <a href={page("/classifiche/")} className="mt-1 inline-block text-xs font-semibold text-[#9a5a24] lining-nums hover:underline" title={`Classifica ${t.board}`}>
                     #{fmt(t.rank)} in classifica

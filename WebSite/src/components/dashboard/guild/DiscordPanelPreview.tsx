@@ -46,7 +46,7 @@ export function DiscordPanelPreview({
 
   return (
     <div translate="no" className={cn("rounded-xl bg-[#313338] p-3 ring-1 ring-white/10", className)}>
-      <p className="mb-2 text-xs font-semibold text-white/40">
+      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-white/40">
         Anteprima Discord
       </p>
       <div className="flex gap-0 overflow-hidden rounded-lg bg-[#2b2d31]">

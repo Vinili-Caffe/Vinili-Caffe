@@ -104,11 +104,11 @@ export function TranscriptViewer() {
 
   if (gate) {
     return (
-      <div className="mx-auto max-w-md rounded-2xl bg-roast/85 p-6 text-center ring-1 ring-sand/15 sm:p-8">
+      <div className="mx-auto max-w-md rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast p-6 text-center ring-1 ring-sand/15 sm:p-8">
         <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-caramel/15 text-ember ring-1 ring-caramel/25">
           <FileText className="size-6" />
         </span>
-        <p className="mt-4 text-xs font-semibold text-caramel">Ticket · accesso riservato</p>
+        <p className="mt-4 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-caramel">Ticket · accesso riservato</p>
         <h1 className="mt-2 font-display text-2xl font-semibold text-crema">{gate.title}</h1>
         <p className="mt-3 text-sm text-crema/60">{gate.body}</p>
         {gate.error && gate.error !== gate.body && <p className="mt-3 text-sm text-red-300">{gate.error}</p>}
@@ -120,7 +120,7 @@ export function TranscriptViewer() {
                 if (/cambia account/i.test(gate.title) || gate.error?.includes("negato")) logout();
                 login();
               }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-3 text-sm font-semibold text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-3 text-sm font-bold text-white"
             >
               <LogIn className="size-4" />
               {gate.status === 403 || /negato/i.test(gate.title) ? "Cambia account Discord" : "Accedi con Discord"}

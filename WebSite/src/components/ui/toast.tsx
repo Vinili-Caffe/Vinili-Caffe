@@ -148,7 +148,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   ? "bg-roast text-crema ring-[#e2836f]/50"
                   : toast.pending
                     ? "bg-mocha text-crema ring-sand/30"
-                    : "bg-caramel text-ink ring-caramel/30",
+                    : "bg-gradient-to-r from-caramel to-ember text-ink ring-caramel/30",
               )}
             >
               <span aria-hidden className="inline-flex size-4 shrink-0 items-center justify-center">
@@ -164,7 +164,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {toast.action ? (
                 <button
                   type="button"
-                  className="pointer-events-auto shrink-0 rounded-full bg-ink/20 px-2.5 py-1 text-xs font-semibold hover:bg-ink/30"
+                  className="pointer-events-auto shrink-0 rounded-full bg-ink/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide hover:bg-ink/30"
                   onClick={() => {
                     const fn = toast.action?.onClick;
                     hideToast();

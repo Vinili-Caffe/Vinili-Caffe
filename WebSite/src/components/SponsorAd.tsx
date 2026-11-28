@@ -79,7 +79,7 @@ export function SponsorAd() {
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             className="fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-3 z-40 w-[min(20rem,calc(100vw-1.5rem))]"
           >
-            <div className="relative rounded-2xl bg-roast p-3.5 pr-10 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.55)] ring-1 ring-caramel/40">
+            <div className="relative rounded-2xl bg-gradient-to-b from-caramel/15 to-roast p-3.5 pr-10 shadow-[0_24px_60px_-28px_rgba(212,145,80,0.55)] ring-1 ring-caramel/40">
               <button
                 type="button"
                 aria-label="Nascondi sponsor"
@@ -88,7 +88,7 @@ export function SponsorAd() {
               >
                 <X className="size-3.5" />
               </button>
-              <p className="inline-flex items-center gap-1.5 rounded-full bg-caramel/15 px-2.5 py-1 text-xs font-semibold text-ember ring-1 ring-caramel/30">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-caramel/15 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-ember ring-1 ring-caramel/30">
                 <Handshake className="size-3.5" aria-hidden />
                 {badge}
               </p>
@@ -100,7 +100,7 @@ export function SponsorAd() {
                   target="_blank"
                   rel="noopener noreferrer sponsored"
                   aria-label={`${label} (link esterno)`}
-                  className="mt-3 inline-flex rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out  active:scale-[0.97]"
+                  className="mt-3 inline-flex rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-semibold text-ink transition-[transform,filter] duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.97]"
                 >
                   {label}
                 </a>
@@ -117,7 +117,7 @@ export function SponsorAd() {
           aria-controls="vc-site-sponsor-ad-home"
           aria-label="Riapri sponsor"
           onClick={() => setDismissed(null)}
-          className="fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-3 z-40 inline-flex items-center gap-2 rounded-full bg-roast/95 px-3 py-2 text-xs font-semibold text-crema shadow-lg ring-1 ring-caramel/35 hover:ring-caramel/60"
+          className="fixed bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-3 z-40 inline-flex items-center gap-2 rounded-full bg-roast/95 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-crema shadow-lg ring-1 ring-caramel/35 hover:ring-caramel/60"
         >
           <Handshake className="size-3.5 text-ember" aria-hidden />
           Sponsor

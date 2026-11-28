@@ -41,7 +41,7 @@ export function WordleKeyboard({ keyMarks, disabled, onKey, compact }: Props) {
               onClick={() => onKey("Enter")}
               aria-label={t("wordle.enterAria")}
               className={cn(
-                "inline-flex min-w-0 flex-[1.6] items-center justify-center rounded-xl px-2 text-xs font-semibold leading-none ring-1 transition sm:min-w-[4rem] sm:flex-none sm:text-xs",
+                "inline-flex min-w-0 flex-[1.6] items-center justify-center rounded-xl px-2 text-[0.7rem] font-bold uppercase leading-none tracking-wide ring-1 transition sm:min-w-[4rem] sm:flex-none sm:text-xs",
                 keyH,
                 "bg-caramel/20 text-ember ring-caramel/35 hover:bg-caramel/30 disabled:opacity-50",
               )}
@@ -57,7 +57,7 @@ export function WordleKeyboard({ keyMarks, disabled, onKey, compact }: Props) {
               onClick={() => onKey(ch)}
               aria-label={t("wordle.letterAria", { letter: ch.toUpperCase() })}
               className={cn(
-                "inline-flex min-w-0 max-w-10 flex-1 items-center justify-center rounded-xl text-sm font-semibold leading-none ring-1 transition sm:w-10 sm:flex-none sm:text-base",
+                "inline-flex min-w-0 max-w-10 flex-1 items-center justify-center rounded-xl text-sm font-bold uppercase leading-none ring-1 transition sm:w-10 sm:flex-none sm:text-base",
                 keyH,
                 "disabled:opacity-50",
                 markClass(keyMarks[ch]),

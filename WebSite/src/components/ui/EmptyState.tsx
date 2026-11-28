@@ -22,7 +22,7 @@ export function EmptyState({ icon: Icon = Inbox, title, text, action, className,
         "flex flex-col items-center justify-center rounded-3xl px-6 py-12 text-center ring-1",
         tone === "error"
           ? "bg-red-500/10 ring-red-400/25"
-          : "bg-roast/60 ring-sand/15",
+          : "bg-gradient-to-b from-caramel/[0.08] via-roast/60 to-roast/50 ring-sand/15",
         className,
       )}
     >

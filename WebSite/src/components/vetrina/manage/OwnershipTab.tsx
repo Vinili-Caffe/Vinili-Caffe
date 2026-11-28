@@ -151,7 +151,7 @@ export function OwnershipTab({
                   <p className="truncate font-semibold text-crema">{found.name}</p>
                   {found.username ? <p className="truncate text-xs text-crema/50">@{found.username}</p> : null}
                 </div>
-                <button type="button" disabled={busy === "send"} onClick={() => void send()} className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                <button type="button" disabled={busy === "send"} onClick={() => void send()} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink disabled:opacity-50">
                   <ArrowRightLeft className="size-4" /> Proponi
                 </button>
               </div>
@@ -166,7 +166,7 @@ export function OwnershipTab({
           <Trash2 className="size-5" /> Elimina la scheda
         </h3>
         <p className="mt-1 text-sm text-crema/60">Spariscono la scheda, i voti, le recensioni e le statistiche. Non si può annullare.</p>
-        <button type="button" disabled={busy === "delete"} onClick={() => void remove()} className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#a83a2c] px-5 py-2.5 text-sm font-semibold text-crema hover:bg-[#b84535] disabled:opacity-50">
+        <button type="button" disabled={busy === "delete"} onClick={() => void remove()} className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#a83a2c] px-5 py-2.5 text-sm font-bold text-crema hover:bg-[#b84535] disabled:opacity-50">
           <Trash2 className="size-4" /> Elimina per sempre
         </button>
       </section>

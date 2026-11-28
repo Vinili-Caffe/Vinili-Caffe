@@ -106,7 +106,7 @@ export function MusicDock({
               {status}
             </p>
           ) : (
-            <p className="text-xs text-crema/40">
+            <p className="text-[0.6rem] uppercase tracking-[0.14em] text-crema/40">
               {on ? "In play" : "In pausa"}
             </p>
           )}

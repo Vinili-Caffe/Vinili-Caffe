@@ -104,7 +104,9 @@ function BotAvatar({ className }: { className?: string }) {
 function SpinningRecord() {
   const still = useReducedMotionSafe();
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[22rem]"><motion.div
+    <div className="relative mx-auto aspect-square w-full max-w-[22rem]">
+      <div className="absolute inset-6 rounded-full bg-caramel/20 blur-3xl" aria-hidden />
+      <motion.div
         className="absolute inset-6 rounded-full shadow-[0_40px_80px_-30px_rgba(0,0,0,0.9)]"
         animate={still ? undefined : { rotate: 360 }}
         transition={{ duration: 14, ease: "linear", repeat: Infinity }}
@@ -112,7 +114,7 @@ function SpinningRecord() {
       >
         <div className="size-full rounded-full bg-[repeating-radial-gradient(circle_at_center,#141010_0px,#141010_2px,#221a16_3px,#141010_4px)] ring-1 ring-black/60" />
         <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_40deg,transparent_0deg,rgba(255,236,210,0.12)_30deg,transparent_70deg,transparent_180deg,rgba(255,236,210,0.08)_215deg,transparent_250deg)]" />
-        <div className="absolute inset-[32%] overflow-hidden rounded-full bg-caramel p-1.5 ring-4 ring-black/40">
+        <div className="absolute inset-[32%] overflow-hidden rounded-full bg-gradient-to-br from-caramel to-ember p-1.5 ring-4 ring-black/40">
           <BotAvatar className="size-full" />
         </div>
         <div className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-espresso ring-1 ring-black/60" />
@@ -171,7 +173,7 @@ function Tracklist() {
     <div className="overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/12">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sand/10 px-5 py-4 sm:px-6">
         <div>
-          <p className="text-xs font-semibold text-caramel">Scaletta</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.24em] text-caramel">Scaletta</p>
           <p className="mt-0.5 font-display text-xl font-semibold text-crema">{side === "A" ? "Lato A · Tieni tutto in ordine" : "Lato B · Fai vivere il server"}</p>
         </div>
         <div className="inline-flex rounded-full bg-black/30 p-1 ring-1 ring-crema/10" role="tablist" aria-label="Lato del disco">
@@ -257,8 +259,8 @@ function LinkCard({ href, icon: Icon, title, text, accent }: { href: string; ico
     <SmartLink
       href={page(href)}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl p-5 ring-1 transition duration-200 ",
-        accent ? "bg-roast/80 ring-caramel/30 hover:ring-caramel/50" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
+        "group relative flex flex-col overflow-hidden rounded-2xl p-5 ring-1 transition duration-200 hover:-translate-y-0.5",
+        accent ? "bg-gradient-to-br from-caramel/20 via-roast/80 to-roast/80 ring-caramel/30 hover:ring-caramel/50" : "bg-roast/70 ring-sand/12 hover:ring-sand/30",
       )}
     >
       <Icon className={cn("size-5", accent ? "text-ember" : "text-caramel")} aria-hidden />
@@ -345,7 +347,7 @@ export function BotShowcase() {
       {/* extra */}
       <section className="mt-10 grid gap-3 lg:grid-cols-3">
         <Reveal className="rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12 lg:col-span-2">
-          <p className="text-xs font-semibold text-caramel">Bonus track</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.24em] text-caramel">Bonus track</p>
           <h3 className="mt-1 font-display text-2xl font-semibold text-crema">Non solo gestione</h3>
           <p className="mt-2 max-w-lg text-sm text-crema/60">Comandi per passare il tempo in compagnia, direttamente su Discord.</p>
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -365,7 +367,7 @@ export function BotShowcase() {
           </div>
         </Reveal>
         <Reveal delay={0.08} className="flex flex-col rounded-3xl bg-roast/70 p-6 ring-1 ring-sand/12">
-          <p className="text-xs font-semibold text-caramel">Sotto controllo</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.24em] text-caramel">Sotto controllo</p>
           <h3 className="mt-1 font-display text-2xl font-semibold text-crema">Vedi tutto</h3>
           <ul className="mt-4 space-y-3 text-sm text-crema/70">
             <li className="flex items-center gap-2.5">

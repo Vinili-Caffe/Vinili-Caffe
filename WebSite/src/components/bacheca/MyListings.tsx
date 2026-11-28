@@ -92,7 +92,7 @@ function IncomingTransfers({ token, onAccepted }: { token: string; onAccepted: (
             <button type="button" disabled={busy === t.listingId} onClick={() => void answer(t, false)} className="rounded-full bg-crema/10 px-4 py-2 text-sm font-semibold ring-1 ring-sand/25 hover:bg-crema/15 disabled:opacity-50">
               Rifiuta
             </button>
-            <button type="button" disabled={busy === t.listingId} onClick={() => void answer(t, true)} className="rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+            <button type="button" disabled={busy === t.listingId} onClick={() => void answer(t, true)} className="rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink disabled:opacity-50">
               Accetta
             </button>
           </div>
@@ -146,7 +146,7 @@ function ClaimableBanner({ token }: { token: string }) {
         ))}
         {extra > 0 ? <li className="self-center text-xs text-crema/45">+{extra} altri</li> : null}
       </ul>
-      <SmartLink href={page("/vetrina/invia/")} className="mt-4 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink">
+      <SmartLink href={page("/vetrina/invia/")} className="mt-4 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 text-sm font-bold text-ink">
         Metti in vetrina <ArrowRight className="size-4" />
       </SmartLink>
     </div>
@@ -193,7 +193,7 @@ export function MyListings() {
         <FolderHeart className="mx-auto size-12 text-sand/40" />
         <p className="mt-4 font-display text-4xl">Le tue schede</p>
         <p className="mt-2 text-crema/60">Accedi con Discord per vedere bozze, revisioni e schede pubblicate.</p>
-        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
+        <button type="button" onClick={login} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-5 py-2.5 font-semibold text-ink">
           <LogIn className="size-4" /> Accedi
         </button>
       </section>
@@ -218,7 +218,7 @@ export function MyListings() {
         ) : (
           <span className="h-7 w-48 animate-pulse rounded-full bg-crema/[0.07]" aria-label="Caricamento" />
         )}
-        <SmartLink href={page("/vetrina/invia/")} className="ml-auto inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink">
+        <SmartLink href={page("/vetrina/invia/")} className="ml-auto inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-2 text-sm font-bold text-ink">
           <Plus className="size-4" /> Nuova scheda
         </SmartLink>
       </div>
@@ -249,7 +249,7 @@ export function MyListings() {
         <div className="rounded-3xl border border-dashed border-sand/25 p-10 text-center">
           <p className="font-display text-3xl text-crema/85">Nessuna scheda, per ora</p>
           <p className="mt-2 text-crema/55">Il tuo server o il tuo bot meritano uno spazio sugli scaffali.</p>
-          <SmartLink href={page("/vetrina/invia/")} className="mt-6 inline-flex items-center gap-2 rounded-full bg-crema px-5 py-2.5 font-semibold text-ink">
+          <SmartLink href={page("/vetrina/invia/")} className="mt-6 inline-flex items-center gap-2 rounded-full bg-crema px-5 py-2.5 font-bold text-ink">
             <Plus className="size-4" /> Metti in vetrina
           </SmartLink>
         </div>

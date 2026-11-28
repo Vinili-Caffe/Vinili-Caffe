@@ -16,7 +16,7 @@ function Title({ kicker, title, icon, action }: { kicker: string; title: string;
   return (
     <div className="mb-5 flex items-end justify-between gap-4">
       <div>
-        <p className="flex items-center gap-2 text-xs font-semibold text-caramel [&>svg]:size-4">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-caramel [&>svg]:size-4">
           {icon} {kicker}
         </p>
         <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">{title}</h2>
@@ -40,7 +40,7 @@ export function RankCard({ p, owns }: { p: ProfileData; owns: boolean }) {
   return (
     <Reveal>
       <Title kicker="Rank & livelli" title="Card e calcolatore" icon={<Sparkles />} action={owns ? <EditLink href="/personalizza/" /> : undefined} />
-      <div className="overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
+      <div className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
         <div className="relative p-3 sm:p-4">
           {/* l'immagine resta nel layout (invisibile) finché carica: con display:none il lazy-load non partirebbe */}
           {state !== "ok" && (
@@ -87,7 +87,7 @@ function Shared({ members, count, label }: { members?: SharedMember[]; count?: n
                 <a href={`/user/?id=${m.id}`} className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-crema/[0.05]">
                   <Avatar userId={m.id} src={m.avatarUrl} name={m.displayName || m.username || "?"} className="size-7 text-xs" />
                   <span className="min-w-0 flex-1 truncate text-sm">{m.displayName || m.username}</span>
-                  {m.isOwner && <span className="text-xs font-semibold text-caramel">Creatore</span>}
+                  {m.isOwner && <span className="text-[0.65rem] font-bold uppercase tracking-wider text-caramel">Creatore</span>}
                 </a>
               </li>
             ))}
@@ -102,13 +102,13 @@ function RoleCard({ role, label }: { role: CustomRole; label: string }) {
   const c1 = role.color || "#c4a07a";
   const bg = role.colorMode === "gradient" && role.color2 ? `linear-gradient(135deg, ${c1}, ${role.color2})` : c1;
   return (
-    <article className="overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
+    <article className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
       <div className="flex items-center gap-4 p-5">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl shadow-inner ring-1 ring-white/15" style={{ background: bg }}>
           {role.iconUrl ? <img src={role.iconUrl} alt="" className="size-8 drop-shadow" /> : role.emoji ? <span className="text-2xl"><EmojiText text={role.emoji} /></span> : null}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-crema/45">{label}</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-crema/45">{label}</p>
           <p className="truncate bg-clip-text font-display text-xl font-semibold text-transparent" style={{ backgroundImage: role.colorMode === "gradient" && role.color2 ? bg : `linear-gradient(${c1},${c1})` }}>
             {cleanRole(role.name)}
           </p>
@@ -122,11 +122,11 @@ function RoleCard({ role, label }: { role: CustomRole; label: string }) {
 
 function VoiceCard({ voice }: { voice: CustomVoice }) {
   return (
-    <article className="overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
+    <article className="overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
       <div className="flex items-center gap-4 p-5">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/25">{voice.emoji ? <span className="text-2xl"><EmojiText text={voice.emoji} /></span> : <Mic className="size-6" />}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-crema/45">Vocale privata</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.2em] text-crema/45">Vocale privata</p>
           <p className="truncate font-display text-xl font-semibold"><EmojiText text={voice.name} /></p>
           {voice.createdAt && <p className="text-xs text-crema/40">Creata il {dateIt(voice.createdAt)}</p>}
         </div>
@@ -165,14 +165,16 @@ export function CandyCollection({ p }: { p: ProfileData }) {
   const pct = Math.round((c.ownedCount / Math.max(1, c.total)) * 100);
   return (
     <Reveal>
-      <div className="scheme-dark relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1608] via-roast to-[#1a0f1f] p-6 ring-1 ring-[#ff8a1f]/25 sm:p-7"><div className="relative flex flex-wrap items-end justify-between gap-4">
+      <div className="scheme-dark relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1608] via-roast to-[#1a0f1f] p-6 ring-1 ring-[#ff8a1f]/25 sm:p-7">
+        <div className="absolute -right-10 -top-10 hidden size-48 rounded-full bg-[#ff8a1f]/15 blur-3xl md:block" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="flex items-center gap-2 text-xs font-semibold text-[#ffab5e]">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#ffab5e]">
               <Ghost className="size-4" /> Evento di Halloween
             </p>
             <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">Collezione di caramelle</h2>
           </div>
-          <p className="font-display text-3xl font-semibold lining-nums">
+          <p className="font-display text-3xl font-bold lining-nums">
             {c.ownedCount}
             <span className="text-crema/40">/{c.total}</span>
           </p>

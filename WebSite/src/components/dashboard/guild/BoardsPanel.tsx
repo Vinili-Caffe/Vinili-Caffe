@@ -774,7 +774,7 @@ export function BoardsPanel({
 
         <section className="rounded-3xl bg-roast/70 p-4 ring-1 ring-sand/10 sm:p-5">
           <div className="flex flex-wrap items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-caramel/10 text-ember ring-1 ring-caramel/20">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20">
               <Hash className="size-[1.1rem]" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
@@ -826,7 +826,13 @@ export function BoardsPanel({
                   "relative overflow-hidden rounded-3xl bg-roast/70 p-4 ring-1 transition sm:p-5",
                   on ? "ring-sand/15" : "ring-sand/[0.07]",
                 )}
-              ><div className="relative flex items-start gap-3">
+              >
+                <div
+                  className="pointer-events-none absolute -right-10 -top-12 size-40 rounded-full blur-3xl transition-opacity"
+                  style={{ background: meta.accent, opacity: on ? 0.14 : 0.04 }}
+                  aria-hidden
+                />
+                <div className="relative flex items-start gap-3">
                   <span
                     className="flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1 transition"
                     style={{ color: on ? meta.accent : undefined, background: on ? `${meta.accent}1f` : undefined, borderColor: "transparent" }}
@@ -900,7 +906,9 @@ export function BoardsPanel({
         onReset={() => setPresentation(settings.boards.presentation ?? DEFAULT_BOARD_PRESENTATION)}
       />
 
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15"><div className="relative flex flex-wrap items-center gap-4">
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-mocha via-roast to-espresso p-5 ring-1 ring-sand/15">
+        <div className="pointer-events-none absolute -right-14 -top-16 size-56 rounded-full blur-3xl" style={{ background: meta.accent, opacity: featureOn ? 0.2 : 0.06 }} aria-hidden />
+        <div className="relative flex flex-wrap items-center gap-4">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl ring-1 ring-sand/15" style={{ color: meta.accent, background: `${meta.accent}1a` }}>
             <Icon className="size-6" aria-hidden />
           </span>

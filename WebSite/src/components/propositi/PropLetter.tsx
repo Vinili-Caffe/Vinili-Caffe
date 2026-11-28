@@ -18,7 +18,7 @@ export function Seal({ status, className }: { status: PropStatus; className?: st
     <span
       title={STATUS[status]}
       className={cn(
-        "flex size-12 shrink-0 items-center justify-center rounded-full font-display text-sm font-semibold text-paper/90 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35),0_4px_10px_-4px_rgba(0,0,0,0.7)]",
+        "flex size-12 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-paper/90 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35),0_4px_10px_-4px_rgba(0,0,0,0.7)]",
         status === "active" && "bg-[radial-gradient(circle_at_35%_30%,#c0503c,#7a2418)]",
         status === "resolved" && "bg-[radial-gradient(circle_at_35%_30%,#5f9a6a,#2c5634)]",
         status === "soft_deleted" && "bg-[radial-gradient(circle_at_35%_30%,#8a817a,#4a443f)]",
@@ -102,13 +102,13 @@ export function Letter({
         onClick={onOpen}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
         className={cn(
-          "vc-prop-burn__sheet group relative cursor-pointer overflow-hidden rounded-sm bg-[#ece0c8] bg-[linear-gradient(180deg,rgba(255,250,240,0.5),transparent_30%,transparent_80%,rgba(120,80,40,0.12))] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] transition-transform duration-300  focus-visible:outline-2 focus-visible:outline-ember",
+          "vc-prop-burn__sheet group relative cursor-pointer overflow-hidden rounded-sm bg-[#ece0c8] bg-[linear-gradient(180deg,rgba(255,250,240,0.5),transparent_30%,transparent_80%,rgba(120,80,40,0.12))] p-6 text-ink shadow-[0_24px_40px_-24px_rgba(0,0,0,1)] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-ember",
           gone && !burning && "opacity-80",
         )}
       >
         {gone && !burning && (
           <span className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-            <span className="rounded-full bg-ink/75 px-2.5 py-0.5 text-xs font-semibold text-paper/90">
+            <span className="rounded-full bg-ink/75 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-paper/90">
               Eliminato
             </span>
           </span>
@@ -147,7 +147,7 @@ export function Letter({
               {likes}
             </button>
             {c.isMine && (
-              <span className="rounded-full bg-ink/10 px-2 py-0.5 text-xs font-semibold text-ink/70">
+              <span className="rounded-full bg-ink/10 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-ink/70">
                 Il tuo
               </span>
             )}
@@ -196,7 +196,7 @@ export function Letter({
               </button>
             ))}
             {c.commentCount > preview.length && (
-              <p className="text-center text-xs font-semibold text-ink/40">
+              <p className="text-center text-[0.7rem] font-semibold uppercase tracking-wider text-ink/40">
                 +{c.commentCount - preview.length} · apri per leggere
               </p>
             )}

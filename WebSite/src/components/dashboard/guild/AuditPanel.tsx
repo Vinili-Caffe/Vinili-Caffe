@@ -68,7 +68,7 @@ function AuditEntry({ row, open, onToggle }: { row: AuditRow; open: boolean; onT
              
             <img src={row.avatar} alt="" width={32} height={32} className="size-8 rounded-full object-cover" />
           ) : (
-            <span className="flex size-8 items-center justify-center rounded-full bg-crema/[0.08] text-xs font-semibold text-crema/80">
+            <span className="flex size-8 items-center justify-center rounded-full bg-crema/[0.08] text-xs font-bold text-crema/80">
               {(row.username || "?").charAt(0).toUpperCase()}
             </span>
           )}
@@ -131,7 +131,7 @@ function AuditEntry({ row, open, onToggle }: { row: AuditRow; open: boolean; onT
                 ) : null}
               </dl>
               <div>
-                <p className="text-xs font-semibold text-crema/50">Cosa è cambiato</p>
+                <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/50">Cosa è cambiato</p>
                 {row.fields.length ? (
                   <ul className="mt-1.5 space-y-1">
                     {row.fields.map((f, i) => (
@@ -216,7 +216,7 @@ export function AuditPanel({
       <section id={boxId} className="scroll-mt-24 overflow-hidden rounded-3xl bg-roast/70 ring-1 ring-sand/10">
         <header className="flex items-center gap-3 border-b border-sand/[0.08] px-4 py-3.5 sm:px-5">
           {Icon ? (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-caramel/10 text-ember ring-1 ring-caramel/20">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-caramel/20 to-ember/5 text-ember ring-1 ring-caramel/20">
               <Icon className="size-4" />
             </span>
           ) : null}
@@ -238,7 +238,7 @@ export function AuditPanel({
             <div className="space-y-4">
               {groups.map((g) => (
                 <div key={g.day}>
-                  <h4 className="mb-1.5 text-xs font-semibold text-crema/60">{g.day}</h4>
+                  <h4 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{g.day}</h4>
                   <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-2xl bg-espresso/45 ring-1 ring-sand/10">
                     {g.rows.map((r, i) => {
                       const id = rowKey(r, i);
@@ -277,7 +277,7 @@ export function AuditPanel({
         <div className="space-y-4">
           {groups.map((g) => (
             <section key={g.day}>
-              <h3 className="mb-1.5 text-xs font-semibold text-crema/60">{g.day}</h3>
+              <h3 className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/60">{g.day}</h3>
               <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
                 {g.rows.map((r, i) => {
                   const id = rowKey(r, i);

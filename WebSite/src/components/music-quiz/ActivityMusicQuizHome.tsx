@@ -46,7 +46,7 @@ export function ActivityGameBar({ game, onPick }: { game: Game | null; onPick: (
             onClick={() => onPick(g.id)}
             aria-current={game === g.id ? "page" : undefined}
             className={cn(
-              "relative inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition sm:px-4",
+              "relative inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold uppercase tracking-wide transition sm:px-4",
               game === g.id ? "text-ink" : "text-crema/60 hover:text-crema",
             )}
           >
@@ -177,7 +177,7 @@ export function ActivityMusicQuizHome({ children }: { children: React.ReactNode 
             <p className="min-w-0 flex-1 text-sm text-crema">
               <b>{incoming.fromName || "Qualcuno"}</b> ti sfida a <b>{DUEL_LABEL[incoming.game]}</b>: vince chi indovina per primo
             </p>
-            <button type="button" onClick={playIncoming} className="h-9 shrink-0 rounded-xl bg-caramel px-4 text-xs font-semibold text-ink">
+            <button type="button" onClick={playIncoming} className="h-9 shrink-0 rounded-xl bg-caramel px-4 text-xs font-bold uppercase tracking-wide text-ink">
               Gioca
             </button>
             <button type="button" onClick={() => setIncoming(null)} aria-label="Chiudi" className="grid size-8 shrink-0 place-items-center rounded-lg text-crema/50 hover:text-crema">

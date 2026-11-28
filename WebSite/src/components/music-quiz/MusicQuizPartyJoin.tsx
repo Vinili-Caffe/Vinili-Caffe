@@ -54,8 +54,8 @@ export function MusicQuizPartyJoin({
           <p className="mt-4 font-display text-2xl font-semibold text-caramel">Entra nella stanza</p>
           {readyCode ? (
             <>
-              <p className="mt-4 text-xs font-semibold text-crema/45">Stanza</p>
-              <p className="mt-1 font-mono text-3xl font-semibold tracking-widest text-crema">{formatPartyCode(digits)}</p>
+              <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-crema/45">Stanza</p>
+              <p className="mt-1 font-mono text-3xl font-bold tracking-widest text-crema">{formatPartyCode(digits)}</p>
             </>
           ) : (
             <p className="mt-3 text-sm text-crema/55">Inserisci il codice a 6 cifre dell&apos;invito.</p>
@@ -65,7 +65,7 @@ export function MusicQuizPartyJoin({
         <div className="mt-6 border-t border-dashed border-sand/15 pt-6">
           {!roomId || digits.length < 6 ? (
             <label className="block">
-              <span className="text-xs font-semibold text-crema/45">Codice stanza</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-crema/45">Codice stanza</span>
               <input
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -103,9 +103,9 @@ export function MusicQuizPartyJoin({
             disabled={!readyCode || busy || !token}
             onClick={() => void submit()}
             className={cn(
-              "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition",
+              "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition",
               readyCode && !busy
-                ? "bg-caramel text-ink "
+                ? "bg-gradient-to-r from-caramel to-ember text-ink hover:-translate-y-0.5"
                 : "bg-crema/10 text-crema/40",
             )}
           >

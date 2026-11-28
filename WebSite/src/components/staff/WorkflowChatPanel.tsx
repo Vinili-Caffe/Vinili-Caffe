@@ -98,7 +98,7 @@ export function WorkflowChatPanel({ token, dedupeKey }: { token: string; dedupeK
   return (
     <div className="flex max-h-[28rem] flex-col rounded-2xl bg-espresso/40 ring-1 ring-sand/12">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sand/10 px-3 py-2">
-        <p className="text-xs font-semibold text-crema/45">
+        <p className="text-xs font-semibold uppercase tracking-wider text-crema/45">
           Chat pratica {data.status ? `· ${data.status}` : ""}
           {sc?.active ? <span className="ml-1.5 text-emerald-300/90">· richiedente in chat</span> : null}
         </p>
@@ -194,7 +194,7 @@ export function WorkflowChatPanel({ token, dedupeKey }: { token: string; dedupeK
           <button
             type="submit"
             disabled={busy || !text.trim()}
-            className="inline-flex size-10 items-center justify-center rounded-xl bg-caramel text-ink disabled:opacity-40"
+            className="inline-flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-caramel to-ember text-ink disabled:opacity-40"
             aria-label="Invia"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}

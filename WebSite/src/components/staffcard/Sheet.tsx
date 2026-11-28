@@ -43,7 +43,7 @@ export function Sheet({ title, kicker, onClose, children, wide }: { title: strin
       >
         <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-sand/10 bg-roast px-5 py-4 sm:px-7">
           <div className="min-w-0">
-            {kicker && <p className="text-xs font-semibold text-caramel">{kicker}</p>}
+            {kicker && <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em] text-caramel">{kicker}</p>}
             <h2 className="truncate font-display text-2xl font-semibold">{title}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Chiudi" className="ml-auto rounded-full p-2 text-crema/60 hover:bg-crema/8 hover:text-crema">
@@ -61,7 +61,7 @@ export function Sheet({ title, kicker, onClose, children, wide }: { title: strin
 export function ReasonRow({ id, text, children }: { id: number; text: string; children?: React.ReactNode }) {
   return (
     <li className="flex items-start gap-3 rounded-xl bg-crema/[0.04] px-3 py-2.5 ring-1 ring-sand/10">
-      <span className="mt-0.5 shrink-0 font-mono text-xs font-semibold text-caramel lining-nums">#{id}</span>
+      <span className="mt-0.5 shrink-0 font-mono text-xs font-bold text-caramel lining-nums">#{id}</span>
       <span className="min-w-0 flex-1 text-sm leading-relaxed text-crema/85">{text}</span>
       {children}
     </li>

@@ -350,7 +350,7 @@ export function BachecaWall() {
             onClick={draw}
             disabled={drawing}
             whileTap={{ scale: 0.94 }}
-            className="inline-flex items-center gap-2 rounded-full bg-caramel px-4 py-1.5 text-sm font-semibold text-ink shadow-[0_10px_24px_-10px_rgba(0,0,0,0.55)]"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-4 py-1.5 text-sm font-semibold text-ink shadow-[0_10px_24px_-10px_rgba(232,160,90,0.8)]"
           >
             {drawing ? <Loader2 className="size-4 animate-spin" /> : <Shuffle className="size-4" />} Pesca dal muro
           </motion.button>
@@ -374,7 +374,7 @@ export function BachecaWall() {
             </div>
           ) : err ? (
             <div className="mx-auto max-w-md rotate-[-1deg] bg-[#fbe68a] p-6 text-center text-ink shadow-lg">
-              <p className="font-display text-2xl font-semibold">Il muro non si carica</p>
+              <p className="font-display text-2xl font-bold">Il muro non si carica</p>
               <p className="mt-2 text-sm text-ink/70">{err}</p>
               <button type="button" onClick={() => load()} className="mt-4 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-paper">
                 Riprova
@@ -382,7 +382,7 @@ export function BachecaWall() {
             </div>
           ) : items.length === 0 ? (
             <div className="mx-auto max-w-md rotate-[1deg] bg-[#fbf7ef] p-6 text-center text-ink shadow-lg">
-              <p className="font-display text-2xl font-semibold">Ancora niente qui</p>
+              <p className="font-display text-2xl font-bold">Ancora niente qui</p>
               <p className="mt-2 text-sm text-ink/70">Usa +quote, +repost, +clip o una 💀 su Discord: i contenuti finiscono su questo muro.</p>
             </div>
           ) : (
@@ -491,11 +491,11 @@ function BachecaDetail({
       <button type="button" onClick={onClose} aria-label="Chiudi" className="absolute right-3 top-3 rounded-full p-1.5 text-ink/60 hover:bg-ink/10 hover:text-ink">
         <X className="size-5" />
       </button>
-      <p className="text-xs font-semibold text-ink/50">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-ink/50">
         {title}
         {item.number ? ` · #${item.number}` : ""}
       </p>
-      <p className="mt-1 font-display text-3xl font-semibold leading-tight">{item.author.name}</p>
+      <p className="mt-1 font-display text-3xl font-bold leading-tight">{item.author.name}</p>
 
       <div className="mt-4 space-y-3">
         {item.kind === "clip" ? (

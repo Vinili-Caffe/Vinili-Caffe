@@ -153,7 +153,7 @@ export function MusicQuizPartyLobby({
           <Disc3 className="size-6" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-ink/65">Lobby del party</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-ink/65">Lobby del party</p>
           {editingName && isHost ? (
             <form
               className="mt-0.5 flex items-center gap-2"
@@ -191,7 +191,7 @@ export function MusicQuizPartyLobby({
           type="button"
           onClick={onLeave}
           aria-label="Esci dalla stanza"
-          className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink/80 px-3 text-xs font-semibold text-crema transition hover:bg-ink sm:px-4"
+          className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink/80 px-3 text-xs font-bold uppercase tracking-wide text-crema transition hover:bg-ink sm:px-4"
         >
           <LogOut className="size-4" aria-hidden /> <span className="hidden sm:inline">Esci</span>
         </button>
@@ -201,13 +201,13 @@ export function MusicQuizPartyLobby({
       {inCall ? (
         <Card className="flex flex-col items-center gap-3 sm:flex-row">
           <div className="min-w-0 flex-1 text-center sm:text-left">
-            <p className="text-xs font-semibold text-crema/45">Partita della chiamata</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">Partita della chiamata</p>
             <p className="text-sm text-crema/70">Chi apre il Music Quiz in questa chiamata entra da solo. Per gli altri c'è l'invito di Discord.</p>
           </div>
           <button
             type="button"
             onClick={() => void activityInvite()}
-            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#5865F2] px-5 text-sm font-semibold text-white transition hover:brightness-110"
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#5865F2] px-5 text-sm font-bold text-white transition hover:brightness-110"
           >
             <UserPlus className="size-4" aria-hidden /> Invita su Discord
           </button>
@@ -217,7 +217,7 @@ export function MusicQuizPartyLobby({
         <button
           type="button"
           onClick={() => setQrOpen(true)}
-          className="group relative shrink-0 rounded-xl transition  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+          className="group relative shrink-0 rounded-xl transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
           aria-label="Ingrandisci il QR per farlo inquadrare"
           title="Ingrandisci il QR"
         >
@@ -228,8 +228,8 @@ export function MusicQuizPartyLobby({
           </span>
         </button>
         <div className="min-w-0 flex-1 text-center sm:text-left">
-          <p className="text-xs font-semibold text-crema/45">Codice stanza</p>
-          <p className="font-mono text-4xl font-semibold tracking-[0.18em] text-crema">{formatPartyCode(room.roomId)}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">Codice stanza</p>
+          <p className="font-mono text-4xl font-bold tracking-[0.18em] text-crema">{formatPartyCode(room.roomId)}</p>
           {settings.locked ? (
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-ember">
               <Lock className="size-3" aria-hidden /> Stanza bloccata: nessuno può entrare
@@ -252,7 +252,7 @@ export function MusicQuizPartyLobby({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={head?.cover || room.packCover || "/images/logo-disco.png"} alt="" className="size-20 shrink-0 rounded-2xl object-cover ring-1 ring-sand/20 sm:size-28" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-caramel">Prossimo</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-caramel">Prossimo</p>
           <h2 className="mt-1 truncate font-display text-2xl font-semibold text-crema sm:text-3xl">{head?.title || room.packTitle}</h2>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Tag icon={<Disc3 className="size-3" />}>Music Quiz</Tag>
@@ -266,7 +266,7 @@ export function MusicQuizPartyLobby({
       {/* giocatori */}
       <Card>
         <SectionHead icon={<Users className="size-5" />} kicker="Lobby" title="Giocatori">
-          <span className="rounded-full bg-crema/[0.07] px-3 py-1 text-sm font-semibold tabular-nums ring-1 ring-sand/15">
+          <span className="rounded-full bg-crema/[0.07] px-3 py-1 text-sm font-bold tabular-nums ring-1 ring-sand/15">
             <span className="text-caramel">{players.length}</span>
             <span className="text-crema/60"> / {max}</span>
           </span>
@@ -293,14 +293,14 @@ export function MusicQuizPartyLobby({
                   <span className={cn("min-w-0 flex-1 truncate font-semibold", host ? "text-caramel" : "text-crema")}>{p.displayName}</span>
                   {!room.scoresHidden || mine ? (
                     (p.roomPoints || 0) > 0 ? (
-                      <span className="inline-flex h-6 items-center rounded-full bg-caramel/15 px-2.5 text-[11px] font-semibold tabular-nums leading-none text-caramel" title="Punti della stanza">
+                      <span className="inline-flex h-6 items-center rounded-full bg-caramel/15 px-2.5 text-[11px] font-bold tabular-nums leading-none text-caramel" title="Punti della stanza">
                         {p.roomPoints} pt
                       </span>
                     ) : null
                   ) : null}
-                  {mine ? <span className="inline-flex h-6 items-center rounded-full bg-crema/10 px-2.5 text-xs font-semibold leading-none text-crema/70">Tu</span> : null}
+                  {mine ? <span className="inline-flex h-6 items-center rounded-full bg-crema/10 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-crema/70">Tu</span> : null}
                   {host ? (
-                    <span className="inline-flex h-6 items-center gap-1 rounded-full bg-caramel/20 px-2.5 text-xs font-semibold leading-none text-caramel">
+                    <span className="inline-flex h-6 items-center gap-1 rounded-full bg-caramel/20 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-caramel">
                       <Crown className="size-3" aria-hidden /> {settings.presentationMode ? "Presenta" : "Host"}
                     </span>
                   ) : isHost ? (
@@ -375,7 +375,7 @@ export function MusicQuizPartyLobby({
                   />
                   {settings.queueAdd === "selected" ? (
                     <div>
-                      <p className="text-xs font-semibold text-crema/45">Chi può aggiungere</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-crema/45">Chi può aggiungere</p>
                       {others.length ? (
                         <ul className="mt-2 flex flex-wrap gap-1.5">
                           {others.map((p) => {
@@ -440,7 +440,7 @@ export function MusicQuizPartyLobby({
                 <Plus className="size-5" />
               </span>
               <span>
-                <span className="block text-sm font-semibold text-crema">Aggiungi gioco</span>
+                <span className="block text-sm font-bold uppercase tracking-wide text-crema">Aggiungi gioco</span>
                 <span className="text-xs text-crema/50">Metti in coda il prossimo quiz della stanza</span>
               </span>
             </button>
@@ -487,7 +487,7 @@ export function MusicQuizPartyLobby({
                   <p className="text-sm font-semibold text-crema">Tempo per rispondere</p>
                   <p className="text-xs text-crema/45">Quanto tempo hanno tutti a ogni domanda. Vale dal round successivo.</p>
                 </div>
-                <span className="font-mono text-xl font-semibold tabular-nums text-caramel">{settings.answerMs / 1000}s</span>
+                <span className="font-mono text-xl font-bold tabular-nums text-caramel">{settings.answerMs / 1000}s</span>
               </div>
               <div className="mt-3 grid grid-cols-6 gap-1 rounded-xl bg-ink/30 p-1">
                 {MUSIC_QUIZ_ANSWER_CHOICES_MS.map((ms) => (
@@ -496,7 +496,7 @@ export function MusicQuizPartyLobby({
                     type="button"
                     onClick={() => void patchSettings({ answerMs: ms })}
                     className={cn(
-                      "relative rounded-lg py-1.5 text-xs font-semibold tabular-nums transition",
+                      "relative rounded-lg py-1.5 text-xs font-bold tabular-nums transition",
                       settings.answerMs === ms ? "text-ink" : "text-crema/60 hover:text-crema",
                     )}
                   >
@@ -566,7 +566,7 @@ export function MusicQuizPartyLobby({
                         >
                           <Minus className="size-4" />
                         </button>
-                        <span className="w-8 text-center font-mono text-lg font-semibold tabular-nums text-crema">{max}</span>
+                        <span className="w-8 text-center font-mono text-lg font-bold tabular-nums text-crema">{max}</span>
                         <button
                           type="button"
                           disabled={busy || max >= 20}
@@ -605,7 +605,7 @@ export function MusicQuizPartyLobby({
                 type="button"
                 disabled={busy || !canStart}
                 onClick={() => void onAct("start")}
-                className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-caramel text-base font-semibold uppercase tracking-wide text-ink shadow-[0_12px_30px_-12px_rgba(0,0,0,0.55)] transition hover:brightness-105 disabled:from-crema/25 disabled:to-crema/25 disabled:text-crema/60 disabled:shadow-none"
+                className="flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-caramel to-ember text-base font-bold uppercase tracking-wide text-ink shadow-[0_12px_30px_-12px_rgba(214,154,95,0.8)] transition hover:brightness-105 disabled:from-crema/25 disabled:to-crema/25 disabled:text-crema/60 disabled:shadow-none"
               >
                 <Play className="size-5 fill-current" aria-hidden /> Inizia la partita
               </button>
@@ -648,8 +648,8 @@ export function MusicQuizPartyLobby({
             <div className="flex flex-col items-center text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrBig} alt="QR per entrare nella stanza" className="aspect-square w-full max-w-[18rem] rounded-2xl bg-crema p-3" />
-              <p className="mt-4 text-xs font-semibold text-crema/45">Codice stanza</p>
-              <p className="font-mono text-4xl font-semibold tracking-[0.18em] text-crema">{formatPartyCode(room.roomId)}</p>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">Codice stanza</p>
+              <p className="font-mono text-4xl font-bold tracking-[0.18em] text-crema">{formatPartyCode(room.roomId)}</p>
               <div className="mt-4 flex gap-2">
                 <PillButton onClick={() => copy("link")} icon={copied === "link" ? <Check className="size-4" /> : <Copy className="size-4" />}>
                   {copied === "link" ? "Link copiato" : "Copia link"}
@@ -671,7 +671,7 @@ export function MusicQuizPartyLobby({
               <HelpStep n={5}>Alla fine c&apos;è il podio, e l&apos;host può far partire il prossimo quiz della coda.</HelpStep>
             </ol>
             <div className="mt-5">
-              <p className="text-sm font-semibold text-crema">Punti della stanza</p>
+              <p className="text-sm font-bold text-crema">Punti della stanza</p>
               <p className="mt-1 text-sm text-crema/70">
                 Come in Formula 1: alla fine di ogni gioco i primi 10 prendono questi punti, che si sommano per tutta la stanza.
               </p>
@@ -684,8 +684,8 @@ export function MusicQuizPartyLobby({
                       i < 3 ? "bg-caramel/15 ring-caramel/40" : "bg-espresso/60 ring-sand/10",
                     )}
                   >
-                    <p className="text-[10px] font-semibold text-crema/45">#{i + 1}</p>
-                    <p className={cn("font-mono text-lg font-semibold tabular-nums", i < 3 ? "text-caramel" : "text-crema")}>{pts}</p>
+                    <p className="text-[10px] font-bold text-crema/45">#{i + 1}</p>
+                    <p className={cn("font-mono text-lg font-bold tabular-nums", i < 3 ? "text-caramel" : "text-crema")}>{pts}</p>
                   </div>
                 ))}
               </div>
@@ -709,7 +709,7 @@ function SectionHead({ icon, kicker, title, children }: { icon: ReactNode; kicke
     <div className="mb-4 flex items-center gap-3">
       <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-crema/[0.06] text-crema/70 ring-1 ring-sand/10">{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-crema/45">{kicker}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-crema/45">{kicker}</p>
         <h3 className="font-display text-2xl font-semibold leading-tight text-crema">{title}</h3>
       </div>
       {children}
@@ -723,7 +723,7 @@ function Row({ children }: { children: ReactNode }) {
 
 function PillButton({ onClick, icon, children }: { onClick: () => void; icon: ReactNode; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className="inline-flex items-center gap-1.5 rounded-full bg-crema/[0.07] px-4 py-2 text-xs font-semibold text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.13]">
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-1.5 rounded-full bg-crema/[0.07] px-4 py-2 text-xs font-bold uppercase tracking-wide text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.13]">
       {icon}
       {children}
     </button>
@@ -772,7 +772,7 @@ function Seg({ label, hint, value, options, onChange }: { label: string; hint?: 
             key={o.id}
             type="button"
             onClick={() => onChange(o.id)}
-            className={cn("flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition", value === o.id ? "bg-caramel text-ink" : "text-crema/60 hover:text-crema")}
+            className={cn("flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition", value === o.id ? "bg-caramel text-ink" : "text-crema/60 hover:text-crema")}
           >
             {o.label}
           </button>
@@ -804,14 +804,14 @@ function QueueRow({
   const next = index === 0;
   return (
     <motion.li layout className={cn("flex items-center gap-3 rounded-2xl p-2.5 ring-1", next ? "bg-caramel/[0.08] ring-caramel/35" : "bg-espresso/55 ring-sand/10")}>
-      <span className="w-5 text-center text-sm font-semibold tabular-nums text-crema/40">{index + 1}</span>
+      <span className="w-5 text-center text-sm font-bold tabular-nums text-crema/40">{index + 1}</span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={item.cover || "/images/logo-disco.png"} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-crema">{item.title}</p>
         <div className="mt-1 flex flex-wrap items-center gap-1">
           <Tag>{diffLabel(item.difficulty)}</Tag>
-          {next ? <span className="inline-flex h-6 items-center rounded-full bg-caramel/25 px-2.5 text-xs font-semibold leading-none text-caramel ring-1 ring-caramel/40">Prossimo</span> : null}
+          {next ? <span className="inline-flex h-6 items-center rounded-full bg-caramel/25 px-2.5 text-[10px] font-bold uppercase leading-none tracking-wide text-caramel ring-1 ring-caramel/40">Prossimo</span> : null}
         </div>
       </div>
       {isHost ? (
@@ -829,7 +829,7 @@ function QueueRow({
             type="button"
             disabled={busy}
             onClick={onPlay}
-            className="ml-1 hidden items-center gap-1.5 rounded-xl bg-crema/[0.08] px-3 py-2 text-xs font-semibold text-crema ring-1 ring-sand/15 transition hover:bg-caramel hover:text-ink sm:inline-flex"
+            className="ml-1 hidden items-center gap-1.5 rounded-xl bg-crema/[0.08] px-3 py-2 text-xs font-bold uppercase text-crema ring-1 ring-sand/15 transition hover:bg-caramel hover:text-ink sm:inline-flex"
           >
             <Play className="size-3.5 fill-current" aria-hidden /> Gioca
           </button>
@@ -880,7 +880,7 @@ function Modal({ title, onClose, wide, children }: { title: string; onClose: () 
 function HelpStep({ n, children }: { n: number; children: ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-caramel/20 text-xs font-semibold text-caramel">{n}</span>
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-caramel/20 text-xs font-bold text-caramel">{n}</span>
       <span className="pt-0.5">{children}</span>
     </li>
   );

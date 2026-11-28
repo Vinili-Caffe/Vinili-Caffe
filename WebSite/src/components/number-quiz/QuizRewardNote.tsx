@@ -23,7 +23,7 @@ export function QuizRewardNote({ reward, className = "" }: { reward: QuizReward;
         <button
           type="button"
           onClick={() => login()}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#5865F2] px-4 py-1.5 text-xs font-semibold text-white transition hover:brightness-110"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#5865F2] px-4 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
         >
           <LogIn className="size-3.5" /> Accedi
         </button>
@@ -38,7 +38,7 @@ export function QuizRewardNote({ reward, className = "" }: { reward: QuizReward;
           href={DISCORD_INVITE}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-1.5 text-xs font-semibold text-ink transition hover:brightness-110"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-1.5 text-xs font-bold text-ink transition hover:brightness-110"
         >
           <Users className="size-3.5" /> Entra nel server
         </a>
@@ -51,7 +51,7 @@ export function QuizRewardNote({ reward, className = "" }: { reward: QuizReward;
         initial={{ scale: 0.7, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 320, damping: 16, delay: 0.3 }}
-        className={`${box} inline-flex items-center justify-center gap-2 bg-caramel/15 font-semibold text-caramel ring-caramel/40`}
+        className={`${box} inline-flex items-center justify-center gap-2 bg-caramel/15 font-bold text-caramel ring-caramel/40`}
       >
         <Sparkles className="size-4" /> +{reward.exp} EXP sul tuo livello
         {reward.capped ? <span className="font-normal text-crema/60">· massimo di oggi raggiunto</span> : null}

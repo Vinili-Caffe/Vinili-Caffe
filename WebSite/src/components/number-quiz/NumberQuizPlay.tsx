@@ -119,7 +119,7 @@ export function NumberQuizPlay({ catId }: { catId?: string } = {}) {
 
 function BackLink() {
   return (
-    <NQLink to="list" className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink">
+    <NQLink to="list" className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink">
       <ArrowLeft className="size-4" /> Tutte le categorie
     </NQLink>
   );
@@ -166,7 +166,7 @@ function Setup({
       <div className="relative mx-auto w-full max-w-4xl px-4 pb-20 pt-6">
         <NQLink
           to="list"
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold text-crema/60 transition hover:bg-crema/[0.06] hover:text-crema"
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold uppercase tracking-wide text-crema/60 transition hover:bg-crema/[0.06] hover:text-crema"
         >
           <ArrowLeft className="size-4" /> Categorie
         </NQLink>
@@ -175,7 +175,7 @@ function Setup({
           <span className="text-5xl" aria-hidden>
             {c.emoji}
           </span>
-          <p className="mt-3 text-xs font-semibold text-caramel">Number Quiz · {c.topic}</p>
+          <p className="mt-3 text-xs font-bold uppercase tracking-[0.2em] text-caramel">Number Quiz · {c.topic}</p>
           <h1 className="mt-2 text-balance font-display text-4xl text-crema sm:text-5xl">{c.title}</h1>
           <p className="mx-auto mt-3 max-w-xl text-crema/65">{c.description}</p>
           <p className="mt-3 text-sm text-crema/45">
@@ -212,7 +212,7 @@ function Setup({
               className={cn("relative rounded-xl px-3 py-2.5 text-left transition", stream === o.id ? "text-ink" : "text-crema/70 hover:text-crema")}
             >
               {stream === o.id ? <motion.span layoutId="nq-who" className="absolute inset-0 rounded-xl bg-crema" /> : null}
-              <span className="relative flex items-center gap-2 text-sm font-semibold">
+              <span className="relative flex items-center gap-2 text-sm font-bold">
                 {o.icon} {o.label}
               </span>
               <span className={cn("relative block text-xs", stream === o.id ? "text-ink/60" : "text-crema/45")}>{o.hint}</span>
@@ -284,7 +284,7 @@ function ModeTile({
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-crema/45">
           <Trophy className="size-3.5" /> {record}
         </span>
-        <span className="rounded-full bg-crema px-5 py-2 text-xs font-semibold text-ink">Gioca</span>
+        <span className="rounded-full bg-crema px-5 py-2 text-xs font-bold uppercase tracking-wide text-ink">Gioca</span>
       </span>
     </motion.button>
   );
@@ -438,7 +438,7 @@ export function Pill({ icon, label, value, hot }: { icon: React.ReactNode; label
   return (
     <span
       className={cn(
-        "inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold ring-1 backdrop-blur",
+        "inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold uppercase tracking-wide ring-1 backdrop-blur",
         hot ? "bg-caramel text-ink ring-caramel" : "bg-ink/70 text-crema/75 ring-sand/20",
       )}
     >
@@ -611,11 +611,11 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
                   <h2 className="text-balance font-display text-3xl leading-tight text-crema drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-5xl">
                     {it.name}
                   </h2>
-                  {it.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70 sm:text-base">{it.sub}</p> : null}
+                  {it.sub ? <p className="mt-1.5 text-sm font-semibold uppercase tracking-wide text-crema/70 sm:text-base">{it.sub}</p> : null}
                   <div className="mt-4 min-h-[4.5rem] sm:mt-6">
                     {revealed ? (
                       <>
-                        <p className="font-mono text-4xl font-semibold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
+                        <p className="font-mono text-4xl font-bold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
                           {side === 1 ? <CountUp to={it.value} format={c.format} /> : formatNumberQuizValue(it.value, c.format)}
                         </p>
                         {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -625,14 +625,14 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
                         <span className="grid size-16 place-items-center rounded-2xl bg-ink/60 font-display text-4xl text-crema ring-1 ring-sand/25 backdrop-blur transition group-hover:scale-110 sm:size-20">
                           ?
                         </span>
-                        <span className="mt-3 rounded-full bg-crema/90 px-4 py-1.5 text-xs font-semibold text-ink opacity-90 transition group-hover:opacity-100">
+                        <span className="mt-3 rounded-full bg-crema/90 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-ink opacity-90 transition group-hover:opacity-100">
                           Tocca se è più alto
                         </span>
                       </div>
                     )}
                   </div>
                   {side === 0 && phase === "pick" && revealed ? (
-                    <span className="mt-3 rounded-full bg-ink/60 px-4 py-1.5 text-xs font-semibold text-crema/80 ring-1 ring-sand/20 opacity-0 backdrop-blur transition group-hover:opacity-100">
+                    <span className="mt-3 rounded-full bg-ink/60 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-crema/80 ring-1 ring-sand/20 opacity-0 backdrop-blur transition group-hover:opacity-100">
                       Tocca se è più alto
                     </span>
                   ) : null}
@@ -650,7 +650,7 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 420, damping: 16 }}
             className={cn(
-              "grid size-16 place-items-center rounded-full font-display text-xl font-semibold shadow-[0_10px_40px_rgba(0,0,0,0.6)] ring-4 ring-ink sm:size-20 sm:text-2xl",
+              "grid size-16 place-items-center rounded-full font-display text-xl font-bold shadow-[0_10px_40px_rgba(0,0,0,0.6)] ring-4 ring-ink sm:size-20 sm:text-2xl",
               phase === "right" ? "bg-emerald-500 text-white" : phase === "wrong" ? "bg-ember text-white" : "bg-crema text-ink",
             )}
           >
@@ -728,14 +728,14 @@ export function GameOver({
         transition={{ delay: 0.6, type: "spring", stiffness: 260, damping: 22 }}
         className="w-full max-w-sm rounded-[2rem] bg-roast p-6 text-center ring-1 ring-sand/20 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]"
       >
-        <p className="text-xs font-semibold text-crema/50">Partita finita</p>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-crema/50">Partita finita</p>
         <p className="mt-2 font-display text-4xl text-crema">{title}</p>
         {record ? (
           <motion.p
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.9 }}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-caramel px-3 py-1 text-xs font-semibold text-ink"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-caramel px-3 py-1 text-xs font-bold uppercase text-ink"
           >
             <Trophy className="size-3.5" /> Nuovo record
           </motion.p>
@@ -746,7 +746,7 @@ export function GameOver({
           <button
             type="button"
             onClick={onRestart}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-caramel text-sm font-semibold text-ink transition hover:brightness-105"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember text-sm font-bold uppercase tracking-wide text-ink transition hover:brightness-105"
           >
             <RotateCcw className="size-4" /> Rigioca
           </button>
@@ -754,14 +754,14 @@ export function GameOver({
             <button
               type="button"
               onClick={() => void doShare()}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-crema/[0.07] text-xs font-semibold text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.12]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-crema/[0.07] text-xs font-bold uppercase tracking-wide text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.12]"
             >
               <Copy className="size-4" /> {copied ? "Copiato" : "Condividi"}
             </button>
             <button
               type="button"
               onClick={onExit}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-crema/[0.07] text-xs font-semibold text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.12]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-crema/[0.07] text-xs font-bold uppercase tracking-wide text-crema ring-1 ring-sand/15 transition hover:bg-crema/[0.12]"
             >
               Modalità
             </button>
@@ -900,15 +900,15 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
           >
             <Backdrop item={item} />
             <div className="relative">
-              <p className="text-xs font-semibold text-caramel">{c.title}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-caramel">{c.title}</p>
               <h2 className="mt-2 text-balance font-display text-4xl leading-tight text-crema drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)] sm:text-6xl">
                 {item.name}
               </h2>
-              {item.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70">{item.sub}</p> : null}
+              {item.sub ? <p className="mt-1.5 text-sm font-semibold uppercase tracking-wide text-crema/70">{item.sub}</p> : null}
               <AnimatePresence>
                 {result ? (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
-                    <p className="font-mono text-5xl font-semibold tabular-nums text-caramel sm:text-6xl">
+                    <p className="font-mono text-5xl font-bold tabular-nums text-caramel sm:text-6xl">
                       <CountUp to={item.value} format={c.format} />
                     </p>
                     {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -916,7 +916,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
                       initial={{ scale: 0.5 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14, delay: 0.3 }}
-                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-ink/70 px-4 py-2 text-base font-semibold text-crema ring-1 ring-sand/25 backdrop-blur"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-ink/70 px-4 py-2 text-base font-bold text-crema ring-1 ring-sand/25 backdrop-blur"
                     >
                       <span aria-hidden>{result.emoji}</span> {result.label} · +{formatCount(result.points)}
                     </motion.p>
@@ -944,7 +944,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
                 disabled={Boolean(result)}
                 inputMode="decimal"
                 aria-label="La tua risposta"
-                className="w-full max-w-xs rounded-2xl bg-transparent text-center font-mono text-3xl font-semibold tabular-nums text-crema outline-none focus:bg-crema/[0.06] sm:text-4xl"
+                className="w-full max-w-xs rounded-2xl bg-transparent text-center font-mono text-3xl font-bold tabular-nums text-crema outline-none focus:bg-crema/[0.06] sm:text-4xl"
               />
               {c.unit ? <span className="shrink-0 text-sm text-crema/55">{c.unit}</span> : null}
             </div>
@@ -993,7 +993,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
               <button
                 type="button"
                 onClick={result ? advance : confirm}
-                className="inline-flex h-12 min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-caramel px-6 text-sm font-semibold text-ink transition hover:brightness-105"
+                className="inline-flex h-12 min-w-[9rem] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-caramel to-ember px-6 text-sm font-bold uppercase tracking-wide text-ink transition hover:brightness-105"
               >
                 {result ? (round >= HC_ROUNDS ? "Risultato" : "Avanti") : "Conferma"}
               </button>

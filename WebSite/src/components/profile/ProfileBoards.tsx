@@ -341,7 +341,7 @@ export function ProfileBoards({
   return (
     <Reveal>
       <div id="miei-contenuti" className="mb-5 scroll-mt-28">
-        <p className="flex items-center gap-2 text-xs font-semibold text-caramel">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-caramel">
           <MessageSquareQuote className="size-4" /> Bacheca
         </p>
         <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">Quote, repost e clip</h2>

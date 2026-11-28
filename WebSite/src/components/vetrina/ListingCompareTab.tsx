@@ -327,7 +327,7 @@ export function ListingCompareTab({
   return (
     <div className="space-y-10">
       <div>
-        <p className="flex items-center gap-2 text-xs font-semibold text-caramel">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-caramel">
           <Columns2 className="size-3.5" /> Confronta
         </p>
         <h2 className="mt-2 font-display text-3xl font-semibold text-crema sm:text-4xl">
@@ -345,7 +345,7 @@ export function ListingCompareTab({
             className="grid items-end gap-3 border-b border-sand/10 px-4 py-5 sm:px-6"
             style={{ gridTemplateColumns: `minmax(11rem,1.2fr) repeat(${columns.length}, minmax(7.5rem,1fr))${peerIds.length < MAX_PEERS ? " minmax(7rem,0.85fr)" : ""}` }}
           >
-            <div className="pb-2 text-xs font-semibold text-crema/35">Metriche</div>
+            <div className="pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-crema/35">Metriche</div>
             {columns.map((col, i) => (
               <MiniHead key={col.id} listing={col} onRemove={i > 0 ? () => removePeer(col.id) : undefined} />
             ))}
@@ -430,7 +430,7 @@ export function ListingCompareTab({
                       <span className="block truncate text-sm font-semibold text-crema">{hit.name}</span>
                       <span className="block truncate text-xs text-crema/45">{kindLabel(hit.kind)} · {hit.votesMonth || 0} voti/mese</span>
                     </span>
-                    <span className="text-xs font-semibold text-ember">Aggiungi</span>
+                    <span className="text-xs font-bold text-ember">Aggiungi</span>
                   </button>
                 </li>
               ))}
@@ -480,10 +480,10 @@ export function ListingCompareTab({
                     disabled={already || peerIds.length >= MAX_PEERS}
                     onClick={() => addPeer(s.id)}
                     className={cn(
-                      "rounded-full px-4 py-2 text-sm font-semibold transition",
+                      "rounded-full px-4 py-2 text-sm font-bold transition",
                       already
                         ? "bg-crema/8 text-crema/40"
-                        : "bg-caramel text-ink ",
+                        : "bg-gradient-to-r from-caramel to-ember text-ink hover:-translate-y-0.5",
                     )}
                   >
                     {already ? "Nel confronto" : "Confronta"}

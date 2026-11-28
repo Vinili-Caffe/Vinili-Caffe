@@ -42,7 +42,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               onClick={() => {
                 void hardReload("/", "pulsante Ricarica della pagina di errore");
               }}
-              className="rounded-full bg-caramel px-6 py-3 font-semibold text-ink"
+              className="rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-semibold text-ink"
             >
               Ricarica
             </button>

@@ -39,7 +39,7 @@ export function ServerSwitcher({
        
       <img src={g.iconUrl} alt="" className={cn(size, "shrink-0 rounded-md")} />
     ) : (
-      <span className={cn(size, "flex shrink-0 items-center justify-center rounded-md bg-caramel/15 text-[0.6rem] font-semibold text-ember")}>{g.name.slice(0, 1)}</span>
+      <span className={cn(size, "flex shrink-0 items-center justify-center rounded-md bg-caramel/15 text-[0.6rem] font-bold text-ember")}>{g.name.slice(0, 1)}</span>
     );
 
   return (
@@ -75,7 +75,7 @@ export function ServerSwitcher({
               </label>
             ) : null}
             <div className="max-h-80 overflow-y-auto p-1.5">
-              <p className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-xs font-semibold text-caramel">
+              <p className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-caramel">
                 <Server className="size-3" aria-hidden /> {menuTitle}
               </p>
               {list.map((g) => (
@@ -84,7 +84,7 @@ export function ServerSwitcher({
                   <span className="min-w-0 flex-1 truncate" translate="no">
                     {g.name}
                   </span>
-                  {g.isMain ? <span className="text-xs font-semibold text-sand">principale</span> : null}
+                  {g.isMain ? <span className="text-[0.6rem] font-bold uppercase text-sand">principale</span> : null}
                 </button>
               ))}
             </div>

@@ -186,7 +186,7 @@ await fetch("${BOT_STATS_API_URL}", {
               type="button"
               disabled={cmds.length >= 150}
               onClick={() => setCmds([...cmds, { name: "", description: "", type: "slash", usage: "", category: "" }])}
-              className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-caramel to-ember px-3.5 py-2 text-sm font-bold text-ink disabled:opacity-50"
             >
               <Plus className="size-4" /> Aggiungi
             </button>
@@ -227,7 +227,7 @@ await fetch("${BOT_STATS_API_URL}", {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-2xl bg-espresso/45 p-4 ring-1 ring-sand/10">
-      <p className="text-xs font-semibold text-crema/45">{label}</p>
+      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-crema/45">{label}</p>
       <p className="mt-1 font-display text-2xl font-semibold tabular-nums">{value}</p>
       {hint ? <p className="text-xs text-crema/45">{hint}</p> : null}
     </div>

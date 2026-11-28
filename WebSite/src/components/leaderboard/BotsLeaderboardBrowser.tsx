@@ -68,7 +68,7 @@ function Face({ row, className }: { row: BotsLeaderRow; className?: string }) {
     return <img src={row.avatarUrl} alt="" className={cn("object-cover", className)} />;
   }
   return (
-    <span className={cn("flex items-center justify-center bg-crema/10 font-semibold text-crema/80", className)} aria-hidden>
+    <span className={cn("flex items-center justify-center bg-crema/10 font-bold text-crema/80", className)} aria-hidden>
       {(row.displayName.charAt(0) || "?").toUpperCase()}
     </span>
   );
@@ -95,7 +95,9 @@ function PodiumDisc({
   );
   const body = (
     <>
-      <div className="relative"><motion.div
+      <div className="relative">
+        <div className="absolute inset-[-14%] rounded-full blur-2xl" style={{ background: `radial-gradient(circle, ${p.glow}, transparent 65%)` }} />
+        <motion.div
           variants={{ hover: { rotate: 180 } }}
           transition={{ duration: 1.6, ease: "easeInOut" }}
           className={cn("relative rounded-full shadow-[0_20px_40px_-15px_rgba(0,0,0,0.9)] ring-1", size, p.ring)}
@@ -114,14 +116,14 @@ function PodiumDisc({
         </motion.div>
         <span
           className={cn(
-            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br text-base font-display font-semibold text-espresso shadow-lg ring-2 ring-espresso lining-nums sm:size-9 sm:text-lg",
+            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br text-base font-display font-bold text-espresso shadow-lg ring-2 ring-espresso lining-nums sm:size-9 sm:text-lg",
             p.label2,
           )}
         >
           {row.rank}
         </span>
       </div>
-      <p className="mt-4 text-xs font-semibold text-crema/45 sm:text-xs">{p.label}</p>
+      <p className="mt-4 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-crema/45 sm:text-[0.68rem] sm:tracking-[0.25em]">{p.label}</p>
       <p className={cn("mt-1 max-w-full truncate font-display text-lg font-semibold sm:max-w-[12rem] sm:text-2xl", row.isSelf && "text-ember")}>
         {row.displayName}
       </p>
@@ -168,7 +170,7 @@ function Row({ row, unit, rows }: { row: BotsLeaderRow; unit: string; rows: Bots
         <span className={cn("flex items-center gap-1.5 truncate font-medium", row.isSelf ? "text-ember" : "text-crema")}>
           <span className="truncate">{row.displayName}</span>
           {row.isSelf && (
-            <span className="shrink-0 rounded-full bg-caramel/20 px-2 py-0.5 text-xs font-semibold text-ember">
+            <span className="shrink-0 rounded-full bg-caramel/20 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-ember">
               {row.kind === "user" ? "tu" : "vinili"}
             </span>
           )}
@@ -177,7 +179,7 @@ function Row({ row, unit, rows }: { row: BotsLeaderRow; unit: string; rows: Bots
         {row.username ? <span className="block truncate text-xs text-crema/45">@{row.username}</span> : null}
         <span className="mt-1.5 block h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-crema/8">
           <motion.span
-            className="block h-full rounded-full bg-caramel"
+            className="block h-full rounded-full bg-gradient-to-r from-caramel to-ember"
             initial={{ width: 0 }}
             animate={{ width: `${m.pct}%` }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
@@ -355,7 +357,7 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
                 {active && (
                   <motion.span
                     layoutId="bots-board-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-crema"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -388,7 +390,7 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
                 {active && (
                   <motion.span
                     layoutId="bots-period-pill"
-                    className="absolute inset-0 -z-10 rounded-full bg-crema"
+                    className="absolute inset-0 -z-10 rounded-full bg-gradient-to-b from-crema to-sand"
                     transition={{ type: "spring", stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -452,8 +454,8 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
       </div>
 
       {selfOutside && data?.self ? (
-        <div className="mt-10 overflow-hidden rounded-2xl bg-roast/85 ring-1 ring-caramel/30">
-          <div className="px-4 pt-3 text-xs text-crema/40 sm:px-6">
+        <div className="mt-10 overflow-hidden rounded-2xl bg-gradient-to-b from-caramel/[0.08] via-roast/85 to-roast ring-1 ring-caramel/30">
+          <div className="px-4 pt-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
             {board === "partners" ? "La tua posizione" : "Vinili & Caffè"}
           </div>
           <ul>
@@ -478,8 +480,8 @@ export function BotsLeaderboardBrowser({ initial }: { initial: BotsLeaderPage | 
             ))}
           </div>
         ) : rest.length > 0 ? (
-          <div className="mt-6 overflow-hidden rounded-3xl bg-roast/85 ring-1 ring-sand/12">
-            <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs text-crema/40 sm:px-6">
+          <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-b from-caramel/[0.1] via-roast/85 to-roast ring-1 ring-sand/12">
+            <div className="flex items-center gap-2 border-b border-sand/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-crema/40 sm:px-6">
               <Trophy className="size-3.5" /> {page === 1 ? "Classifica" : `Pagina ${page}`}
             </div>
             <ul>

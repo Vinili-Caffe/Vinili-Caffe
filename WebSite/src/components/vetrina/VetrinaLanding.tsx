@@ -60,7 +60,7 @@ export function VetrinaLanding() {
       <header className="relative isolate overflow-hidden px-6 pb-16 pt-28 text-center sm:pt-36">
         <VetrinaHeroBg />
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="relative mx-auto max-w-4xl">
-          <p className="inline-flex items-center gap-2 rounded-full bg-crema/6 px-3.5 py-1.5 text-xs font-semibold text-caramel ring-1 ring-sand/15">
+          <p className="inline-flex items-center gap-2 rounded-full bg-crema/6 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-caramel ring-1 ring-sand/15">
             <Disc3 className="size-4" /> Vetrina
           </p>
           <h1 className="mt-5 font-display text-6xl font-semibold leading-[0.98] sm:text-7xl md:text-8xl">
@@ -82,7 +82,7 @@ export function VetrinaLanding() {
               <motion.div key={d.kind} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.08, duration: 0.5 }}>
                 <SmartLink
                   href={page(d.href)}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-[1.6rem] bg-roast p-5 ring-1 sm:min-h-[15rem] sm:rounded-[2rem] sm:p-8 ring-sand/15 transition duration-300  hover:ring-ember/40"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-[1.6rem] bg-roast p-5 ring-1 sm:min-h-[15rem] sm:rounded-[2rem] sm:p-8 ring-sand/15 transition duration-300 hover:-translate-y-1 hover:ring-ember/40"
                 >
                   <span aria-hidden className="absolute -right-24 -top-24 size-96 opacity-60 transition-opacity duration-500 group-hover:opacity-100" style={{ background: `radial-gradient(circle, ${d.tint}, transparent 65%)` }} />
                   <span className="relative flex items-start justify-between gap-4">
@@ -189,7 +189,7 @@ export function VetrinaLanding() {
         <div className="mt-20 flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-sand/20 p-10 text-center">
           <p className="font-display text-3xl">Hai un server o un bot?</p>
           <p className="max-w-md text-crema/55">Mettilo in vetrina: compili la scheda, lo staff la controlla e dopo l’approvazione può ricevere voti e recensioni.</p>
-          <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition-transform ">
+          <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-caramel to-ember px-6 py-3 font-bold text-ink transition-transform hover:-translate-y-0.5">
             <Plus className="size-4" /> Metti in vetrina
           </SmartLink>
         </div>

@@ -3,12 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { useReducedMotionSafe } from "@/lib/use-reduced-motion-safe";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { HeroBackdrop } from "./HeroBackdrop";
 import { HeroStage } from "./HeroStage";
+import { GradientText, Magnet } from "./react-bits";
 import { RotatingText } from "./ui/rotating-text";
+
+const EMBERS = Array.from({ length: 12 }, (_, i) => ({
+  left: `${(i * 37 + 11) % 100}%`,
+  size: 3 + ((i * 7) % 4),
+  delay: (i * 0.9) % 7,
+  duration: 9 + ((i * 5) % 7),
+  drift: (i % 2 ? 1 : -1) * (10 + ((i * 13) % 30)),
+}));
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -25,8 +34,11 @@ export function Hero() {
   const [welcome, setWelcome] = useState(t("home.welcome"));
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "16%"]);
   const fade = useTransform(scrollYProgress, [0.6, 0.98], [1, 0]);
   const reduce = useReducedMotionSafe();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!ready) return;
@@ -64,18 +76,34 @@ export function Hero() {
 
   return (
     <section ref={ref} data-vc-hero className="relative isolate flex min-h-dvh items-center overflow-hidden pt-24">
-      <div className="absolute inset-0 -z-20">
-        <HeroBackdrop priority imgClassName="size-full object-cover" objectPosition="55% 40%" />
-      </div>
+      <motion.div style={reduce ? undefined : { y: bgY }} className="absolute inset-0 -z-20">
+        <HeroBackdrop priority imgClassName="size-full scale-[1.08] object-cover" objectPosition="55% 40%" />
+      </motion.div>
       <div
         className="absolute inset-0 -z-10"
         style={{
           background: [
+            "radial-gradient(ellipse 100% 80% at 70% 45%, rgba(217,154,91,0.12), transparent 60%)",
             "radial-gradient(ellipse 70% 60% at 15% 50%, rgba(14,9,6,0.35), transparent 55%)",
             "linear-gradient(to bottom, rgba(14,9,6,0.35) 0%, rgba(14,9,6,0.28) 45%, rgba(14,9,6,0.55) 82%, var(--color-espresso) 100%)",
           ].join(", "),
         }}
       />
+
+      {mounted && !reduce && (
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          {EMBERS.map((e, i) => (
+            <motion.span
+              key={i}
+              className="absolute bottom-0 rounded-full bg-ember shadow-[0_0_12px_3px_rgba(240,180,110,0.55)]"
+              style={{ left: e.left, width: e.size, height: e.size }}
+              initial={{ y: 0, x: 0, opacity: 0 }}
+              animate={{ y: "-95vh", x: e.drift, opacity: [0, 0.85, 0.85, 0] }}
+              transition={{ duration: e.duration, delay: e.delay, repeat: Infinity, ease: "easeOut" }}
+            />
+          ))}
+        </div>
+      )}
 
       <motion.div
         style={reduce ? undefined : { opacity: fade }}
@@ -86,9 +114,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease }}
-            className="text-sm font-medium text-sand"
+            className="inline-flex items-center gap-2 rounded-full bg-crema/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.25em] text-sand shadow-[inset_0_1px_0_rgba(244,233,216,0.08)] ring-1 ring-sand/30 backdrop-blur-md"
           >
-            {t("home.badgeLead")}{" "}
+            <Sparkles className="size-3.5 text-ember" /> {t("home.badgeLead")}{" "}
             <RotatingText words={t("home.badgeWords").split("|")} className="text-ember" />
           </motion.p>
 
@@ -102,9 +130,9 @@ export function Hero() {
             <span className="mb-1 block font-script text-[2.35rem] font-normal leading-none text-sand sm:mb-2 sm:text-[2.85rem] lg:text-[3.25rem]">
               {welcome}
             </span>
-            <span className="block whitespace-nowrap pr-[0.08em] text-[min(6rem,18.5cqw)] text-crema">
+            <GradientText className="block whitespace-nowrap drop-shadow-[0_2px_24px_rgba(217,154,91,0.2)] pr-[0.08em] text-[min(6rem,18.5cqw)] text-crema">
               Vinili <span className="italic">&amp;</span> Caffè
-            </span>
+            </GradientText>
           </motion.h1>
 
           <motion.p
@@ -122,12 +150,14 @@ export function Hero() {
             transition={{ delay: 0.4, duration: 0.8, ease }}
             className="mt-10 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
           >
-            <a
-              href="#esplora"
-              className="inline-flex rounded-full bg-crema/8 px-6 py-3.5 font-semibold text-crema ring-1 ring-crema/25 transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-crema/14 hover:ring-sand/40 active:scale-[0.97]"
-            >
-              {t("home.exploreCta")}
-            </a>
+            <Magnet strength={0.32} padding={56}>
+              <a
+                href="#esplora"
+                className="inline-flex rounded-full bg-crema/8 px-6 py-3.5 font-semibold text-crema ring-1 ring-crema/25 transition-[transform,background-color,color,box-shadow] duration-200 ease-out hover:bg-crema/14 hover:ring-sand/40 active:scale-[0.97]"
+              >
+                {t("home.exploreCta")}
+              </a>
+            </Magnet>
           </motion.div>
         </div>
 
@@ -139,8 +169,10 @@ export function Hero() {
         href="#numeri"
         aria-label={t("home.scroll")}
         className="absolute bottom-6 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 text-sand transition-colors hover:text-crema"
+        animate={reduce ? undefined : { y: [0, 8, 0] }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
       >
-        <span className="text-xs font-semibold text-caramel/90">
+        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-caramel/90">
           {t("home.scrollHint")}
         </span>
         <span className="flex size-9 items-center justify-center rounded-full bg-crema/8 ring-1 ring-sand/25">

@@ -46,7 +46,7 @@ function Countdown({ now, target }: { now: number | null; target: number }) {
       ].map((x) => (
         <div key={x.label} className="min-w-[4.5rem] rounded-2xl bg-espresso/70 px-3 py-3 ring-1 ring-sand/15 sm:min-w-[5.5rem]">
           <p className="font-display text-3xl lining-nums text-sand sm:text-4xl">{now == null ? "--" : pad(x.v)}</p>
-          <p className="mt-1 text-xs font-semibold text-crema/40">{x.label}</p>
+          <p className="mt-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-crema/40">{x.label}</p>
         </div>
       ))}
     </div>
@@ -380,11 +380,11 @@ export function SerataBoard() {
       <motion.div
         initial={false}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[2rem] bg-roast p-6 ring-1 ring-sand/15 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)] sm:p-10"
+        className="relative overflow-hidden rounded-[2rem] bg-gradient-to-b from-caramel/15 to-roast p-6 ring-1 ring-sand/15 shadow-[0_30px_80px_-30px_rgba(212,145,80,0.4)] sm:p-10"
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(ellipse_at_top,rgba(212,145,80,0.25),transparent_70%)]" />
         <div className="relative text-center">
-          <p className="inline-flex items-center gap-2 text-xs font-semibold text-caramel">
+          <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.28em] text-caramel">
             <Clapperboard className="size-3.5" /> Serata film
           </p>
           <h2 className="mt-4 font-display text-4xl font-semibold sm:text-5xl">
@@ -410,7 +410,7 @@ export function SerataBoard() {
                   >
                     <img src={n.poster} alt="" className="h-16 w-11 shrink-0 rounded-md object-cover" />
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-crema/45">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-crema/45">
                         {n.date.slice(8)}/{n.date.slice(5, 7)} · 21:00
                       </p>
                       <p className={cn("truncate text-sm font-medium", active ? "text-sand" : "text-crema/85")}>{n.title}</p>

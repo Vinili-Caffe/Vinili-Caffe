@@ -559,7 +559,7 @@ const EmojiPickerPanel = function EmojiPickerPanel({
               {customGroups.map(([server, list]) => (
                 <div key={server || "this"}>
                   {customGroups.length > 1 ? (
-                    <p className="sticky top-0 z-10 bg-roast/95 px-1 py-1 text-xs font-semibold text-crema/50" translate={server ? "no" : undefined}>
+                    <p className="sticky top-0 z-10 bg-roast/95 px-1 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-crema/50" translate={server ? "no" : undefined}>
                       {server || "Questo server"} <span className="text-crema/35">{list.length}</span>
                     </p>
                   ) : null}
@@ -603,13 +603,13 @@ const EmojiPickerPanel = function EmojiPickerPanel({
           <>
             {recentRows.length ? (
               <section data-group="recent">
-                <p className="sticky top-0 z-[1] -mx-2 bg-roast/95 px-2 py-1 text-xs font-semibold text-crema/50 backdrop-blur">Usate di recente</p>
+                <p className="sticky top-0 z-[1] -mx-2 bg-roast/95 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/50 backdrop-blur">Usate di recente</p>
                 <div className="grid grid-cols-8 gap-0.5">{recentRows.map((r, i) => emojiButton([r[0], r[1], r[2], r[3]], `recent-${i}`))}</div>
               </section>
             ) : null}
             {byGroup.map((g) => (
               <section key={g.id} data-group={g.id} className="mt-1">
-                <p className="sticky top-0 z-[1] -mx-2 bg-roast/95 px-2 py-1 text-xs font-semibold text-crema/50 backdrop-blur">{g.label}</p>
+                <p className="sticky top-0 z-[1] -mx-2 bg-roast/95 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-crema/50 backdrop-blur">{g.label}</p>
                 <div className="grid grid-cols-8 gap-0.5">{g.rows.map((r, i) => emojiButton(r, `${g.id}-${i}`))}</div>
               </section>
             ))}

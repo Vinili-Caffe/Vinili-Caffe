@@ -65,11 +65,11 @@ function GuildCard({ guild, last }: { guild: DashboardGuild; last?: boolean }) {
            
           <img src={guild.iconUrl} alt="" className="size-full scale-125 object-cover opacity-45 blur-xl" loading="lazy" decoding="async" />
         ) : (
-          <span className="absolute inset-0 bg-mocha" />
+          <span className="absolute inset-0 bg-gradient-to-br from-caramel/25 via-mocha to-roast" />
         )}
         <span className="absolute inset-0 bg-gradient-to-t from-roast/90 to-transparent" />
         {last ? (
-          <span className="absolute right-2.5 top-2.5 rounded-md bg-espresso/70 px-1.5 py-0.5 text-xs font-semibold text-crema/70 ring-1 ring-sand/15">
+          <span className="absolute right-2.5 top-2.5 rounded-md bg-espresso/70 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-crema/70 ring-1 ring-sand/15">
             Ultimo aperto
           </span>
         ) : null}
