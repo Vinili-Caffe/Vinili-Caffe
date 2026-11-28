@@ -64,7 +64,9 @@ async function get<T>(path: string, token?: string | null): Promise<T | null> {
 export const loadDailyToday = (kind: DailyKind) => get<DailyToday>(`/${kind}/today`);
 export const loadDailyKindMe = (token: string, kind: DailyKind) => get<{ ok: true; guest: boolean; game: DailyState | null }>(`/${kind}/me`, token);
 export const loadDailyMe = (token: string) => get<DailyMe>("/me", token);
-export const loadDailyWeek = (token: string | null | undefined, prev = false) => get<DailyWeek>(`/week${prev ? "?prev=1" : ""}`, token);
+export type DailyPeriod = "day" | "week" | "month";
+export const loadDailyWeek = (token: string | null | undefined, period: DailyPeriod = "week") =>
+  get<DailyWeek>(`/week${period === "week" ? "" : `?period=${period}`}`, token);
 
 /** SSR / build: classifica settimana (pubblica). */
 export async function loadBuildDailyWeek(prev = false): Promise<DailyWeek | null> {

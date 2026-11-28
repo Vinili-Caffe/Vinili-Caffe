@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import {
   Calendar,
+  CalendarCheck,
   CalendarDays,
   Crosshair,
   Gamepad2,
@@ -36,8 +37,7 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { Avatar } from "@/components/Avatar";
 import { Pagination } from "@/components/ui/Pagination";
 import { ShowMoreButton } from "@/components/ui/ShowMore";
-import { SmartLink } from "@/components/SmartLink";
-import { DAILY_GAMES, loadDailyWeek, type DailyWeek } from "@/lib/daily";
+import { loadDailyWeek, type DailyPeriod, type DailyWeek } from "@/lib/daily";
 
 const BOARD_ICONS: Record<BoardId, LucideIcon> = {
   level: TrendingUp,
@@ -52,16 +52,13 @@ const VIEW_BOARDS: { id: ViewBoard; label: string; icon: LucideIcon }[] = [
   ...BOARDS.map((b) => ({ id: b.id as ViewBoard, label: b.label, icon: BOARD_ICONS[b.id] })),
   { id: "daily", label: "Giochi del giorno", icon: Puzzle },
 ];
-const DAILY_PERIODS = [
-  { id: false, label: "Questa settimana", icon: CalendarDays },
-  { id: true, label: "Settimana scorsa", icon: Calendar },
-] as const;
+const DAILY_PERIODS: { id: DailyPeriod; label: string; icon: LucideIcon }[] = [
+  { id: "day", label: "Giornaliero", icon: CalendarCheck },
+  { id: "week", label: "Settimanale", icon: CalendarDays },
+  { id: "month", label: "Mensile", icon: Calendar },
+];
 
 type Metric = { main: string; sub?: string; pct: number };
-
-function prettyDay(day: string) {
-  return new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
-}
 
 const PERIOD_ICONS: Record<PeriodId, LucideIcon> = {
   alltime: InfinityIcon,
@@ -198,7 +195,7 @@ export function LeaderboardBrowser({
 }) {
   const [board, setBoard] = useState<ViewBoard>(initialBoard);
   const [period, setPeriod] = useState<PeriodId>("alltime");
-  const [prevWeek, setPrevWeek] = useState(false);
+  const [dailyPeriod, setDailyPeriod] = useState<DailyPeriod>("week");
 
   useEffect(() => {
     setBoard(initialBoard);
@@ -206,7 +203,7 @@ export function LeaderboardBrowser({
 
   const periods =
     board === "daily"
-      ? DAILY_PERIODS.map((p) => ({ key: String(p.id), label: p.label, icon: p.icon, active: prevWeek === p.id, pick: () => setPrevWeek(p.id) }))
+      ? DAILY_PERIODS.map((p) => ({ key: String(p.id), label: p.label, icon: p.icon, active: dailyPeriod === p.id, pick: () => setDailyPeriod(p.id) }))
       : PERIODS.map((p) => ({ key: p.id, label: p.label, icon: PERIOD_ICONS[p.id], active: period === p.id, pick: () => setPeriod(p.id) }));
 
   return (
@@ -278,7 +275,7 @@ export function LeaderboardBrowser({
       </LayoutGroup>
 
       {board === "daily" ? (
-        <DailyBoard initial={initialDaily} prev={prevWeek} />
+        <DailyBoard initial={initialDaily} period={dailyPeriod} />
       ) : (
         <CommunityBoard initial={initial} board={board} period={period} />
       )}
@@ -287,9 +284,9 @@ export function LeaderboardBrowser({
 }
 
 /** Giochi del giorno: punti della settimana, stesso podio e stesse righe delle altre classifiche */
-function DailyBoard({ initial, prev }: { initial: DailyWeek | null; prev: boolean }) {
+function DailyBoard({ initial, period }: { initial: DailyWeek | null; period: DailyPeriod }) {
   const { token, ready, user } = useAuth();
-  const [week, setWeek] = useState<DailyWeek | null>(prev ? null : initial);
+  const [week, setWeek] = useState<DailyWeek | null>(period === "week" ? initial : null);
   const [loading, setLoading] = useState(!week);
   const [listVisible, setListVisible] = useState(50);
   const LIST_CHUNK = 50;
@@ -298,7 +295,8 @@ function DailyBoard({ initial, prev }: { initial: DailyWeek | null; prev: boolea
     if (!ready) return;
     let alive = true;
     setLoading(true);
-    void loadDailyWeek(token, prev).then((w) => {
+    setWeek(null);
+    void loadDailyWeek(token, period).then((w) => {
       if (!alive) return;
       setWeek(w);
       setLoading(false);
@@ -306,7 +304,7 @@ function DailyBoard({ initial, prev }: { initial: DailyWeek | null; prev: boolea
     return () => {
       alive = false;
     };
-  }, [ready, token, prev]);
+  }, [ready, token, period]);
 
   const rows: LeaderRow[] = (week?.top ?? []).map((r) => ({
     rank: r.rank,
@@ -329,30 +327,13 @@ function DailyBoard({ initial, prev }: { initial: DailyWeek | null; prev: boolea
   const rest = rows.slice(3);
   const restVisible = rest.length > LIST_CHUNK ? rest.slice(0, listVisible) : rest;
   const restRemaining = rest.length > LIST_CHUNK ? Math.max(0, rest.length - listVisible) : 0;
-  const range =
-    week?.days?.length === 7 ? `dal ${prettyDay(week.days[0]!)} al ${prettyDay(week.days[6]!)}` : null;
   const busy = loading && !week;
 
   return (
     <>
       <p className="mt-4 text-center text-sm text-crema/50">
-        {week ? `${week.players.toLocaleString("it-IT")} giocatori in classifica · ordinati per punti${range ? ` · ${range}` : ""}` : " "}
+        {week ? `${week.players.toLocaleString("it-IT")} giocatori in classifica · ordinati per punti` : " "}
       </p>
-      <p className="mx-auto mt-2 max-w-xl text-center text-xs text-crema/40">
-        Più punti se indovini con meno tentativi. La domenica sera esce anche su Discord, nell&apos;annuncio dei membri della settimana.
-      </p>
-      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-        {DAILY_GAMES.map((g) => (
-          <SmartLink
-            key={g.id}
-            href={page(g.href)}
-            className="rounded-full bg-crema/[0.05] px-3 py-1 text-xs font-medium text-crema/60 ring-1 ring-sand/12 transition hover:bg-crema/[0.09] hover:text-crema"
-          >
-            {g.label}
-          </SmartLink>
-        ))}
-      </div>
-
       <div className="relative mt-12 min-h-[18rem]">
         <AnimatePresence mode="wait">
           {busy ? (
@@ -365,14 +346,14 @@ function DailyBoard({ initial, prev }: { initial: DailyWeek | null; prev: boolea
               ))}
             </motion.div>
           ) : top.length ? (
-            <motion.div key={`daily-${prev}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
+            <motion.div key={`daily-${period}`} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-3 items-end gap-2 sm:gap-8">
               {top.map((r, i) => (
                 <PodiumDisc key={r.userId} row={r} place={i as 0 | 1 | 2} m={m(r)} me={r.userId === user?.id} />
               ))}
             </motion.div>
           ) : (
             <motion.p key="empty" className="py-20 text-center text-crema/60">
-              Ancora nessun punto questa settimana: il primo posto è libero.
+              Ancora nessun punto: il primo posto è libero.
             </motion.p>
           )}
         </AnimatePresence>

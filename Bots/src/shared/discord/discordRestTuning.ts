@@ -59,7 +59,6 @@ function buildStandaloneRestOptions(overrides: Record<string, any> = {}) {
     version: "10",
     offset: 0,
     retries: 2,
-    timeout,
     ...overrides,
     timeout,
   };

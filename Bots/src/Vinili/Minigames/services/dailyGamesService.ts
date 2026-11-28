@@ -158,10 +158,23 @@ export async function dailyMe(userId: string) {
 
 export type WeekRow = { userId: string; points: number; games: number; solved: number };
 
+/** giorni del mese del giorno indicato, dal primo fino a quel giorno */
+export function monthDays(day = romeDay()) {
+  const first = `${day.slice(0, 8)}01`;
+  const out: string[] = [];
+  for (let d = first; d <= day && out.length < 31; d = shiftDay(d, 1)) out.push(d);
+  return out;
+}
+
 /** classifica della settimana che comincia il lunedì indicato */
 export async function weekLeaderboard(monday = weekStart()): Promise<WeekRow[]> {
+  return daysLeaderboard(weekDays(monday));
+}
+
+/** classifica sui giorni indicati (un giorno, una settimana, un mese) */
+export async function daysLeaderboard(days: string[]): Promise<WeekRow[]> {
   const { ActivityUserProfile } = require("../../Community/schemas/communitySchemas") as typeof import("../../Community/schemas/communitySchemas");
-  const days = weekDays(monday);
+  if (!days.length) return [];
   const select = ["userId", WORDLE_FIELDS, ...days.map((d) => `profile.dailyGames.${d}`)].join(" ");
   const docs: any[] = await ActivityUserProfile.find({
     guildId: mainGuildId(),

@@ -364,11 +364,14 @@ async function handleDailyMeGet(client?, req?, res?) {
   }
 }
 
-/** GET /webhooks/site-daily/week?prev=1 — classifica della settimana (o di quella prima) */
+/** GET /webhooks/site-daily/week?period=day|week|month (&prev=1 = settimana prima) — classifica dei giochi del giorno */
 async function handleDailyWeekGet(client?, req?, res?) {
   try {
+    const period = String(req.query?.period || "week");
     const monday = daily.weekStart(req.query?.prev ? romeDay(new Date(Date.now() - 7 * 86_400_000)) : romeDay());
-    const rows = await daily.weekLeaderboard(monday);
+    const days =
+      period === "day" ? [romeDay()] : period === "month" ? daily.monthDays(romeDay()) : daily.weekDays(monday);
+    const rows = await daily.daysLeaderboard(days);
     const { musicQuizViewer } = require("./siteMusicQuizAuth") as typeof import("./siteMusicQuizAuth");
     const viewer = await musicQuizViewer(client, req).catch(() => null);
     const top = rows.slice(0, 20);
@@ -377,7 +380,8 @@ async function handleDailyWeekGet(client?, req?, res?) {
     return res.json({
       ok: true,
       week: monday,
-      days: daily.weekDays(monday),
+      period: period === "day" || period === "month" ? period : "week",
+      days,
       players: rows.length,
       top: top.map((r, i) => ({ rank: i + 1, ...r, name: names.get(r.userId)?.name || "Utente", avatar: names.get(r.userId)?.avatar || "" })),
       me: meIdx >= 0 ? { rank: meIdx + 1, ...rows[meIdx] } : null,
