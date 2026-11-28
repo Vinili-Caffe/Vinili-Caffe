@@ -30,7 +30,12 @@ export type DailyMe = {
   streak?: number;
   bestStreak?: number;
   weekPoints?: number;
+  /** punti di ogni giorno delle ultime 12 settimane (solo i giorni giocati) */
+  history?: Record<string, number>;
 };
+
+/** canzone o copertina di un giorno passato (per lo scaffale) */
+export type DailyPast = { day: string; n: number; title: string; artist: string; album: string; cover: string };
 export type DailyWeek = {
   ok: true;
   week: string;
@@ -64,6 +69,7 @@ async function get<T>(path: string, token?: string | null): Promise<T | null> {
 export const loadDailyToday = (kind: DailyKind) => get<DailyToday>(`/${kind}/today`);
 export const loadDailyKindMe = (token: string, kind: DailyKind) => get<{ ok: true; guest: boolean; game: DailyState | null }>(`/${kind}/me`, token);
 export const loadDailyMe = (token: string) => get<DailyMe>("/me", token);
+export const loadDailyHistory = (kind: DailyKind) => get<{ ok: true; kind: DailyKind; items: DailyPast[] }>(`/${kind}/history`);
 export type DailyPeriod = "all" | "week" | "month" | "day";
 export const loadDailyWeek = (token: string | null | undefined, period: DailyPeriod = "week") =>
   get<DailyWeek>(`/week${period === "week" ? "" : `?period=${period}`}`, token);

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Music, Pause, Play, Volume1, Volume2, VolumeX } from "lucide-react";
+import { VolumeKnob } from "@/components/ui/VolumeKnob";
 import { cn } from "@/lib/cn";
 import { listenChromeOpen } from "@/lib/chrome-open";
 import { usePastHero } from "@/lib/use-past-hero";
@@ -153,18 +154,10 @@ export function MusicDock({
             <Volume2 className="size-3" />
           )}
         </button>
-        <Range
-          min={0}
-          max={100}
-          step={1}
-          value={volPct}
-          aria-label="Volume"
-          onChange={(n) => onVolume(n / 100)}
-          className="min-w-0 flex-1"
-        />
-        <span className="w-6 shrink-0 text-right font-mono text-[0.58rem] tabular-nums text-crema/40">
-          {volPct}
-        </span>
+        <span className="min-w-0 flex-1 text-[0.65rem] text-crema/45">Volume</span>
+        <span className="w-7 shrink-0 text-right font-mono text-[0.62rem] tabular-nums text-crema/55">{volPct}%</span>
+        {/* manopola da stereo al posto della barra */}
+        <VolumeKnob value={volPct} onChange={(n) => onVolume(n / 100)} className="-my-0.5" />
       </div>
     </div>
   );

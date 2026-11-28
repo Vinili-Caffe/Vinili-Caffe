@@ -102,6 +102,7 @@ function mountMusicQuizWebhookRoutes(app?, client?) {
   app.get("/webhooks/site-daily/week", (req?, res?) => dailyMusic.handleDailyWeekGet(client, req, res));
   app.get("/webhooks/site-daily/search", (req?, res?) => dailyMusic.handleDailySearchGet(client, req, res));
   app.get("/webhooks/site-daily/cover/img", (req?, res?) => dailyMusic.handleDailyCoverImgGet(client, req, res));
+  app.get("/webhooks/site-daily/:kind/history", (req?, res?) => dailyMusic.handleDailyHistoryGet(client, req, res));
   app.get("/webhooks/site-daily/:kind/today", (req?, res?) => dailyMusic.handleDailyTodayGet(client, req, res));
   app.get("/webhooks/site-daily/:kind/me", (req?, res?) => dailyMusic.handleDailyKindMeGet(client, req, res));
   app.post("/webhooks/site-daily/:kind/guess", (req?, res?) => dailyMusic.handleDailyGuessPost(client, req, res));

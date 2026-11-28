@@ -115,6 +115,9 @@ export function HeroStage({ className }: { className?: string }) {
     moved: false,
     pendingSeek: 0,
     turns: 0,
+    /* scratch con inerzia: velocità del piatto (gradi/ms) e ultimo movimento */
+    vel: 0,
+    lastT: 0,
   });
   const platterTap = useRef<{ active: boolean; x: number; y: number; audio: number } | null>(null);
 
@@ -160,9 +163,12 @@ export function HeroStage({ className }: { className?: string }) {
     if (draggingArmRef.current || scrubbingRef.current) return;
     const target = playing ? 1 : 0;
     const from = spinSpeed.current;
+    /* dopo un lancio (velocità lontana da quella normale) torna con una molla, altrimenti come prima */
+    const flung = Math.abs(from - target) > 1.2;
     const ctrl = animate(from, target, {
-      duration: playing ? 1.1 : 2.2,
-      ease: playing ? "easeOut" : [0.3, 0, 0.2, 1],
+      ...(flung
+        ? { type: "spring" as const, stiffness: 40, damping: 12, velocity: 0 }
+        : { duration: playing ? 1.1 : 2.2, ease: playing ? ("easeOut" as const) : ([0.3, 0, 0.2, 1] as const) }),
       onUpdate: (v) => {
         spinSpeed.current = v;
       },
@@ -177,7 +183,7 @@ export function HeroStage({ className }: { className?: string }) {
     const tick = (now: number) => {
       const dt = Math.min(64, now - last);
       last = now;
-      if (!scrubbingRef.current && spinSpeed.current > 0.001) {
+      if (!scrubbingRef.current && Math.abs(spinSpeed.current) > 0.001) {
         const degPerMs = 360 / (SEC_PER_REV * 1000);
         platterRotate.set(platterRotate.get() + degPerMs * dt * spinSpeed.current);
       }
@@ -223,6 +229,8 @@ export function HeroStage({ className }: { className?: string }) {
         moved: false,
         pendingSeek: audioT,
         turns: 0,
+        vel: 0,
+        lastT: performance.now(),
       };
     },
     [platterRotate, vinyl],
@@ -230,6 +238,13 @@ export function HeroStage({ className }: { className?: string }) {
 
   const endScrub = useCallback(() => {
     if (!scrubbingRef.current) return;
+    /* lancio: il piatto continua con la velocità della mano (anche al contrario), poi la molla
+       dell'effetto sotto lo riporta alla velocità normale (o a fermo se in pausa) */
+    const st = scrubStart.current;
+    if (st.moved && performance.now() - st.lastT < 90) {
+      const normal = 360 / (SEC_PER_REV * 1000);
+      spinSpeed.current = Math.max(-8, Math.min(8, st.vel / normal));
+    }
     scrubbingRef.current = false;
     setScrubbing(false);
     if (scrubStart.current.moved) {
@@ -289,6 +304,13 @@ export function HeroStage({ className }: { className?: string }) {
         const dRad = unwrapDelta(scrubStart.current.lastRad, rad);
         scrubStart.current.lastRad = rad;
         if (Math.abs(dRad) < 1e-6) return;
+        {
+          const now = performance.now();
+          const dt = Math.max(1, now - scrubStart.current.lastT);
+          const v = (dRad * 180) / Math.PI / dt;
+          scrubStart.current.vel = scrubStart.current.vel * 0.6 + v * 0.4;
+          scrubStart.current.lastT = now;
+        }
         scrubStart.current.turns += dRad / (Math.PI * 2);
         if (Math.abs(scrubStart.current.turns) > 0.01) scrubStart.current.moved = true;
         platterRotate.set(scrubStart.current.deg + scrubStart.current.turns * 360);

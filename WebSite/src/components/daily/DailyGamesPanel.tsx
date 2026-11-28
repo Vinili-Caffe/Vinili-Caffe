@@ -8,6 +8,7 @@ import { DAILY_GAMES, loadDailyMe, type DailyMe } from "@/lib/daily";
 import { page } from "@/lib/site";
 import { SmartLink } from "@/components/SmartLink";
 import { cn } from "@/lib/cn";
+import { DailyHeatmap } from "./DailyHeatmap";
 
 /**
  * Giochi del giorno: cosa hai fatto oggi e la serie combinata.
@@ -155,6 +156,7 @@ export function DailyGamesPanel() {
                   <b className="text-crema/80">{me.weekPoints ?? 0} pt</b>
                 </p>
               ) : null}
+              {token && me?.today ? <DailyHeatmap history={me.history || {}} today={me.today} /> : null}
             </motion.aside>
           </>
         ) : null}

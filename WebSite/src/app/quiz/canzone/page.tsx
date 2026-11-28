@@ -7,6 +7,8 @@ import { SiteShell } from "@/components/SiteShell";
 import { pageSocialMeta } from "@/lib/og";
 
 const DailyMusicGame = dynamic(() => import("@/components/daily/DailyMusicGame").then((m) => m.DailyMusicGame));
+/* lo scaffale dei giorni scorsi (coverflow) */
+const DailyPastShelf = dynamic(() => import("@/components/daily/DailyPastShelf").then((m) => m.DailyPastShelf));
 
 const DESCRIPTION = "Indovina la canzone del giorno: la senti per un secondo, poi sempre di più. Sei tentativi, uguale per tutti.";
 
@@ -20,6 +22,7 @@ export default function DailySongPage() {
       <DiscordComponentEmbed path="/quiz/canzone/" title="Canzone del giorno" description={DESCRIPTION} />
       <PageHero compact icon={<Disc3 />} kicker="Quiz" title="La canzone" accent="del giorno" text={DESCRIPTION} />
       <DailyMusicGame kind="song" />
+      <DailyPastShelf kind="song" />
     </SiteShell>
   );
 }

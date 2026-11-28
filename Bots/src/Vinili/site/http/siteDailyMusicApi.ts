@@ -351,6 +351,37 @@ async function namesFor(client: any, ids: string[]) {
   return out;
 }
 
+/**
+ * GET /webhooks/site-daily/:kind/history — canzoni o copertine dei giorni scorsi (mai quella di oggi,
+ * che è ancora da indovinare). Per lo scaffale a coverflow sotto il gioco.
+ */
+async function handleDailyHistoryGet(client?, req?, res?) {
+  try {
+    const kind = String(req.params?.kind || "") === "song" ? "song" : String(req.params?.kind || "") === "cover" ? "cover" : "";
+    if (!kind) return res.status(400).json({ ok: false, error: "bad_kind" });
+    const today = romeDay();
+    const rows: any[] = await DailyPick.find({ kind, day: { $lt: today } })
+      .sort({ day: -1 })
+      .limit(30)
+      .lean()
+      .catch(() => []);
+    const items = rows
+      .filter((r) => r?.item?.cover)
+      .map((r) => ({
+        day: String(r.day),
+        n: dayNumber(String(r.day)),
+        title: String(r.item.title || ""),
+        artist: String(r.item.artist || ""),
+        album: r.item.album ? String(r.item.album) : "",
+        cover: String(r.item.cover),
+      }));
+    res.setHeader("Cache-Control", "public, max-age=600");
+    return res.json({ ok: true, kind, items });
+  } catch {
+    return res.status(500).json({ ok: false, error: "daily_error" });
+  }
+}
+
 /** GET /webhooks/site-daily/me — oggi (fatto o da fare), serie combinata e punti della settimana */
 async function handleDailyMeGet(client?, req?, res?) {
   try {
@@ -400,5 +431,6 @@ export = {
   handleDailyKindMeGet,
   handleDailyMeGet,
   handleDailyWeekGet,
+  handleDailyHistoryGet,
   pickFor,
 };

@@ -143,7 +143,14 @@ export async function dailyMe(userId: string) {
   const today = romeDay();
   const week = weekDays(weekStart(today));
   const weekPoints = week.reduce((sum, d) => sum + DAILY_GAMES.reduce((s, g) => s + (Number(days[d]?.[g]?.p) || 0), 0), 0);
-  return { today, todayGames: days[today] || {}, streak: comboStreak(days, today), bestStreak: bestComboStreak(days), weekPoints };
+  /* calendario a quadretti: punti di ogni giorno delle ultime 12 settimane (84 giorni) */
+  const history: Record<string, number> = {};
+  for (let i = 0; i < 84; i++) {
+    const d = shiftDay(today, -i);
+    const pts = DAILY_GAMES.reduce((s, g) => s + (Number(days[d]?.[g]?.p) || 0), 0);
+    if (pts > 0) history[d] = pts;
+  }
+  return { today, todayGames: days[today] || {}, streak: comboStreak(days, today), bestStreak: bestComboStreak(days), weekPoints, history };
 }
 
 export type WeekRow = { userId: string; points: number; games: number; solved: number };
