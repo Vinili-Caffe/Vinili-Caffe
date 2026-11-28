@@ -430,7 +430,7 @@ export function ListingCompareTab({
                       <span className="block truncate text-sm font-semibold text-crema">{hit.name}</span>
                       <span className="block truncate text-xs text-crema/45">{kindLabel(hit.kind)} · {hit.votesMonth || 0} voti/mese</span>
                     </span>
-                    <span className="text-xs font-bold text-ember">Aggiungi</span>
+                    <span className="text-xs font-semibold text-ember">Aggiungi</span>
                   </button>
                 </li>
               ))}
@@ -480,7 +480,7 @@ export function ListingCompareTab({
                     disabled={already || peerIds.length >= MAX_PEERS}
                     onClick={() => addPeer(s.id)}
                     className={cn(
-                      "rounded-full px-4 py-2 text-sm font-bold transition",
+                      "rounded-full px-4 py-2 text-sm font-semibold transition",
                       already
                         ? "bg-crema/8 text-crema/40"
                         : "bg-caramel text-ink ",

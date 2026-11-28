@@ -215,7 +215,7 @@ export function Resoconto({ token, userId, canDecide, onChanged }: { token: stri
             <span className="rounded-full bg-crema/8 px-2.5 py-1 font-semibold text-crema/70">{it.roleLabel?.replace(/༄\s*/g, "") || (isPm(it) ? "Partner Manager" : "Staff")}</span>
             {it.isNewStaff && <span className="rounded-full bg-ember/15 px-2.5 py-1 font-semibold text-ember">Nuovo in staff</span>}
             {it.inPause && <span className="rounded-full bg-sand/15 px-2.5 py-1 font-semibold text-sand">In pausa{it.pauseNote ? ` · ${it.pauseNote}` : ""}</span>}
-            <span className={cn("ml-auto rounded-full px-2.5 py-1 font-bold", it.status === "pending" ? "bg-ember/15 text-ember" : "bg-[#3f7d4e]/20 text-[#9fd3ac] light:text-[#2f6b3f]")}>
+            <span className={cn("ml-auto rounded-full px-2.5 py-1 font-semibold", it.status === "pending" ? "bg-ember/15 text-ember" : "bg-[#3f7d4e]/20 text-[#9fd3ac] light:text-[#2f6b3f]")}>
               {it.status === "pending" ? "In attesa" : `${it.statusLabel}${it.decidedByName ? ` · ${it.decidedByName}` : ""}`}
             </span>
           </div>

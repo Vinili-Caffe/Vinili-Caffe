@@ -109,19 +109,19 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
               <button
                 type="button"
                 onClick={onAction}
-                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#5865f2] px-8 text-base font-bold text-white shadow-[0_16px_40px_-14px_rgba(88,101,242,0.8)] transition  hover:brightness-110 active:scale-[0.98]"
+                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#5865f2] px-8 text-base font-semibold text-white shadow-[0_16px_40px_-14px_rgba(88,101,242,0.8)] transition  hover:brightness-110 active:scale-[0.98]"
               >
                 <LogIn className="size-5" aria-hidden /> Accedi con Discord
               </button>
             ) : mode === "loading" ? (
-              <span className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8]/10 px-8 text-base font-bold text-[#f4e9d8]/80 ring-1 ring-[#f4e9d8]/15">
+              <span className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8]/10 px-8 text-base font-semibold text-[#f4e9d8]/80 ring-1 ring-[#f4e9d8]/15">
                 <Loader2 className="size-5 animate-spin" aria-hidden /> Masterizzo…
               </span>
             ) : mode === "error" ? (
               <button
                 type="button"
                 onClick={onAction}
-                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8] px-8 text-base font-bold text-[#140d09] transition "
+                className="inline-flex min-h-14 items-center gap-2.5 rounded-full bg-[#f4e9d8] px-8 text-base font-semibold text-[#140d09] transition "
               >
                 Riprova
               </button>
@@ -130,7 +130,7 @@ export function WrappedLanding({ mode, name, userId, avatarUrl, periodLabel, mon
                 type="button"
                 onClick={onAction}
                 disabled={launching}
-                className="group inline-flex min-h-14 items-center gap-3 rounded-full bg-[#f0b46e] py-2 pl-2 pr-8 text-base font-bold text-[#140d09] shadow-[0_18px_44px_-14px_rgba(0,0,0,0.55)] transition  hover:brightness-105 active:scale-[0.98] disabled:pointer-events-none"
+                className="group inline-flex min-h-14 items-center gap-3 rounded-full bg-[#f0b46e] py-2 pl-2 pr-8 text-base font-semibold text-[#140d09] shadow-[0_18px_44px_-14px_rgba(0,0,0,0.55)] transition  hover:brightness-105 active:scale-[0.98] disabled:pointer-events-none"
               >
                 <span className="grid size-10 place-items-center rounded-full bg-[#140d09] text-[#f0b46e]">
                   <Disc3 className={cn("size-5 transition-transform duration-700 group-hover:rotate-180", launching && "animate-spin")} aria-hidden />

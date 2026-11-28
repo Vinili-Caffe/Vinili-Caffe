@@ -18,7 +18,7 @@ export function Seal({ status, className }: { status: PropStatus; className?: st
     <span
       title={STATUS[status]}
       className={cn(
-        "flex size-12 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-paper/90 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35),0_4px_10px_-4px_rgba(0,0,0,0.7)]",
+        "flex size-12 shrink-0 items-center justify-center rounded-full font-display text-sm font-semibold text-paper/90 shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35),0_4px_10px_-4px_rgba(0,0,0,0.7)]",
         status === "active" && "bg-[radial-gradient(circle_at_35%_30%,#c0503c,#7a2418)]",
         status === "resolved" && "bg-[radial-gradient(circle_at_35%_30%,#5f9a6a,#2c5634)]",
         status === "soft_deleted" && "bg-[radial-gradient(circle_at_35%_30%,#8a817a,#4a443f)]",

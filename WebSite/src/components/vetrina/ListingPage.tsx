@@ -464,7 +464,7 @@ export function ListingPage() {
               {l.stats?.guildTag ? (
                 <SmartLink
                   href={listHref("server", { guildTag: l.stats.guildTag })}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-sm font-bold transition hover:brightness-110"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-sm font-semibold transition hover:brightness-110"
                   style={{ background: `${l.stats.guildTagBadgeColor || accent}33`, color: l.stats.guildTagBadgeColor || "#f4e9d8" }}
                   title="Altri server con questo guild tag"
                 >
@@ -486,7 +486,7 @@ export function ListingPage() {
                 onClick={() => track("invite")}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)] transition-transform  active:scale-[0.98]"
+                className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)] transition-transform  active:scale-[0.98]"
               >
                 {l.kind === "bot" ? "Aggiungi il bot" : "Entra nel server"} <ArrowUpRight className="size-4" />
               </a>
@@ -1032,7 +1032,7 @@ function StreakFlame({
       <p className="mt-0.5 font-display text-lg font-semibold leading-none lining-nums tabular-nums text-crema">{n}</p>
       <p className="mt-0.5 text-xs font-semibold text-crema/40">{caption}</p>
       {milestone ? (
-        <span className="mt-1 rounded-full bg-gradient-to-r from-caramel/25 to-ember/20 px-2 py-0.5 text-[10px] font-bold text-ember ring-1 ring-ember/30">
+        <span className="mt-1 rounded-full bg-gradient-to-r from-caramel/25 to-ember/20 px-2 py-0.5 text-[10px] font-semibold text-ember ring-1 ring-ember/30">
           {milestone} giorni
         </span>
       ) : null}
@@ -1122,7 +1122,7 @@ function VoteTile({
           <SmartLink
             href={voteHref}
             onClick={onTrack}
-            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink transition "
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink transition "
           >
             <ThumbsUp className="size-4" /> Vota
           </SmartLink>
@@ -1158,14 +1158,14 @@ function VotePromoCard({
           : `Ogni voto lo fa salire in vetrina. Puoi votare di nuovo ogni ${cooldownHours} ore.`}
       </p>
       {wait ? (
-        <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema/15 px-4 py-2 text-sm font-bold text-crema/50">
+        <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema/15 px-4 py-2 text-sm font-semibold text-crema/50">
           <ThumbsUp className="size-4" /> In attesa
         </span>
       ) : (
         <SmartLink
           href={voteHref}
           onClick={onTrack}
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-bold text-ink transition-transform "
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-crema px-4 py-2 text-sm font-semibold text-ink transition-transform "
         >
           <ThumbsUp className="size-4" /> Vota ora
         </SmartLink>
@@ -1259,7 +1259,7 @@ function RelatedListings({
               <button
                 type="button"
                 onClick={() => onCompare(it.id)}
-                className="absolute bottom-3 right-3 z-10 rounded-full bg-espresso/90 px-3 py-1.5 text-xs font-bold text-ember ring-1 ring-ember/40 backdrop-blur-sm hover:bg-espresso"
+                className="absolute bottom-3 right-3 z-10 rounded-full bg-espresso/90 px-3 py-1.5 text-xs font-semibold text-ember ring-1 ring-ember/40 backdrop-blur-sm hover:bg-espresso"
               >
                 Confronta
               </button>

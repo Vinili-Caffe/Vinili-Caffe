@@ -136,7 +136,7 @@ function NavBadgePills({ badge }: { badge?: NavBadge | NavBadge[] }) {
           key={`${b.tone}-${i}`}
           title={b.title}
           className={cn(
-            "rounded-md px-1.5 py-px text-[0.65rem] font-bold tabular-nums",
+            "rounded-md px-1.5 py-px text-[0.65rem] font-semibold tabular-nums",
             b.tone === "danger" && "bg-[#a83a2c] text-[#ffe8e2]",
             b.tone === "warn" && "bg-caramel text-ink",
             b.tone === "default" && "bg-caramel text-ink",

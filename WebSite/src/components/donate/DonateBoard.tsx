@@ -76,7 +76,7 @@ export function DonateBoard() {
                       <PromoPrice
                         value={t.amount}
                         prefix={t.from ? "da " : undefined}
-                        className="font-display text-5xl font-bold text-crema"
+                        className="font-display text-5xl font-semibold text-crema"
                         oldClassName="mb-1 font-display text-2xl font-semibold"
                       />
                     </p>

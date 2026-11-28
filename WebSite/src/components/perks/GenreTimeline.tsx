@@ -110,7 +110,7 @@ export function GenreTimeline() {
               transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
             >
               <span className={cn("flex flex-col", levelPos(level) > 90 ? "items-end" : levelPos(level) < 10 ? "items-start" : "items-center")}>
-                <span className="whitespace-nowrap rounded-full bg-ember px-2 py-0.5 text-[0.65rem] font-bold text-ink">Tu · {level}</span>
+                <span className="whitespace-nowrap rounded-full bg-ember px-2 py-0.5 text-[0.65rem] font-semibold text-ink">Tu · {level}</span>
                 <span className="mx-2 h-3 w-px bg-ember" />
               </span>
             </motion.div>

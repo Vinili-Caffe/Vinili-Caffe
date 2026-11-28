@@ -96,7 +96,7 @@ function Field({
   const head = (
     <div className="space-y-1">
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-caramel/15 font-mono text-[0.65rem] font-bold lining-nums text-caramel ring-1 ring-caramel/25">
+        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-caramel/15 font-mono text-[0.65rem] font-semibold lining-nums text-caramel ring-1 ring-caramel/25">
           {n}
         </span>
         <span className="text-sm font-semibold leading-snug text-crema/90">{q.text}</span>
@@ -424,7 +424,7 @@ export function CandidatureBoard() {
                     key={tier.points}
                     className="flex items-center gap-3 rounded-xl bg-espresso/50 px-3.5 py-2.5 ring-1 ring-sand/12"
                   >
-                    <span className="shrink-0 rounded-md bg-caramel/15 px-2 py-1 font-mono text-[0.7rem] font-bold tabular-nums text-ember ring-1 ring-caramel/25">
+                    <span className="shrink-0 rounded-md bg-caramel/15 px-2 py-1 font-mono text-[0.7rem] font-semibold tabular-nums text-ember ring-1 ring-caramel/25">
                       {tier.points}
                     </span>
                     <span className="min-w-0 flex-1 text-sm text-crema/85">

@@ -374,7 +374,7 @@ export function BachecaWall() {
             </div>
           ) : err ? (
             <div className="mx-auto max-w-md rotate-[-1deg] bg-[#fbe68a] p-6 text-center text-ink shadow-lg">
-              <p className="font-display text-2xl font-bold">Il muro non si carica</p>
+              <p className="font-display text-2xl font-semibold">Il muro non si carica</p>
               <p className="mt-2 text-sm text-ink/70">{err}</p>
               <button type="button" onClick={() => load()} className="mt-4 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-paper">
                 Riprova
@@ -382,7 +382,7 @@ export function BachecaWall() {
             </div>
           ) : items.length === 0 ? (
             <div className="mx-auto max-w-md rotate-[1deg] bg-[#fbf7ef] p-6 text-center text-ink shadow-lg">
-              <p className="font-display text-2xl font-bold">Ancora niente qui</p>
+              <p className="font-display text-2xl font-semibold">Ancora niente qui</p>
               <p className="mt-2 text-sm text-ink/70">Usa +quote, +repost, +clip o una 💀 su Discord: i contenuti finiscono su questo muro.</p>
             </div>
           ) : (
@@ -495,7 +495,7 @@ function BachecaDetail({
         {title}
         {item.number ? ` · #${item.number}` : ""}
       </p>
-      <p className="mt-1 font-display text-3xl font-bold leading-tight">{item.author.name}</p>
+      <p className="mt-1 font-display text-3xl font-semibold leading-tight">{item.author.name}</p>
 
       <div className="mt-4 space-y-3">
         {item.kind === "clip" ? (

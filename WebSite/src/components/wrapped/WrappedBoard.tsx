@@ -302,7 +302,7 @@ export function WrappedBoard() {
                       type="button"
                       disabled={launching || on}
                       onClick={() => setPeriodOpts({ period: p })}
-                      className={on ? "rounded-full bg-[#f4e9d8] px-4 py-1.5 text-xs font-bold text-[#140d09]" : "rounded-full px-4 py-1.5 text-xs font-semibold text-[#f4e9d8]/70 transition hover:text-[#f4e9d8]"}
+                      className={on ? "rounded-full bg-[#f4e9d8] px-4 py-1.5 text-xs font-semibold text-[#140d09]" : "rounded-full px-4 py-1.5 text-xs font-semibold text-[#f4e9d8]/70 transition hover:text-[#f4e9d8]"}
                     >
                       {label}
                     </button>

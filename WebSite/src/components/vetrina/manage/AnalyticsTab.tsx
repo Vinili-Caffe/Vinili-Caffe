@@ -202,7 +202,7 @@ export function AnalyticsTab({ listingId, token }: { listingId: string; token: s
             type="button"
             disabled={goalBusy}
             onClick={() => void onSaveGoals()}
-            className="rounded-full bg-caramel px-5 py-2 text-sm font-bold text-ink disabled:opacity-50"
+            className="rounded-full bg-caramel px-5 py-2 text-sm font-semibold text-ink disabled:opacity-50"
           >
             {goalBusy ? "Salvo…" : "Salva obiettivi"}
           </button>

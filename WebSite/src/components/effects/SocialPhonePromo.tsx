@@ -298,11 +298,11 @@ function ScreenTikTok() {
           <div className="size-14 overflow-hidden rounded-full ring-2 ring-white/90">
             <img src={asset(tt.avatar)} alt="" className="size-full object-cover" />
           </div>
-          <span className="absolute -bottom-1 left-1/2 flex size-5 -translate-x-1/2 items-center justify-center rounded-full bg-[#fe2c55] text-[0.7rem] font-bold leading-none">
+          <span className="absolute -bottom-1 left-1/2 flex size-5 -translate-x-1/2 items-center justify-center rounded-full bg-[#fe2c55] text-[0.7rem] font-semibold leading-none">
             +
           </span>
         </div>
-        <p className="mt-2.5 text-[0.72rem] font-bold">{tt.displayName}</p>
+        <p className="mt-2.5 text-[0.72rem] font-semibold">{tt.displayName}</p>
         <p className="text-[0.5rem] text-white/45">{tt.handle}</p>
         <div className="mt-2.5 flex w-full justify-center gap-5 text-center text-[0.5rem]">
           {[

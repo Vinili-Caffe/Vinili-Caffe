@@ -352,7 +352,7 @@ export function PropositiBoard() {
             className="rounded-sm bg-[#1a0c08]/90 px-5 py-4 text-center text-crema shadow-[0_20px_50px_-20px_rgba(255,80,20,0.55)] ring-1 ring-[#ff7a3a]/35 backdrop-blur-sm"
           >
             <Flame className="mx-auto size-8 text-[#ff8a3a]" />
-            <p className="mt-2 font-display text-xl font-bold">{t("propositi.burnTitle")}</p>
+            <p className="mt-2 font-display text-xl font-semibold">{t("propositi.burnTitle")}</p>
             <p className="mt-1 text-sm text-crema/70">{t("propositi.burnText")}</p>
           </motion.div>
         </div>
@@ -375,7 +375,7 @@ export function PropositiBoard() {
           <div className="flex items-end justify-center gap-6">
             <Candle className="hidden sm:block" />
             <div className="relative w-full rounded-sm bg-[#ece0c8] p-6 text-ink shadow-[0_30px_60px_-30px_rgba(0,0,0,1)] sm:p-8">
-              <p className="flex items-center gap-2 font-display text-2xl font-bold">
+              <p className="flex items-center gap-2 font-display text-2xl font-semibold">
                 <Sparkles className="size-5" /> {t("propositi.writeTitle")}
               </p>
               <p className="mt-1 text-sm text-ink/60">{t("propositi.writeHint")}</p>

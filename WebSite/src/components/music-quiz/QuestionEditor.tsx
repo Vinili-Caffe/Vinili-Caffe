@@ -245,7 +245,7 @@ function AnswerInput({
         correct ? "ring-emerald-400/70" : "ring-transparent",
       )}
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink/10 text-sm font-bold text-ink/60">{letter}</span>
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink/10 text-sm font-semibold text-ink/60">{letter}</span>
       <input
         value={value}
         maxLength={90}

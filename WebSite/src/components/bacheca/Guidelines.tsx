@@ -92,7 +92,7 @@ export function Guidelines() {
               {SECTIONS.map((s, i) => (
                 <li key={s.title}>
                   <a href={`#regola-${i + 1}`} className="flex gap-2.5 rounded-xl px-2 py-1.5 text-sm text-crema/65 transition-colors hover:bg-crema/5 hover:text-crema">
-                    <span className="w-5 shrink-0 text-right font-display font-bold tabular-nums text-ember">{i + 1}</span>
+                    <span className="w-5 shrink-0 text-right font-display font-semibold tabular-nums text-ember">{i + 1}</span>
                     <span className="leading-snug">{s.title}</span>
                   </a>
                 </li>
@@ -123,7 +123,7 @@ export function Guidelines() {
                 <div className="flex items-start gap-4">
                   <span className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-caramel/15 text-ember ring-1 ring-caramel/30">
                     <Icon className="size-5" />
-                    <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-ember font-display text-[0.7rem] font-bold text-ink">{i + 1}</span>
+                    <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-ember font-display text-[0.7rem] font-semibold text-ink">{i + 1}</span>
                   </span>
                   <div className="min-w-0">
                     <h2 className="font-display text-2xl font-semibold text-crema">{s.title}</h2>
@@ -138,7 +138,7 @@ export function Guidelines() {
             <PenLine className="size-8 text-ember" />
             <p className="font-display text-2xl">Tutto chiaro?</p>
             <p className="max-w-md text-crema/55">Scegli una scheda e lascia la tua: due righe e le stelle bastano.</p>
-            <SmartLink href={page("/vetrina/")} className="mt-1 rounded-full bg-caramel px-5 py-2.5 font-bold text-ink">
+            <SmartLink href={page("/vetrina/")} className="mt-1 rounded-full bg-caramel px-5 py-2.5 font-semibold text-ink">
               Vai alla vetrina
             </SmartLink>
           </div>

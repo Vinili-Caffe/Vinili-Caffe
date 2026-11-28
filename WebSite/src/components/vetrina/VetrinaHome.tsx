@@ -409,7 +409,7 @@ function KindBrowse({ kind }: { kind: BoardKind }) {
               onClick={() => {
                 window.location.href = page(`/vetrina/confronta/?ids=${compareIds.map(encodeURIComponent).join(",")}`);
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
             >
               <Columns2 className="size-4" /> Confronta
             </button>

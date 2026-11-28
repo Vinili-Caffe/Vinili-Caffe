@@ -55,7 +55,7 @@ export function MusicQuizPartyJoin({
           {readyCode ? (
             <>
               <p className="mt-4 text-xs font-semibold text-crema/45">Stanza</p>
-              <p className="mt-1 font-mono text-3xl font-bold tracking-widest text-crema">{formatPartyCode(digits)}</p>
+              <p className="mt-1 font-mono text-3xl font-semibold tracking-widest text-crema">{formatPartyCode(digits)}</p>
             </>
           ) : (
             <p className="mt-3 text-sm text-crema/55">Inserisci il codice a 6 cifre dell&apos;invito.</p>
@@ -103,7 +103,7 @@ export function MusicQuizPartyJoin({
             disabled={!readyCode || busy || !token}
             onClick={() => void submit()}
             className={cn(
-              "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition",
+              "mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition",
               readyCode && !busy
                 ? "bg-caramel text-ink "
                 : "bg-crema/10 text-crema/40",

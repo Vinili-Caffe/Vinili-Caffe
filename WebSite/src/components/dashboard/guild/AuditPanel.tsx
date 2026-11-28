@@ -68,7 +68,7 @@ function AuditEntry({ row, open, onToggle }: { row: AuditRow; open: boolean; onT
              
             <img src={row.avatar} alt="" width={32} height={32} className="size-8 rounded-full object-cover" />
           ) : (
-            <span className="flex size-8 items-center justify-center rounded-full bg-crema/[0.08] text-xs font-bold text-crema/80">
+            <span className="flex size-8 items-center justify-center rounded-full bg-crema/[0.08] text-xs font-semibold text-crema/80">
               {(row.username || "?").charAt(0).toUpperCase()}
             </span>
           )}

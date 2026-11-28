@@ -65,7 +65,7 @@ export function SeasonLiveNavDot({ className, tone = "live" }: { className?: str
       aria-hidden
       title={tone === "new" ? t("nav.new") : t("nav.inProgress")}
       className={cn(
-        "relative inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-black leading-none",
+        "relative inline-flex size-3.5 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-semibold leading-none",
         className,
       )}
       style={{

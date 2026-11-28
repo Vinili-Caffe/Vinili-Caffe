@@ -140,7 +140,7 @@ function CategoryCard({ c, i, synced }: { c: NumberQuizCategory; i: number; sync
           <span aria-hidden>{c.emoji}</span> {c.topic}
         </span>
         {best ? (
-          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-caramel/90 px-2.5 py-1 text-[11px] font-bold text-ink">
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-caramel/90 px-2.5 py-1 text-[11px] font-semibold text-ink">
             <Flame className="size-3" /> {best}
           </span>
         ) : null}

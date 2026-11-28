@@ -226,7 +226,7 @@ export function AlbumCover({
                 <li
                   key={x.id}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-bold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]",
+                    "inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-semibold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]",
                     i % 2 ? "rotate-2" : "-rotate-2",
                   )}
                 >

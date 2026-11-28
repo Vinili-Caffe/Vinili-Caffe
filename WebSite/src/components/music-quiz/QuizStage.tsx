@@ -226,7 +226,7 @@ export function QuizTurntable({
           <button
             type="button"
             onClick={onReplay}
-            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink"
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink"
           >
             <Play className="size-4" aria-hidden /> Ascolta
           </button>

@@ -223,7 +223,7 @@ export function RulesBrowser({ initial }: { initial: RulesData }) {
               className="pointer-events-none absolute -right-6 -top-6 size-32 rounded-full bg-[repeating-radial-gradient(circle,#0b0705_0_1.5px,#2a1c14_1.5px_3px)] shadow-[0_10px_30px_rgba(0,0,0,0.55)] ring-1 ring-sand/15"
               aria-hidden
             >
-              <div className="absolute inset-[34%] flex items-center justify-center rounded-full bg-gradient-to-br from-caramel to-sand/80 font-display text-xl font-bold text-ink">
+              <div className="absolute inset-[34%] flex items-center justify-center rounded-full bg-gradient-to-br from-caramel to-sand/80 font-display text-xl font-semibold text-ink">
                 {SIDES[sideIdx]}
               </div>
             </motion.div>

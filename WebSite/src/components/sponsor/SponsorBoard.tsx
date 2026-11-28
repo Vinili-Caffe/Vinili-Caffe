@@ -287,7 +287,7 @@ export function SponsorBoard() {
                   {promo.name} -{promo.percent}%
                 </motion.span>
               )}
-              <p className="text-center font-display text-2xl font-bold uppercase tracking-[0.04em]">VINILI & CAFFÈ</p>
+              <p className="text-center font-display text-2xl font-semibold uppercase tracking-[0.04em]">VINILI & CAFFÈ</p>
               <p className="text-center text-xs text-ink/50">preventivo sponsor</p>
               <div className="my-5 border-t-2 border-dashed border-ink/20" />
               <ul className="space-y-3 text-sm">
@@ -310,7 +310,7 @@ export function SponsorBoard() {
               {promo && <p className="-mb-1 text-right text-sm text-ink/45 line-through decoration-[#b5502a] decoration-2 lining-nums">{eur(subtotal)}</p>}
               <div className="flex items-end justify-between">
                 <span className="text-sm font-semibold">Totale</span>
-                <motion.span key={total} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-4xl font-bold lining-nums">
+                <motion.span key={total} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-4xl font-semibold lining-nums">
                   {eur(total)}
                 </motion.span>
               </div>

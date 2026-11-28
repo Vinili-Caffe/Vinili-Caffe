@@ -108,7 +108,7 @@ export function ChatPanel({ chat }: { chat: StreamChat }) {
               type="button"
               onClick={() => chat.setPlatform(x.id)}
               className={cn(
-                "rounded-2xl px-3 py-2.5 text-sm font-bold transition",
+                "rounded-2xl px-3 py-2.5 text-sm font-semibold transition",
                 chat.platform === x.id ? "bg-crema text-ink" : "bg-crema/[0.06] text-crema/80 hover:bg-crema/[0.1]",
               )}
             >
@@ -130,7 +130,7 @@ export function ChatPanel({ chat }: { chat: StreamChat }) {
             placeholder="nome del canale"
             className="min-w-0 flex-1 bg-transparent py-2 text-crema outline-none placeholder:text-crema/30"
           />
-          <button type="submit" disabled={!chat.input.trim()} className="rounded-xl bg-caramel px-4 py-2 text-sm font-bold text-ink transition hover:brightness-110 disabled:opacity-40">
+          <button type="submit" disabled={!chat.input.trim()} className="rounded-xl bg-caramel px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-40">
             {chat.status === "connecting" ? "Collego…" : chat.channel && chat.ready ? "Cambia" : "Collega"}
           </button>
         </form>
@@ -196,7 +196,7 @@ function Ranking({ viewers, limit = 10 }: { viewers: Record<string, Viewer>; lim
     <ol className="mt-4 space-y-1.5 text-left">
       {list.map((v, i) => (
         <li key={v.user} className={cn("flex items-center gap-3 rounded-xl px-3 py-2", i === 0 ? "bg-caramel/20 ring-1 ring-caramel/40" : "bg-crema/[0.04]")}>
-          <span className="w-5 text-center font-mono text-sm font-bold text-crema/60">{i === 0 ? <Crown className="size-4 text-caramel" /> : i + 1}</span>
+          <span className="w-5 text-center font-mono text-sm font-semibold text-crema/60">{i === 0 ? <Crown className="size-4 text-caramel" /> : i + 1}</span>
           <span className="min-w-0 flex-1 truncate font-semibold text-crema">{v.user}</span>
           <span className="font-mono text-sm tabular-nums text-caramel">{formatCount(v.points)}</span>
         </li>
@@ -374,7 +374,7 @@ export function StreamHigherLower({
               >
                 <Backdrop item={it} />
                 <div className={cn("pointer-events-none absolute inset-0 transition", phase !== "vote" && won ? "bg-emerald-500/15" : phase !== "vote" ? "bg-ember/10" : "")} />
-                <span className="absolute left-1/2 top-16 -translate-x-1/2 rounded-2xl bg-crema px-4 py-1.5 font-display text-2xl font-bold text-ink shadow-xl sm:top-20">
+                <span className="absolute left-1/2 top-16 -translate-x-1/2 rounded-2xl bg-crema px-4 py-1.5 font-display text-2xl font-semibold text-ink shadow-xl sm:top-20">
                   {side + 1}
                 </span>
                 <div className="relative flex max-w-lg flex-col items-center">
@@ -383,7 +383,7 @@ export function StreamHigherLower({
                   <div className="mt-4 min-h-[4.5rem]">
                     {revealed ? (
                       <>
-                        <p className="font-mono text-4xl font-bold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
+                        <p className="font-mono text-4xl font-semibold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
                           {side === 1 ? <CountUp to={it.value} format={c.format} /> : formatNumberQuizValue(it.value, c.format)}
                         </p>
                         {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -414,7 +414,7 @@ export function StreamHigherLower({
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 420, damping: 16 }}
             className={cn(
-              "grid size-16 place-items-center rounded-full font-display text-xl font-bold ring-4 ring-ink sm:size-20",
+              "grid size-16 place-items-center rounded-full font-display text-xl font-semibold ring-4 ring-ink sm:size-20",
               phase === "right" ? "bg-emerald-500 text-white" : phase === "wrong" ? "bg-ember text-white" : "bg-crema text-ink",
             )}
           >
@@ -557,7 +557,7 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
             {item.sub ? <p className="mt-1.5 text-sm font-semibold text-crema/70">{item.sub}</p> : null}
             {result ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
-                <p className="font-mono text-5xl font-bold tabular-nums text-caramel sm:text-6xl">
+                <p className="font-mono text-5xl font-semibold tabular-nums text-caramel sm:text-6xl">
                   <CountUp to={item.value} format={c.format} />
                 </p>
                 {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -573,7 +573,7 @@ export function StreamHotCold({ data, chat, onExit, onRestart }: { data: Loaded;
                       <span aria-hidden>{g.emoji}</span>
                       <span className="min-w-0 flex-1 truncate font-semibold text-crema">{g.user}</span>
                       <span className="font-mono text-sm tabular-nums text-crema/70">{formatNumberQuizValue(g.value, c.format)}</span>
-                      <span className="w-14 text-right font-mono text-sm font-bold tabular-nums text-caramel">+{g.points}</span>
+                      <span className="w-14 text-right font-mono text-sm font-semibold tabular-nums text-caramel">+{g.points}</span>
                     </motion.li>
                   ))}
                   {!result.length ? <li className="text-center text-sm text-crema/60">Nessuno ha risposto.</li> : null}

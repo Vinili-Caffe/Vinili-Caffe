@@ -68,7 +68,7 @@ function Face({ row, className }: { row: BotsLeaderRow; className?: string }) {
     return <img src={row.avatarUrl} alt="" className={cn("object-cover", className)} />;
   }
   return (
-    <span className={cn("flex items-center justify-center bg-crema/10 font-bold text-crema/80", className)} aria-hidden>
+    <span className={cn("flex items-center justify-center bg-crema/10 font-semibold text-crema/80", className)} aria-hidden>
       {(row.displayName.charAt(0) || "?").toUpperCase()}
     </span>
   );
@@ -114,7 +114,7 @@ function PodiumDisc({
         </motion.div>
         <span
           className={cn(
-            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br text-base font-display font-bold text-espresso shadow-lg ring-2 ring-espresso lining-nums sm:size-9 sm:text-lg",
+            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 items-center justify-center rounded-full bg-gradient-to-br text-base font-display font-semibold text-espresso shadow-lg ring-2 ring-espresso lining-nums sm:size-9 sm:text-lg",
             p.label2,
           )}
         >

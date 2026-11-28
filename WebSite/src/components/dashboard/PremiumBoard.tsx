@@ -84,7 +84,7 @@ function GuildIcon({ name, iconUrl, size = "md" }: { name: string; iconUrl: stri
     return <img src={iconUrl} alt="" width={40} height={40} className={cn(cls, "shrink-0 object-cover ring-1 ring-sand/15")} />;
   }
   return (
-    <span className={cn(cls, "flex shrink-0 items-center justify-center bg-crema/[0.08] font-bold text-crema/80 ring-1 ring-sand/15")} aria-hidden>
+    <span className={cn(cls, "flex shrink-0 items-center justify-center bg-crema/[0.08] font-semibold text-crema/80 ring-1 ring-sand/15")} aria-hidden>
       {(name.trim().charAt(0) || "?").toUpperCase()}
     </span>
   );

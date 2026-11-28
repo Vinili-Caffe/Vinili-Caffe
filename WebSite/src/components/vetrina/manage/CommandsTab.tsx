@@ -186,7 +186,7 @@ await fetch("${BOT_STATS_API_URL}", {
               type="button"
               disabled={cmds.length >= 150}
               onClick={() => setCmds([...cmds, { name: "", description: "", type: "slash", usage: "", category: "" }])}
-              className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-2 text-sm font-bold text-ink disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-2 text-sm font-semibold text-ink disabled:opacity-50"
             >
               <Plus className="size-4" /> Aggiungi
             </button>

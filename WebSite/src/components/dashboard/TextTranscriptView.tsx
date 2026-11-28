@@ -76,7 +76,7 @@ function AuthorAvatar({ author, bot, avatarUrl, color }: { author: string; bot: 
   }
 
   return (
-    <span className="flex size-10 items-center justify-center rounded-full text-sm font-bold text-[#1e1f22]" style={{ background: color }} aria-hidden>
+    <span className="flex size-10 items-center justify-center rounded-full text-sm font-semibold text-[#1e1f22]" style={{ background: color }} aria-hidden>
       {(author.replace(/^[^a-zA-Z0-9]+/, "").charAt(0) || "?").toUpperCase()}
     </span>
   );

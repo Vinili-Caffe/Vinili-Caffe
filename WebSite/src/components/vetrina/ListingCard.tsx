@@ -226,7 +226,7 @@ function SpotCard({ l, rank, big = false, cfg }: { l: BoardListing; rank: number
         <span className="absolute inset-0 bg-gradient-to-t from-espresso via-espresso/70 to-espresso/10" />
         <span
           className={cn(
-            "absolute right-5 top-3 font-display font-bold leading-none text-crema/10 transition-colors duration-500 group-hover:text-ember/25",
+            "absolute right-5 top-3 font-display font-semibold leading-none text-crema/10 transition-colors duration-500 group-hover:text-ember/25",
             big ? "text-7xl sm:text-[9rem]" : "text-5xl sm:text-7xl",
           )}
           aria-hidden

@@ -125,7 +125,7 @@ function Body({ card, mood, delay = 0.35 }: { card: StoryCard; mood: WrappedMood
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: delay + 0.2, duration: 0.4, ease }}
-          className="mt-5 inline-flex rounded-full px-4 py-2 text-sm font-bold"
+          className="mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold"
           style={{ background: mood.ink, color: mood.paper }}
         >
           {card.footnote}
@@ -239,7 +239,7 @@ export function WrappedStorySlide({ card, mood, data }: { card: StoryCard; mood:
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="mt-2 text-xl font-bold uppercase tracking-[0.18em] sm:text-2xl"
+              className="mt-2 text-xl font-semibold uppercase tracking-[0.18em] sm:text-2xl"
               style={{ color: mood.ink, opacity: 0.7 }}
             >
               {stat.unit}

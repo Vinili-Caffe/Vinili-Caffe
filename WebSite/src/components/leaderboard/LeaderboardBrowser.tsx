@@ -118,7 +118,7 @@ function PodiumDisc({
         </motion.div>
         <span
           className={cn(
-            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 text-base lining-nums sm:size-9 items-center justify-center rounded-full bg-gradient-to-br font-display text-lg font-bold text-espresso shadow-lg ring-2 ring-espresso",
+            "absolute -bottom-1 left-1/2 flex size-7 -translate-x-1/2 text-base lining-nums sm:size-9 items-center justify-center rounded-full bg-gradient-to-br font-display text-lg font-semibold text-espresso shadow-lg ring-2 ring-espresso",
             p.label2,
           )}
         >

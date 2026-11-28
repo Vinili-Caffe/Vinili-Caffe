@@ -249,7 +249,7 @@ export function MusicQuizStream({
                 disabled={!x.ready}
                 onClick={() => setPlatform(x.id)}
                 className={cn(
-                  "relative rounded-2xl px-3 py-3 text-sm font-bold transition disabled:cursor-not-allowed",
+                  "relative rounded-2xl px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed",
                   platform === x.id ? "bg-crema text-ink" : "bg-crema/[0.06] text-crema/80 hover:bg-crema/[0.1]",
                   !x.ready && "opacity-45",
                 )}
@@ -274,7 +274,7 @@ export function MusicQuizStream({
               placeholder="nome del canale"
               className="min-w-0 flex-1 bg-transparent py-2 text-crema outline-none placeholder:text-crema/30"
             />
-            <button type="submit" disabled={!channelInput.trim()} className="rounded-xl bg-caramel px-4 py-2 text-sm font-bold text-ink transition hover:brightness-110 disabled:opacity-40">
+            <button type="submit" disabled={!channelInput.trim()} className="rounded-xl bg-caramel px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-40">
               {status === "connecting" ? "Collego…" : channel && status === "connected" ? "Cambia" : "Collega"}
             </button>
           </form>
@@ -298,7 +298,7 @@ export function MusicQuizStream({
             type="button"
             onClick={() => void start()}
             disabled={status !== "connected"}
-            className="mt-6 w-full rounded-full bg-caramel px-6 py-3.5 font-bold text-ink transition  disabled:translate-y-0 disabled:opacity-40"
+            className="mt-6 w-full rounded-full bg-caramel px-6 py-3.5 font-semibold text-ink transition  disabled:translate-y-0 disabled:opacity-40"
           >
             Inizia la partita
           </button>
@@ -362,7 +362,7 @@ export function MusicQuizStream({
             </ol>
           ) : null}
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={() => void start()} className="rounded-full bg-caramel px-6 py-3 font-bold text-ink transition ">
+            <button type="button" onClick={() => void start()} className="rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition ">
               Un&apos;altra partita
             </button>
             <button type="button" onClick={onExit} className="rounded-full px-5 py-3 text-sm font-semibold text-crema/80 ring-1 ring-sand/25 transition hover:bg-crema/[0.06]">

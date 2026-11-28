@@ -189,7 +189,7 @@ export function VetrinaLanding() {
         <div className="mt-20 flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-sand/20 p-10 text-center">
           <p className="font-display text-3xl">Hai un server o un bot?</p>
           <p className="max-w-md text-crema/55">Mettilo in vetrina: compili la scheda, lo staff la controlla e dopo l’approvazione può ricevere voti e recensioni.</p>
-          <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink transition-transform ">
+          <SmartLink href={page("/vetrina/invia/")} className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition-transform ">
             <Plus className="size-4" /> Metti in vetrina
           </SmartLink>
         </div>

@@ -145,7 +145,7 @@ export function ActivityLiveBar() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -24, opacity: 0 }}
             aria-label="Mostra chi sta giocando"
-            className="flex items-center gap-1 rounded-r-xl bg-roast/90 py-2.5 pl-2 pr-2.5 text-xs font-bold text-crema ring-1 ring-sand/15 backdrop-blur-xl"
+            className="flex items-center gap-1 rounded-r-xl bg-roast/90 py-2.5 pl-2 pr-2.5 text-xs font-semibold text-crema ring-1 ring-sand/15 backdrop-blur-xl"
           >
             <Users className="size-4 text-caramel" />
             {others.length}

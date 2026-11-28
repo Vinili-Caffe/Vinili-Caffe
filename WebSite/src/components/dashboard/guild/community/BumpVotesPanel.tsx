@@ -135,7 +135,7 @@ function ServiceCard({
       style={on ? { boxShadow: `inset 3px 0 0 ${brand.color}` } : undefined}
     >
       <div className="flex items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-bold text-white" style={{ background: brand.color }} aria-hidden>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl text-base font-semibold text-white" style={{ background: brand.color }} aria-hidden>
           {brand.initial}
         </span>
         <div className="min-w-0 flex-1">
@@ -521,7 +521,7 @@ export function VotesPanel({ guildId, token, onToast }: PanelProps) {
                 <ol className="space-y-1.5">
                   {steps[s].map((step, i) => (
                     <li key={i} className="flex items-start gap-2 text-xs text-crema/70">
-                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-crema/[0.06] text-[0.65rem] font-bold text-crema/80">{i + 1}</span>
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-crema/[0.06] text-[0.65rem] font-semibold text-crema/80">{i + 1}</span>
                       <span className="pt-0.5">{step}</span>
                     </li>
                   ))}

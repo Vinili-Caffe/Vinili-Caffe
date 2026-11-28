@@ -644,7 +644,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                       <p className="mt-1 text-sm text-crema/65">Serve per leggere nome, icona e membri e per creare l’invito. Aggiungilo, poi ricontrolla.</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {addBotUrl && (
-                          <a href={addBotUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink">
+                          <a href={addBotUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink">
                             <Plus className="size-4" /> Aggiungi il bot
                           </a>
                         )}
@@ -911,7 +911,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                     <img src={form.bannerUrl} alt="" className="absolute inset-0 size-full object-cover" />
                   ) : null}
                   <div className="relative flex w-full flex-wrap gap-2 bg-gradient-to-t from-espresso/90 to-transparent p-3">
-                    <button type="button" onClick={() => fileRef.current?.click()} disabled={busy === "banner"} className="inline-flex items-center gap-1.5 rounded-full bg-crema px-3.5 py-1.5 text-sm font-bold text-ink disabled:opacity-60">
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={busy === "banner"} className="inline-flex items-center gap-1.5 rounded-full bg-crema px-3.5 py-1.5 text-sm font-semibold text-ink disabled:opacity-60">
                       {busy === "banner" ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />} {form.bannerUrl ? "Cambia banner" : "Carica banner"}
                     </button>
                     {form.bannerUrl && (
@@ -1034,7 +1034,7 @@ export function SubmitListing({ editId: forcedEditId }: { editId?: string } = {}
                 <button
                   type="submit"
                   disabled={!!busy || !canSend}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-3.5 font-bold text-ink transition  disabled:translate-y-0 disabled:opacity-45"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-3.5 font-semibold text-ink transition  disabled:translate-y-0 disabled:opacity-45"
                 >
                   {busy === "send" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                   {editing && (status === "approved" || status === "pending") ? "Salva le modifiche" : "Invia in revisione"}
@@ -1072,7 +1072,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
     <motion.fieldset initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: n * 0.04 }} className="rounded-3xl bg-roast/80 p-6 ring-1 ring-sand/12 sm:p-7">
       <legend className="sr-only">{title}</legend>
       <div className="mb-5 flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-full bg-caramel/15 font-display text-lg font-bold text-ember ring-1 ring-caramel/30">{n}</span>
+        <span className="flex size-9 items-center justify-center rounded-full bg-caramel/15 font-display text-lg font-semibold text-ember ring-1 ring-caramel/30">{n}</span>
         <h2 className="font-display text-2xl font-semibold">{title}</h2>
       </div>
       {children}

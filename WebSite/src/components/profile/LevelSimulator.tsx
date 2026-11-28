@@ -192,7 +192,7 @@ function ComparisonRow({
         <div className="min-w-0">
           <p className="truncate font-semibold text-crema/90">
             {label}
-            <span className="ml-2 font-display text-sm font-bold text-ember lining-nums">{mult(multiplier)}</span>
+            <span className="ml-2 font-display text-sm font-semibold text-ember lining-nums">{mult(multiplier)}</span>
           </p>
           {hint ? <p className="truncate text-xs text-crema/45">{hint}</p> : null}
         </div>

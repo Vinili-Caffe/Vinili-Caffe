@@ -86,7 +86,7 @@ function SponsorHouseCard({ prominent }: { prominent?: boolean }) {
       </p>
       <SmartLink
         href={SITE_DISCORD_INVITE}
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink transition "
+        className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink transition "
       >
         <Disc3 className="size-4" /> Entra su Discord <ArrowUpRight className="size-3.5" />
       </SmartLink>
@@ -367,7 +367,7 @@ export function VoteListing() {
                 type="button"
                 disabled={busy || !listingId}
                 onClick={begin}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-4 text-lg font-bold text-ink transition  disabled:opacity-50"
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-4 text-lg font-semibold text-ink transition  disabled:opacity-50"
               >
                 <ThumbsUp className="size-5" /> {busy ? "Preparo…" : "Inizia a votare"}
               </button>
@@ -469,7 +469,7 @@ export function VoteListing() {
                 type="button"
                 disabled={busy || (needsCaptcha && !captcha)}
                 onClick={confirm}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-4 text-lg font-bold text-ink transition  disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-caramel py-4 text-lg font-semibold text-ink transition  disabled:opacity-50"
               >
                 <Check className="size-5" /> {busy ? "Registro…" : "Conferma il voto"}
               </button>

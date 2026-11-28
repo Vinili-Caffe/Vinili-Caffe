@@ -119,7 +119,7 @@ export function NumberQuizPlay({ catId }: { catId?: string } = {}) {
 
 function BackLink() {
   return (
-    <NQLink to="list" className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink">
+    <NQLink to="list" className="mt-5 inline-flex items-center gap-2 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink">
       <ArrowLeft className="size-4" /> Tutte le categorie
     </NQLink>
   );
@@ -212,7 +212,7 @@ function Setup({
               className={cn("relative rounded-xl px-3 py-2.5 text-left transition", stream === o.id ? "text-ink" : "text-crema/70 hover:text-crema")}
             >
               {stream === o.id ? <motion.span layoutId="nq-who" className="absolute inset-0 rounded-xl bg-crema" /> : null}
-              <span className="relative flex items-center gap-2 text-sm font-bold">
+              <span className="relative flex items-center gap-2 text-sm font-semibold">
                 {o.icon} {o.label}
               </span>
               <span className={cn("relative block text-xs", stream === o.id ? "text-ink/60" : "text-crema/45")}>{o.hint}</span>
@@ -615,7 +615,7 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
                   <div className="mt-4 min-h-[4.5rem] sm:mt-6">
                     {revealed ? (
                       <>
-                        <p className="font-mono text-4xl font-bold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
+                        <p className="font-mono text-4xl font-semibold tabular-nums text-caramel drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-6xl">
                           {side === 1 ? <CountUp to={it.value} format={c.format} /> : formatNumberQuizValue(it.value, c.format)}
                         </p>
                         {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -650,7 +650,7 @@ function HigherLower({ data, onExit, onRestart }: { data: Loaded; onExit: () => 
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 420, damping: 16 }}
             className={cn(
-              "grid size-16 place-items-center rounded-full font-display text-xl font-bold shadow-[0_10px_40px_rgba(0,0,0,0.6)] ring-4 ring-ink sm:size-20 sm:text-2xl",
+              "grid size-16 place-items-center rounded-full font-display text-xl font-semibold shadow-[0_10px_40px_rgba(0,0,0,0.6)] ring-4 ring-ink sm:size-20 sm:text-2xl",
               phase === "right" ? "bg-emerald-500 text-white" : phase === "wrong" ? "bg-ember text-white" : "bg-crema text-ink",
             )}
           >
@@ -908,7 +908,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
               <AnimatePresence>
                 {result ? (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
-                    <p className="font-mono text-5xl font-bold tabular-nums text-caramel sm:text-6xl">
+                    <p className="font-mono text-5xl font-semibold tabular-nums text-caramel sm:text-6xl">
                       <CountUp to={item.value} format={c.format} />
                     </p>
                     {c.unit ? <p className="mt-1 text-sm text-crema/70">{c.unit}</p> : null}
@@ -916,7 +916,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
                       initial={{ scale: 0.5 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 380, damping: 14, delay: 0.3 }}
-                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-ink/70 px-4 py-2 text-base font-bold text-crema ring-1 ring-sand/25 backdrop-blur"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-ink/70 px-4 py-2 text-base font-semibold text-crema ring-1 ring-sand/25 backdrop-blur"
                     >
                       <span aria-hidden>{result.emoji}</span> {result.label} · +{formatCount(result.points)}
                     </motion.p>
@@ -944,7 +944,7 @@ function HotCold({ data, onExit, onRestart }: { data: Loaded; onExit: () => void
                 disabled={Boolean(result)}
                 inputMode="decimal"
                 aria-label="La tua risposta"
-                className="w-full max-w-xs rounded-2xl bg-transparent text-center font-mono text-3xl font-bold tabular-nums text-crema outline-none focus:bg-crema/[0.06] sm:text-4xl"
+                className="w-full max-w-xs rounded-2xl bg-transparent text-center font-mono text-3xl font-semibold tabular-nums text-crema outline-none focus:bg-crema/[0.06] sm:text-4xl"
               />
               {c.unit ? <span className="shrink-0 text-sm text-crema/55">{c.unit}</span> : null}
             </div>

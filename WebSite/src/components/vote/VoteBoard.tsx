@@ -150,7 +150,7 @@ function GoalDisc({ total, goal }: { total: number; goal: number }) {
         </defs>
       </svg>
       <div className="absolute inset-[30%] flex flex-col items-center justify-center rounded-full bg-crema text-espresso">
-        <span className="font-display text-3xl font-bold leading-none lining-nums sm:text-4xl">{nf.format(total)}</span>
+        <span className="font-display text-3xl font-semibold leading-none lining-nums sm:text-4xl">{nf.format(total)}</span>
         <span className="mt-1 text-xs font-semibold">su {nf.format(goal)}</span>
       </div>
     </div>

@@ -437,7 +437,7 @@ export function WordleQuadBoard({ initial }: Props) {
               !b.won && b.answer ? (
                 <span key={i} className="text-crema/60">
                   #{i + 1}{" "}
-                  <span className="font-bold uppercase tracking-wide text-ember">{b.answer}</span>
+                  <span className="font-semibold uppercase tracking-wide text-ember">{b.answer}</span>
                 </span>
               ) : null,
             )}

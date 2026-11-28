@@ -274,7 +274,7 @@ export function SetupWizard({
                 >
                   <span
                     className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                      "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                       done && !on
                         ? "bg-[#5f9a6a]/25 text-[#9fd0a8] light:text-[#2f6b3f]"
                         : on

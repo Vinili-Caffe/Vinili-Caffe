@@ -172,7 +172,7 @@ export function CandyCollection({ p }: { p: ProfileData }) {
             </p>
             <h2 className="mt-1.5 font-display text-3xl font-semibold sm:text-4xl">Collezione di caramelle</h2>
           </div>
-          <p className="font-display text-3xl font-bold lining-nums">
+          <p className="font-display text-3xl font-semibold lining-nums">
             {c.ownedCount}
             <span className="text-crema/40">/{c.total}</span>
           </p>

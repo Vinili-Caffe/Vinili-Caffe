@@ -431,7 +431,7 @@ function PartyRound({
               type="button"
               disabled={busy}
               onClick={onNext}
-              className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink"
+              className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink"
             >
               {room.roundIndex + 1 >= room.totalRounds ? "Classifica" : "Avanti"} <ArrowRight className="size-4" aria-hidden />
             </button>
@@ -470,7 +470,7 @@ function Scoreboard({ room, me }: { room: Room; me: string }) {
                 p.userId === me ? "bg-caramel/10 ring-1 ring-caramel/30" : "bg-crema/[0.03]",
               )}
             >
-              <span className="w-4 text-center text-xs font-bold tabular-nums text-crema/50">{hidden ? "·" : i + 1}</span>
+              <span className="w-4 text-center text-xs font-semibold tabular-nums text-crema/50">{hidden ? "·" : i + 1}</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.avatarUrl || "/images/logo-disco.png"} alt="" className="size-8 shrink-0 rounded-full object-cover" />
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-crema">{p.displayName}</span>
@@ -536,7 +536,7 @@ function Podium({
               type="button"
               disabled={busy}
               onClick={onRestart}
-              className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink disabled:opacity-60"
             >
               <RotateCcw className="size-4" aria-hidden /> Torna alla lobby
             </button>
@@ -590,7 +590,7 @@ function Podium({
             type="button"
             disabled={busy}
             onClick={onRestart}
-            className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink disabled:opacity-60"
           >
             <RotateCcw className="size-4" aria-hidden /> Altra partita
           </button>

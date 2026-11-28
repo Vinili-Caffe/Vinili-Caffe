@@ -195,7 +195,7 @@ export function OptionPicker({
                   {value.length}
                   {max ? `/${max}` : ""} scelte{full ? " · limite raggiunto" : ""}
                 </span>
-                <button type="button" onClick={() => setOpen(false)} className="rounded-full bg-crema px-3 py-1 font-bold text-ink">
+                <button type="button" onClick={() => setOpen(false)} className="rounded-full bg-crema px-3 py-1 font-semibold text-ink">
                   Fatto
                 </button>
               </div>

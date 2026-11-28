@@ -449,7 +449,7 @@ function ReportCard({
             type="button"
             disabled={locked}
             onClick={() => void onResolve(item, "resolve", "suspend_listing")}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#a83a2c]/25 px-4 py-2 text-sm font-bold text-[#f0b4a8] ring-1 ring-[#a83a2c]/45 transition hover:bg-[#a83a2c]/35 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#a83a2c]/25 px-4 py-2 text-sm font-semibold text-[#f0b4a8] ring-1 ring-[#a83a2c]/45 transition hover:bg-[#a83a2c]/35 disabled:opacity-50"
           >
             <Pause className="size-4" /> Sospendi scheda
           </button>
@@ -459,7 +459,7 @@ function ReportCard({
             type="button"
             disabled={locked}
             onClick={() => void onResolve(item, "resolve", "delete_review")}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#a83a2c]/25 px-4 py-2 text-sm font-bold text-[#f0b4a8] ring-1 ring-[#a83a2c]/45 transition hover:bg-[#a83a2c]/35 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#a83a2c]/25 px-4 py-2 text-sm font-semibold text-[#f0b4a8] ring-1 ring-[#a83a2c]/45 transition hover:bg-[#a83a2c]/35 disabled:opacity-50"
           >
             <X className="size-4" /> Elimina recensione
           </button>
@@ -468,7 +468,7 @@ function ReportCard({
           type="button"
           disabled={locked}
           onClick={() => void onResolve(item, "resolve")}
-          className="rounded-full bg-caramel px-4 py-2 text-sm font-bold text-ink disabled:opacity-50"
+          className="rounded-full bg-caramel px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
         >
           <span className="inline-flex items-center gap-1.5">
             <Check className="size-4" /> Segnata come gestita
@@ -620,7 +620,7 @@ function ModCard({
               type="button"
               disabled={!!busy}
               onClick={() => onDecide(item, "approve", notes)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#5f9a6a]/25 px-4 py-2 text-sm font-bold text-[#a7d8b0] ring-1 ring-[#5f9a6a]/45 transition hover:bg-[#5f9a6a]/35 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#5f9a6a]/25 px-4 py-2 text-sm font-semibold text-[#a7d8b0] ring-1 ring-[#5f9a6a]/45 transition hover:bg-[#5f9a6a]/35 disabled:opacity-50"
             >
               <Check className="size-4" /> Approva
             </button>
@@ -630,7 +630,7 @@ function ModCard({
               type="button"
               disabled={!!busy}
               onClick={() => onDecide(item, "reject", notes)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-ember/15 px-4 py-2 text-sm font-bold text-ember ring-1 ring-ember/30 transition hover:bg-ember/25 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-ember/15 px-4 py-2 text-sm font-semibold text-ember ring-1 ring-ember/30 transition hover:bg-ember/25 disabled:opacity-50"
             >
               <X className="size-4" /> Rifiuta
             </button>

@@ -142,7 +142,7 @@ export function BirthdayCalendar({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <h2 className="inline-flex min-w-0 items-center gap-2 text-center text-[1.02rem] font-extrabold capitalize tracking-wide text-crema">
+                <h2 className="inline-flex min-w-0 items-center gap-2 text-center text-[1.02rem] font-semibold capitalize tracking-wide text-crema">
                   <Cake className="size-4 shrink-0 text-sand" />
                   <span className="truncate">
                     {monthTitle} {year}
@@ -212,7 +212,7 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
           hasMine && "border-sand/60 ",
         )}
       >
-        <span className="text-[0.62rem] font-extrabold lining-nums text-crema/75">{d}</span>
+        <span className="text-[0.62rem] font-semibold lining-nums text-crema/75">{d}</span>
         {dayEntries.length > 0 && (
           <div className="flex min-w-0 flex-col gap-0.5">
             {dayEntries.slice(0, 3).map((e) => (
@@ -226,7 +226,7 @@ function CalendarBody({ data, highlightUserId }: { data: BirthdaysMonth; highlig
               </a>
             ))}
             {dayEntries.length > 3 && (
-              <span className="text-[0.55rem] font-bold text-crema/45">+{dayEntries.length - 3}</span>
+              <span className="text-[0.55rem] font-semibold text-crema/45">+{dayEntries.length - 3}</span>
             )}
           </div>
         )}

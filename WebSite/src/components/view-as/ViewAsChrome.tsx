@@ -192,7 +192,7 @@ function RolePicker({ mode, onClose, listId }: { mode: string; onClose: () => vo
           type="button"
           onClick={apply}
           disabled={!roles}
-          className="ml-auto rounded-lg bg-caramel px-3 py-1.5 text-xs font-bold text-ink disabled:opacity-40"
+          className="ml-auto rounded-lg bg-caramel px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-40"
         >
           {picked.size ? `Visualizza con ${picked.size} ${picked.size === 1 ? "ruolo" : "ruoli"}` : "Solo @everyone"}
         </button>

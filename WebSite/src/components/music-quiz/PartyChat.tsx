@@ -29,7 +29,7 @@ export function ChatButton({ unread, onClick, className }: { unread: number; onC
     >
       <MessageSquare className="size-5" aria-hidden />
       {unread ? (
-        <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-ember px-1 text-[11px] font-bold tabular-nums text-ink">
+        <span className="absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-ember px-1 text-[11px] font-semibold tabular-nums text-ink">
           {unread > 9 ? "9+" : unread}
         </span>
       ) : null}
@@ -102,7 +102,7 @@ export function ChatDrawer({
                   return (
                     <div key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
                       <div className={cn("max-w-[85%] rounded-2xl px-3 py-2", mine ? "rounded-br-md bg-caramel/20" : "rounded-bl-md bg-espresso/70")}>
-                        {!mine ? <p className="text-[11px] font-bold text-caramel">{m.name}</p> : null}
+                        {!mine ? <p className="text-[11px] font-semibold text-caramel">{m.name}</p> : null}
                         <p className="whitespace-pre-wrap break-words text-sm text-crema/90">{m.text}</p>
                       </div>
                     </div>

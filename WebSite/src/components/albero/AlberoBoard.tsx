@@ -528,7 +528,7 @@ export function AlberoBoard() {
                   <button
                     type="button"
                     onClick={login}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition "
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-semibold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition "
                   >
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
@@ -539,7 +539,7 @@ export function AlberoBoard() {
                       setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
                       setComposerOpen(true);
                     }}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(0,0,0,0.55)] transition "
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-semibold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(0,0,0,0.55)] transition "
                   >
                     <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
                   </button>
@@ -575,7 +575,7 @@ export function AlberoBoard() {
                   <button
                     type="button"
                     onClick={login}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-bold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition "
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#5865f2] px-6 text-sm font-semibold text-white shadow-[0_12px_36px_-10px_rgba(0,0,0,0.65)] transition "
                   >
                     <LogIn className="size-4" /> Accedi con Discord
                   </button>
@@ -586,7 +586,7 @@ export function AlberoBoard() {
                       setDraft((d) => ({ ...d, x: TREE_DEFAULT.x, y: TREE_DEFAULT.y }));
                       setComposerOpen(true);
                     }}
-                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-bold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(0,0,0,0.55)] transition "
+                    className="pointer-events-auto inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f0b46e] px-6 text-sm font-semibold text-[#140d09] shadow-[0_14px_40px_-12px_rgba(0,0,0,0.55)] transition "
                   >
                     <Sparkles className="size-4" /> Scrivi una lettera per Babbo Natale
                   </button>

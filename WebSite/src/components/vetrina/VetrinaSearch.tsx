@@ -124,7 +124,7 @@ export function VetrinaSearch({
           )}
         >
           <SlidersHorizontal className="size-5" />
-          {active > 0 && <span className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-ember text-[0.65rem] font-bold text-ink">{active}</span>}
+          {active > 0 && <span className="absolute -right-0.5 -top-0.5 flex size-5 items-center justify-center rounded-full bg-ember text-[0.65rem] font-semibold text-ink">{active}</span>}
         </button>
         <span className="pointer-events-none absolute left-[3.6rem] top-1/2 h-6 w-px -translate-y-1/2 bg-sand/20" aria-hidden />
         <input
@@ -149,7 +149,7 @@ export function VetrinaSearch({
             <X className="size-4" />
           </button>
         )}
-        <button type="submit" className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full bg-caramel px-5 py-2.5 text-sm font-bold text-ink">
+        <button type="submit" className="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full bg-caramel px-5 py-2.5 text-sm font-semibold text-ink">
           <Search className="size-4" /> Cerca
         </button>
       </label>
@@ -259,7 +259,7 @@ export function VetrinaSearch({
                       setOpen(false);
                       if (deferred) onApply({ ...local, q: local.q.trim() });
                     }}
-                    className="rounded-full bg-crema px-5 py-2 text-sm font-bold text-ink"
+                    className="rounded-full bg-crema px-5 py-2 text-sm font-semibold text-ink"
                   >
                     {deferred ? "Applica e cerca" : "Fatto"}
                   </button>

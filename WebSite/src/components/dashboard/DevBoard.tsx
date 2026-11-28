@@ -94,7 +94,7 @@ function Avatar({ url, name, round }: { url: string | null; name: string; round?
    
   if (url) return <img src={url} alt="" width={36} height={36} className={cls} />;
   return (
-    <span className={cn(cls, "flex items-center justify-center bg-crema/[0.08] text-sm font-bold text-crema/80")} aria-hidden>
+    <span className={cn(cls, "flex items-center justify-center bg-crema/[0.08] text-sm font-semibold text-crema/80")} aria-hidden>
       {(name.trim().charAt(0) || "?").toUpperCase()}
     </span>
   );

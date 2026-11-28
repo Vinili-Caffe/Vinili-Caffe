@@ -337,7 +337,7 @@ export function TicketForms({
                 {fields.map((field, index) => (
                   <li key={field.id} className="rounded-xl bg-espresso/45 ring-1 ring-sand/10">
                     <div className="flex items-center gap-2 border-b border-sand/[0.08] px-4 py-2.5">
-                      <span className="flex size-6 items-center justify-center rounded-md bg-caramel/15 text-xs font-bold tabular-nums text-ember">{index + 1}</span>
+                      <span className="flex size-6 items-center justify-center rounded-md bg-caramel/15 text-xs font-semibold tabular-nums text-ember">{index + 1}</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-crema">{field.label || "Domanda senza titolo"}</span>
                       <span className="hidden text-xs text-crema/60 sm:inline">{TYPE_LABELS[field.type]}</span>
                       <button

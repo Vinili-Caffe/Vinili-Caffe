@@ -131,7 +131,7 @@ function Tile({ value, label, icon, tone, onClick, badge }: { value: number | st
       </span>
       <span className="mt-3 font-display text-3xl font-semibold leading-none lining-nums">{value}</span>
       <span className="mt-1 text-xs text-crema/55">{label}</span>
-      {badge ? <span className="absolute right-3 top-3 rounded-full bg-ember px-2 py-0.5 text-[0.65rem] font-bold text-ink lining-nums">{badge}</span> : null}
+      {badge ? <span className="absolute right-3 top-3 rounded-full bg-ember px-2 py-0.5 text-[0.65rem] font-semibold text-ink lining-nums">{badge}</span> : null}
     </Comp>
   );
 }
@@ -239,7 +239,7 @@ export function StaffCardView({
       flags.length ? (
         <>
           {flags.map((f, i) => (
-            <span key={f.k} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-bold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "rotate-2" : "-rotate-2")}>
+            <span key={f.k} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-semibold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "rotate-2" : "-rotate-2")}>
               {f.icon}
               {f.t}
             </span>

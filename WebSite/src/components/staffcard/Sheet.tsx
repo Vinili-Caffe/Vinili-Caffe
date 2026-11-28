@@ -61,7 +61,7 @@ export function Sheet({ title, kicker, onClose, children, wide }: { title: strin
 export function ReasonRow({ id, text, children }: { id: number; text: string; children?: React.ReactNode }) {
   return (
     <li className="flex items-start gap-3 rounded-xl bg-crema/[0.04] px-3 py-2.5 ring-1 ring-sand/10">
-      <span className="mt-0.5 shrink-0 font-mono text-xs font-bold text-caramel lining-nums">#{id}</span>
+      <span className="mt-0.5 shrink-0 font-mono text-xs font-semibold text-caramel lining-nums">#{id}</span>
       <span className="min-w-0 flex-1 text-sm leading-relaxed text-crema/85">{text}</span>
       {children}
     </li>

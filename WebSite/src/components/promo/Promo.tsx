@@ -24,7 +24,7 @@ export function PromoNavTag({ className }: { className?: string }) {
   return (
     <span
       title={`${promo.name}: -${promo.percent}% su donazioni e sponsor`}
-      className={cn("inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[0.6rem] font-bold leading-4 tracking-wide lining-nums ring-1", className)}
+      className={cn("inline-flex shrink-0 items-center rounded-full px-1.5 py-px text-[0.6rem] font-semibold leading-4 tracking-wide lining-nums ring-1", className)}
       style={{ color: promo.accent, backgroundColor: `${promo.accent}1f`, boxShadow: `inset 0 0 0 1px ${promo.accent}55` }}
     >
       <span className="sr-only">Sconto </span>-{promo.percent}%
@@ -66,8 +66,8 @@ export function PromoSticker({ className }: { className?: string }) {
         className="flex size-[4rem] flex-col items-center justify-center rounded-full border-2 border-dashed leading-none"
         style={{ borderColor: `${promo.accent}88`, color: promo.accent }}
       >
-        <span className="text-[0.42rem] font-black uppercase tracking-[0.12em]">{promo.name}</span>
-        <span className="mt-0.5 font-display text-xl font-black lining-nums">-{promo.percent}%</span>
+        <span className="text-[0.42rem] font-semibold uppercase tracking-[0.12em]">{promo.name}</span>
+        <span className="mt-0.5 font-display text-xl font-semibold lining-nums">-{promo.percent}%</span>
       </span>
     </motion.span>
   );
@@ -148,7 +148,7 @@ function Countdown({ to, accent }: { to: string; accent: string }) {
     <div className="flex gap-1.5" aria-label="Tempo rimasto">
       {parts.map(([label, n]) => (
         <span key={label} className="flex w-14 flex-col items-center rounded-xl bg-white/[0.04] py-2 ring-1" style={{ ["--tw-ring-color" as string]: `${accent}40` }}>
-          <span className="font-display text-2xl font-black leading-none text-white lining-nums tabular-nums">{n == null ? "--" : String(n).padStart(2, "0")}</span>
+          <span className="font-display text-2xl font-semibold leading-none text-white lining-nums tabular-nums">{n == null ? "--" : String(n).padStart(2, "0")}</span>
           <span className="mt-1 text-xs font-semibold text-white/45">{label}</span>
         </span>
       ))}
@@ -181,7 +181,7 @@ export function PromoBanner() {
           {[0, 1].map((k) => (
             <span key={k} className="flex shrink-0">
               {tape.map((t, i) => (
-                <span key={i} className="px-4 text-xs font-black tracking-[0.3em]">
+                <span key={i} className="px-4 text-xs font-semibold tracking-[0.3em]">
                   {t} ✦ -{promo.percent}%
                 </span>
               ))}
@@ -201,14 +201,14 @@ export function PromoBanner() {
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.15 }}
-          className="font-display text-7xl font-black leading-none lining-nums sm:text-8xl"
+          className="font-display text-7xl font-semibold leading-none lining-nums sm:text-8xl"
           style={{ color: promo.accent, textShadow: `0 0 28px ${promo.accent}88, 0 0 2px ${promo.accent}` }}
         >
           -{promo.percent}%
         </motion.span>
 
         <div className="min-w-0 lg:border-l lg:border-dashed lg:border-white/15 lg:pl-6">
-          <p className="font-display text-3xl font-black uppercase tracking-tight sm:text-4xl">{promo.title}</p>
+          <p className="font-display text-3xl font-semibold uppercase tracking-tight sm:text-4xl">{promo.title}</p>
           <p className="mt-1.5 text-sm text-white/70">{promo.text} I prezzi qui sotto sono già scontati.</p>
           <p className="mt-2 text-xs font-semibold" style={{ color: promo.accent }}>
             {ends ? `Fino al ${ends}.` : "Per un periodo limitato."}

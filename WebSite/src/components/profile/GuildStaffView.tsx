@@ -73,7 +73,7 @@ function BadgeChips({ badges }: { badges: { id: string; title: string; node: Rea
   return (
     <>
       {badges.map((b, i) => (
-        <span key={b.id} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-bold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "-rotate-2" : "rotate-2")}>
+        <span key={b.id} className={cn("inline-flex items-center gap-1.5 rounded-lg bg-paper px-2.5 py-1 text-xs font-semibold text-ink shadow-[0_6px_14px_-6px_rgba(0,0,0,0.8)]", i % 2 ? "-rotate-2" : "rotate-2")}>
           {b.node} {b.title}
         </span>
       ))}

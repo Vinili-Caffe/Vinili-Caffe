@@ -730,7 +730,7 @@ export function PartnershipPanel({
               <ul className="divide-y divide-sand/[0.07] overflow-hidden rounded-xl bg-espresso/45 ring-1 ring-sand/10">
                 {blacklist.map((row) => (
                   <li key={row.guildId} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-semibold text-crema/80" aria-hidden>
                       {(String(row.guildName || "?").trim().charAt(0) || "?").toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -789,7 +789,7 @@ export function PartnershipPanel({
                 <li key={m.userId} className="flex flex-wrap items-center gap-3 rounded-2xl bg-espresso/45 p-3 ring-1 ring-sand/10">
                   <span
                     className={cn(
-                      "flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold tabular-nums",
+                      "flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold tabular-nums",
                       i === 0 ? "bg-caramel/20 text-ember" : "bg-crema/[0.06] text-crema/70",
                     )}
                     aria-label={`Posizione ${i + 1}`}
@@ -913,7 +913,7 @@ export function PartnershipPanel({
                      
                     <img src={row.iconUrl} alt="" width={36} height={36} className="size-9 shrink-0 rounded-xl object-cover ring-1 ring-sand/15" />
                   ) : (
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-bold text-crema/80" aria-hidden>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema/[0.08] text-sm font-semibold text-crema/80" aria-hidden>
                       {(String(row.guildName || row.invite || "").match(/[\p{L}\p{N}]/u)?.[0] || "?").toUpperCase()}
                     </span>
                   )}

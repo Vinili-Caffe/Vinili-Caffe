@@ -103,7 +103,7 @@ export function EmbedTab({ listing }: { listing: BoardListing }) {
           <button
             type="button"
             onClick={() => void copy()}
-            className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-2 text-xs font-bold text-ink shadow-sm transition "
+            className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-caramel px-3.5 py-2 text-xs font-semibold text-ink shadow-sm transition "
           >
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {copied ? "Copiato" : "Copia"}

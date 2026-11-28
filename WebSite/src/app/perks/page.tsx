@@ -68,7 +68,7 @@ export default function PerksPage() {
             {BOOST.map((b, i) => (
               <Reveal key={b.title} delay={i * 0.1} className="h-full">
                 <article className="scheme-dark relative h-full overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1530] via-roast to-roast p-6 ring-1 ring-[#ff73fa]/25 sm:p-7"><div className="relative flex flex-wrap items-start gap-3">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff73fa]/15 font-display text-xl font-bold text-[#ffb3fc] ring-1 ring-[#ff73fa]/30">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff73fa]/15 font-display text-xl font-semibold text-[#ffb3fc] ring-1 ring-[#ff73fa]/30">
                       {i + 1}×
                     </span>
                     <div className="min-w-0 flex-1">
@@ -107,7 +107,7 @@ export default function PerksPage() {
               <ol className="space-y-3">
                 {SELFIE.steps.map((s, i) => (
                   <li key={s} className="flex gap-4 rounded-2xl bg-roast/80 p-5 ring-1 ring-sand/12">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-caramel/20 font-display text-lg font-bold lining-nums text-ember">{i + 1}</span>
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-caramel/20 font-display text-lg font-semibold lining-nums text-ember">{i + 1}</span>
                     <p className="leading-relaxed text-crema/75">
                       <RichText text={s} />
                     </p>

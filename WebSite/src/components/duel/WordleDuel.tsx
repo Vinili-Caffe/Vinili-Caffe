@@ -35,7 +35,7 @@ function Grid({ board, rows, current, active, small }: { board: DuelBoard; rows:
                   animate={mark ? { rotateX: [90, 0] } : { rotateX: 0 }}
                   transition={{ duration: 0.35, delay: mark ? c * 0.05 : 0 }}
                   className={cn(
-                    "grid aspect-square place-items-center rounded-lg font-mono font-bold uppercase ring-1",
+                    "grid aspect-square place-items-center rounded-lg font-mono font-semibold uppercase ring-1",
                     small ? "text-sm sm:text-base" : "text-xl sm:text-2xl",
                     tileMark(mark),
                     !mark && letter && "ring-caramel/60",

@@ -253,7 +253,7 @@ export function PauseSheet({ ctx }: { ctx: Ctx }) {
                 <span className="font-semibold lining-nums">
                   {it.start} → {it.end}
                 </span>
-                <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold ring-1", PAUSE_TONE[status] || PAUSE_TONE.cancelled)}>{it.statusLabel}</span>
+                <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1", PAUSE_TONE[status] || PAUSE_TONE.cancelled)}>{it.statusLabel}</span>
                 {it.ruoloLabel && <span className="text-xs text-crema/45">{it.ruoloLabel.replace(/༄\s*/g, "")}</span>}
               </div>
               {it.motivazione && <p className="mt-1.5 text-sm text-crema/70">{it.motivazione}</p>}
@@ -458,7 +458,7 @@ export function PtSheet({ ctx }: { ctx: Ctx }) {
           <li key={it.messageId} className="rounded-2xl bg-crema/[0.04] p-4 ring-1 ring-sand/10">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold">{it.rule}</span>
-              <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold", PT_TONE[it.status] || PT_TONE.logged)}>{PT_STATUS[it.status] || "Registrata"}</span>
+              <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", PT_TONE[it.status] || PT_TONE.logged)}>{PT_STATUS[it.status] || "Registrata"}</span>
               <span className="ml-auto text-xs text-crema/45 lining-nums">{new Date(it.createdAt).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}</span>
             </div>
             {it.reporter && (

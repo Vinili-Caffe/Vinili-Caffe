@@ -408,7 +408,7 @@ export function TicketDesk({
                     <li key={row.id} className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-crema/[0.02] sm:px-5">
                       <span
                         className={cn(
-                          "flex size-9 shrink-0 items-center justify-center rounded-lg font-mono text-[0.7rem] font-bold tabular-nums",
+                          "flex size-9 shrink-0 items-center justify-center rounded-lg font-mono text-[0.7rem] font-semibold tabular-nums",
                           row.open ? "bg-caramel/12 text-ember" : "bg-crema/[0.05] text-crema/60",
                         )}
                       >

@@ -248,7 +248,7 @@ function WriteReview({ listingId, onDone }: { listingId: string; onDone: (avg: n
               <button type="button" onClick={() => setOpen(false)} className="ml-auto text-sm text-crema/50 hover:text-crema">
                 Annulla
               </button>
-              <button type="button" disabled={busy} onClick={send} className="rounded-full bg-caramel px-5 py-2 text-sm font-bold text-ink disabled:opacity-60">
+              <button type="button" disabled={busy} onClick={send} className="rounded-full bg-caramel px-5 py-2 text-sm font-semibold text-ink disabled:opacity-60">
                 {busy ? "Pubblico…" : "Pubblica recensione"}
               </button>
             </div>

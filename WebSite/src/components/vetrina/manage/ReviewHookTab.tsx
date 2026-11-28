@@ -117,7 +117,7 @@ export function ReviewHookTab({ listing, token, compact = false }: { listing: Bo
         className={cn("flex items-center gap-3 rounded-2xl bg-espresso/45 p-4 ring-1 transition-colors", cfg.enabled ? "ring-sand/20" : "opacity-80 ring-sand/10")}
         style={cfg.enabled ? { boxShadow: "inset 3px 0 0 #d99a5b" } : undefined}
       >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#d99a5b] text-base font-bold text-ink" aria-hidden>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#d99a5b] text-base font-semibold text-ink" aria-hidden>
           R
         </span>
         <div className="min-w-0 flex-1">

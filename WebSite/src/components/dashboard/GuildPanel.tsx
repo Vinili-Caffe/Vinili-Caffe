@@ -950,7 +950,7 @@ function BotIdentityCard({
                       setEditingNick(false);
                     }
                   }}
-                  className="min-w-0 flex-1 rounded-md bg-[#111214] px-2 py-1 text-xl font-bold text-white outline-none ring-2 ring-[#5865f2]/placeholder:text-[#b5bac1]"
+                  className="min-w-0 flex-1 rounded-md bg-[#111214] px-2 py-1 text-xl font-semibold text-white outline-none ring-2 ring-[#5865f2]/placeholder:text-[#b5bac1]"
                 />
               ) : (
                 <button
@@ -959,7 +959,7 @@ function BotIdentityCard({
                   onClick={startEditNick}
                   title={canCustomize ? "Clicca per cambiare il nickname" : undefined}
                   className={cn(
-                    "group/name flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left text-xl font-bold text-white",
+                    "group/name flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left text-xl font-semibold text-white",
                     canCustomize && "hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel",
                     canCustomize ? "cursor-pointer px-1.5 py-0.5 -ml-1.5" : "cursor-default",
                   )}
@@ -1851,7 +1851,7 @@ function CommandsSection({
                   <div className="flex items-center gap-3">
                     <span
                       className={cn(
-                        "hidden size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-bold sm:flex",
+                        "hidden size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-semibold sm:flex",
                         on ? "bg-caramel/12 text-ember" : "bg-crema/[0.04] text-crema/50",
                       )}
                       aria-hidden

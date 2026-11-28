@@ -101,7 +101,7 @@ export function ReviewsMarquee() {
           {/* timbro: la scritta gira attorno al voto medio come l'etichetta di un disco */}
           <CircularText text={`${t("reviews.count", { n: all.length }).toUpperCase()} • ${t("reviews.stamp")}`} className="size-36 text-sand/70 sm:size-40">
             <div className="flex size-20 flex-col items-center justify-center rounded-full bg-caramel text-ink shadow-[0_12px_30px_-10px_rgba(0,0,0,0.55)]">
-              <span className="font-display text-3xl font-bold leading-none lining-nums">{avg.toFixed(1).replace(".", ",")}</span>
+              <span className="font-display text-3xl font-semibold leading-none lining-nums">{avg.toFixed(1).replace(".", ",")}</span>
               <span className="mt-0.5 flex gap-px">
                 {Array.from({ length: 5 }, (_, i) => (
                   <Star key={i} className="size-2.5" fill="currentColor" strokeWidth={0} />

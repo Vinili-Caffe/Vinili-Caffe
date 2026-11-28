@@ -136,7 +136,7 @@ export function Composer({
         <button type="button" onClick={onClose} disabled={busy} aria-label="Chiudi" className="absolute right-4 top-4 rounded-full p-1.5 text-ink/50 hover:bg-ink/8 hover:text-ink">
           <X className="size-5" />
         </button>
-        <h2 className="font-display text-3xl font-bold">{editing ? "Modifica il feedback" : "Scrivi un feedback"}</h2>
+        <h2 className="font-display text-3xl font-semibold">{editing ? "Modifica il feedback" : "Scrivi un feedback"}</h2>
         <p className="mt-1 text-sm text-ink/60">Descrivi il caso in modo chiaro: lo leggeranno lo staff e tutta la community.</p>
 
         <p className="mt-6 text-xs font-semibold text-ink/50">Tipo</p>

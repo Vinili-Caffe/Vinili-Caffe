@@ -120,7 +120,7 @@ export function TranscriptViewer() {
                 if (/cambia account/i.test(gate.title) || gate.error?.includes("negato")) logout();
                 login();
               }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-3 text-sm font-bold text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-3 text-sm font-semibold text-white"
             >
               <LogIn className="size-4" />
               {gate.status === 403 || /negato/i.test(gate.title) ? "Cambia account Discord" : "Accedi con Discord"}

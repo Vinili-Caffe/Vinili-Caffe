@@ -89,7 +89,7 @@ export function MusicQuizResults({
             <button
               type="button"
               onClick={onAgain}
-              className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-bold text-ink transition "
+              className="inline-flex items-center gap-2 rounded-full bg-caramel px-6 py-3 font-semibold text-ink transition "
             >
               <RotateCcw className="size-4" aria-hidden /> Rigioca
             </button>

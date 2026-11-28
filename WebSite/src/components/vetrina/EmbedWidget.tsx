@@ -58,7 +58,7 @@ export function EmbedWidgetView({ listing: l, width = 360, className }: ViewProp
             href={vota}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#d99a5b] to-[#c9735a] px-3 py-1.5 text-xs font-bold text-[#1a110c]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#d99a5b] to-[#c9735a] px-3 py-1.5 text-xs font-semibold text-[#1a110c]"
           >
             <ThumbsUp className="size-3.5" /> Vota
           </a>

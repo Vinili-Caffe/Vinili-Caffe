@@ -356,7 +356,7 @@ export function MusicQuizSettings({
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={creator.avatar} alt="" className="size-full rounded-full object-cover" />
               ) : (
-                <span className="text-sm font-bold">{creator.name.slice(0, 1).toUpperCase()}</span>
+                <span className="text-sm font-semibold">{creator.name.slice(0, 1).toUpperCase()}</span>
               )
             }
             title={creator.name || "Tu"}
@@ -366,7 +366,7 @@ export function MusicQuizSettings({
           <Choice
             on={value.anonymous}
             onClick={() => set("anonymous", true)}
-            icon={<span className="text-sm font-bold">A</span>}
+            icon={<span className="text-sm font-semibold">A</span>}
             title="Anonimo"
             text="Il tuo nome non compare mai"
             round

@@ -216,7 +216,7 @@ export function TicketBlacklist({
               <li key={entry.id} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-crema/[0.02]">
                 <span
                   className={cn(
-                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                    "flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
                     entry.type === "role" ? "bg-caramel/15 text-ember" : "bg-crema/[0.08] text-crema/80",
                   )}
                   aria-hidden
